@@ -1,0 +1,26 @@
+from sonolus.script.engine import PlayMode
+
+from minimai.play.initialization import Initialization
+from minimai.play.input_manager import InputManager
+from minimai.play.bpm_change import BpmChange
+from minimai.play.note import NOTE_ARCHETYPES
+from minimai.play.ring import Ring
+
+from minimai.lib.buckets import Buckets
+from minimai.lib.effect import Effects
+from minimai.lib.particle import BaseParticles
+from minimai.lib.skin import BaseSkin
+
+play_mode = PlayMode(
+    archetypes=[
+        Initialization,
+        InputManager,
+        Ring,
+        BpmChange,
+        *NOTE_ARCHETYPES
+    ],
+    skin=BaseSkin,
+    effects=Effects,
+    particles=BaseParticles,
+    buckets=Buckets,
+)
