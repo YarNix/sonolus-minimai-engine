@@ -101,3 +101,10 @@ NOTE_WINDOW = ArcadeWindow(
     great=Interval(-6 / 60, 6 / 60),
     good=Interval(-9 / 60, 9 / 60),
 )
+
+TOUCH_WINDOW = ArcadeWindow(
+    critical_perfect=Interval(-9 / 60, 9 / 60),
+    perfect=Interval(-9 / 60, 12 / 60),
+    great=Interval(-9 / 60, 15 / 60),
+    good=Interval(-9 / 60, 18 / 60),
+)

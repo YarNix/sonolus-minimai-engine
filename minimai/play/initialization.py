@@ -3,7 +3,8 @@ from sonolus.script.archetype import EntityRef, PlayArchetype, callback, exporte
 from minimai.lib import archetype_names
 # from minimai.lib.baseevent import init_event_list
 from minimai.lib.buckets import init_buckets
-from minimai.lib.layout import init_layout, init_hitboxes
+from minimai.lib.layout import init_layout
+from minimai.lib.hitbox import init_hitboxes
 from minimai.lib.level_config import init_level_config
 # from minimai.lib.note import init_life, init_score
 from minimai.lib.particle import init_particles

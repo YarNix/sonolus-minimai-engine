@@ -21,3 +21,7 @@ class Ring(PlayArchetype):
         layout = layout_ring()
         z = get_z(LAYER_RING)
         ActiveSkin.ring.draw(layout, z.tuple)
+        if ActiveSkin.sensor_outline.is_available and Options.sensor_alpha > 0:
+            outline_layout = layout.scale_centered(Vec2.one() * (10.0 / 9.0))
+            outline_z = get_z(LAYER_RING, 0, -1)
+            ActiveSkin.sensor_outline.draw(outline_layout, outline_z.tuple, Options.sensor_alpha)

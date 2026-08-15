@@ -40,25 +40,34 @@ class Options:
         step=0.01,
     )
     ring_offset: float = slider_option(
-        name="Ring Offset",
+        name="Ring Y Offset",
         scope="Maimai",
         default=0,
         min=-1,
         max=1,
         step=0.05,
     )
+    sensor_alpha: float = slider_option(
+        name="Sensor Outline Alpha",
+        scope="Maimai",
+        advanced=True,
+        default=0,
+        min=0,
+        max=0.8,
+        step=0.05,
+    )
     button_size: float = slider_option(
         name="Button Size",
-        description="How much should the button hitbox extend from the ring. Scale with ring size.",
         scope="Maimai",
-        default=0.35,
-        min=0.1,
-        max=0.5,
+        description="The distance that the button hitbox extend from the ring edge.",
+        default=0,
+        min=0,
+        max=2,
         step=0.05,
     )
     button_angle: float = slider_option(
         name="Button Angle",
-        description="How many degree does the button hitbox cover the ring.",
+        description="The width of the hitbox.",
         scope="Maimai",
         default=40,
         min=10,
@@ -71,7 +80,22 @@ class Options:
         scope="Maimai",
         default=1,
         min=0.1,
-        max=5,
+        max=3,
         step=0.05,
     )
-
+    touch_scale: float = slider_option(
+        name="Touch Scale",
+        description="Visually scale the size of touch notes",
+        scope="Maimai",
+        default=1,
+        min=0.1,
+        max=3,
+        step=0.05,
+    )
+    show_input: bool = toggle_option(
+        name="Show touch input.",
+        description="Highlight hitbox when triggered by touches",
+        scope="Maimai",
+        advanced=True,
+        default=False,
+    )

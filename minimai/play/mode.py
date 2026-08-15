@@ -5,6 +5,7 @@ from minimai.play.input_manager import InputManager
 from minimai.play.bpm_change import BpmChange
 from minimai.play.note import NOTE_ARCHETYPES
 from minimai.play.ring import Ring
+from minimai.play.touch import TOUCH_ARCHETYPES
 
 from minimai.lib.buckets import Buckets
 from minimai.lib.effect import Effects
@@ -17,7 +18,8 @@ play_mode = PlayMode(
         InputManager,
         Ring,
         BpmChange,
-        *NOTE_ARCHETYPES
+        *NOTE_ARCHETYPES,
+        *TOUCH_ARCHETYPES,
     ],
     skin=BaseSkin,
     effects=Effects,

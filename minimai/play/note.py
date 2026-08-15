@@ -1,6 +1,5 @@
 from __future__ import annotations
-from typing import assert_never, cast
-from math import pi
+from typing import cast
 
 from sonolus.script.archetype import (
     AnyArchetype,
@@ -17,26 +16,27 @@ from sonolus.script.globals import level_memory
 from sonolus.script.interval import unlerp, Interval, clamp
 from sonolus.script.array import Dim
 from sonolus.script.containers import VarArray
-from sonolus.script.runtime import Touch, delta_time, input_offset, offset_adjusted_time, time, touches
+from sonolus.script.runtime import delta_time, input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 from sonolus.script.bucket import Bucket, Judgment
-from sonolus.script.debug import notify, debug_log
+# from sonolus.script.debug import notify, debug_log
 
 from minimai.play.slide import BaseSlide
 from minimai.lib.note import (
     NoteKind,
-    get_tap_appear_time,
+    get_tap_appear_duration,
     get_note_bucket,
     draw_note,
     is_ex,
     get_note_angle
 )
-from minimai.lib.layout import Hitboxes
+from minimai.lib.layout import Button, Sensor
+from minimai.lib.hitbox import Hitboxes
 from minimai.lib import archetype_names, buckets
 
 class BaseNote(PlayArchetype):
     beat: StandardImport.BEAT
-    button: int = imported(default=1)
+    button: Button = imported(default=1)
     speed: float = imported(default=1)
     rotate_speed: float = imported(default=0)
     slide_ref: EntityRef[BaseSlide] = imported(name="slide")
@@ -48,10 +48,9 @@ class BaseNote(PlayArchetype):
     input_interval: Interval = shared_memory()
     unadjusted_input_interval: Interval = shared_memory()
 
-    # The id of the tap that activated this note, for tap notes and flicks or released the note, for release notes.
+    # The id of the input that activated this note.
     # This is set by the input manager rather than the note itself.
     captured_touch_id: int = shared_memory()
-    touch_captured_time: float = shared_memory()
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -62,10 +61,11 @@ class BaseNote(PlayArchetype):
     def preprocess(self):
         self.kind = cast(NoteKind, self.key)
         self.result.bucket = get_note_bucket(self.kind)
+
         # Handle mirror options
 
         self.target_time = beat_to_time(self.beat)
-        appear_time = get_tap_appear_time(self.speed)
+        appear_time = get_tap_appear_duration(self.speed)
         self.start_time = self.target_time - appear_time
 
         self.input_interval = self.judgment_window.good + self.target_time + input_offset()
@@ -121,9 +121,8 @@ class BaseNote(PlayArchetype):
         pass
 
     @property
-    def hitbox(self):
-        button = clamp(self.button - 1, 0, len(Hitboxes.button))
-        return Hitboxes.button[button]
+    def sensor(self) -> Sensor:
+        return Sensor.A1 + (self.button - 1)
 
     @property
     def judgment_window(self):

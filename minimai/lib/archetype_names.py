@@ -28,4 +28,6 @@ EX_EACH_DOUBLE_STAR_NOTE = "ExEachDoubleStarNote"
 BREAK_DOUBLE_STAR_NOTE = "BreakDoubleStarNote"
 EX_BREAK_DOUBLE_STAR_NOTE = "ExBreakDoubleStarNote"
 
-
+NORMAL_TOUCH_NOTE = "NormalTouchNote"
+BREAK_TOUCH_NOTE = "BreakTouchNote"
+EACH_TOUCH_NOTE = "EachTouchNote"

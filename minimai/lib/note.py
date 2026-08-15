@@ -11,7 +11,7 @@ from sonolus.script.bucket import Bucket
 
 from minimai.lib.skin import ActiveSkin
 from minimai.lib.level_config import LevelConfig
-from minimai.lib.layout import get_line_alpha, layout_note, layout_line, get_vertical_angle, DISTANCE_TRAVEL, NOTE_SCALE_RATE
+from minimai.lib.layout import Button, get_line_alpha, layout_note, layout_line, get_button_angle_vertical, DISTANCE_TRAVEL, NOTE_SCALE_RATE
 from minimai.lib.layer import ZIndexes, get_z, LAYER_NOTE, LAYER_EX, LAYER_NOTE_LINE
 from minimai.lib.buckets import Buckets
 
@@ -87,7 +87,7 @@ def get_note_angle(speed: float):
 
 def draw_note(
     kind: NoteKind,
-    button: float,
+    button: Button,
     start_time: float,
     target_time: float,
     note_angle: float,
@@ -95,7 +95,7 @@ def draw_note(
     progress = unlerp(start_time, target_time, time())
     if progress < 0:
         return
-    angle = get_vertical_angle(button)
+    angle = get_button_angle_vertical(button)
     layout = layout_note(progress, button).rotate_centered(angle + note_angle)
     _note_draw(kind, layout, get_z(LAYER_NOTE, target_time))
     if is_ex(kind):
@@ -180,9 +180,9 @@ def _ex_draw(kind: NoteKind, layout: Quad, layer: ZIndexes, alpha: float = 1):
             assert_never(kind)
             return
 
-def get_tap_appear_time(speed: float):
+def get_tap_appear_duration(speed: float):
     travel_speed = abs(LevelConfig.noteSpeed * speed)
     travel_time = DISTANCE_TRAVEL / travel_speed
     scale_time = 1 / (NOTE_SCALE_RATE * travel_speed)
-    appear_time = scale_time + travel_time
-    return max(appear_time, 0.15)
+    appear_duration = scale_time + travel_time
+    return max(appear_duration, 0.15)

@@ -2,9 +2,11 @@ from sonolus.script import runtime
 from sonolus.script.record import Record
 
 LAYER_RING = 0
+LAYER_DEBUG_LOW = 2
 LAYER_NOTE_LINE = 8
 LAYER_EX = 9
 LAYER_NOTE = 10
+LAYER_TOUCH = 11
 
 class ZIndexes(Record):
     z1: float

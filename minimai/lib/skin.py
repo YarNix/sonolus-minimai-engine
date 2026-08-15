@@ -8,6 +8,10 @@ from sonolus.script.sprite import RenderMode, Sprite, SpriteGroup, StandardSprit
 class BaseSkin:
     render_mode: RenderMode = RenderMode.LIGHTWEIGHT
 
+    # Simple sprites for debug drawing purposes
+    white_square: Sprite = sprite("White Square")
+    white_outline: Sprite = sprite("White Outline")
+
     normal_line: Sprite = sprite("Mai Normal Line")
     break_line: Sprite = sprite("Mai Break Line")
     each_line: Sprite = sprite("Mai Each Line")
@@ -37,6 +41,20 @@ class BaseSkin:
     break_double_star_ex_outline: Sprite = sprite("Mai Break Double Star Ex Outline")
     each_double_star_ex_outline: Sprite = sprite("Mai Each Double Star Ex Outline")
 
+    normal_touch_point: Sprite = sprite("Mai Normal Touch Point")
+    break_touch_point: Sprite = sprite("Mai Break Touch Point")
+    each_touch_point: Sprite = sprite("Mai Each Touch Point")
+
+    normal_touch_fan: Sprite = sprite("Mai Normal Touch Fan")
+    break_touch_fan: Sprite = sprite("Mai Break Touch Fan")
+    each_touch_fan: Sprite = sprite("Mai Each Touch Fan")
+
+    normal_touch_overlap_border: SpriteGroup = sprite_group(f"Mai Normal Touch {i} Overlap Border" for i in range(2, 4))
+    break_touch_overlap_border: SpriteGroup = sprite_group(f"Mai Break Touch {i} Overlap Border" for i in range(2, 4))
+    each_touch_overlap_border: SpriteGroup = sprite_group(f"Mai Each Touch {i} Overlap Border" for i in range(2, 4))
+
+    touch_just_border: Sprite = sprite("Mai Touch Just Border")
+
     slide_path: Sprite = sprite("Mai Slide Path")
     break_slide_path: Sprite = sprite("Mai Break Slide Path")
     each_slide_path: Sprite = sprite("Mai Each Slide Path")
@@ -50,10 +68,14 @@ class BaseSkin:
     each_hold_note_on: Sprite = sprite("Mai Each Hold Note On")
 
     ring: Sprite = sprite("Mai Ring")
+    sensor_outline: Sprite = sprite("Mai Sensor Outline")
     
 
 @level_data
 class ActiveSkin:
+    white_square: Sprite
+    white_outline: Sprite
+
     normal_line: Sprite
     break_line: Sprite
     each_line: Sprite
@@ -85,10 +107,27 @@ class ActiveSkin:
     break_double_star_ex_outline: Sprite
     each_double_star_ex_outline: Sprite
 
+    normal_touch_point: Sprite
+    break_touch_point: Sprite
+    each_touch_point: Sprite
+
+    normal_touch_fan: Sprite
+    break_touch_fan: Sprite
+    each_touch_fan: Sprite
+
+    normal_touch_overlap_border: SpriteGroup
+    break_touch_overlap_border: SpriteGroup
+    each_touch_overlap_border: SpriteGroup
+    touch_just_border: Sprite
+
     ring: Sprite
+    sensor_outline: Sprite
 
 
 def init_skin():
+    ActiveSkin.white_square @= BaseSkin.white_square
+    ActiveSkin.white_outline @= BaseSkin.white_outline
+
     ActiveSkin.normal_line @= BaseSkin.normal_line
     ActiveSkin.break_line @= BaseSkin.break_line
     ActiveSkin.each_line @= BaseSkin.each_line
@@ -116,5 +155,19 @@ def init_skin():
     ActiveSkin.double_star_ex_outline @= BaseSkin.double_star_ex_outline
     ActiveSkin.break_double_star_ex_outline @= BaseSkin.break_double_star_ex_outline
     ActiveSkin.each_double_star_ex_outline @= BaseSkin.each_double_star_ex_outline
+
+    ActiveSkin.normal_touch_point @= BaseSkin.normal_touch_point
+    ActiveSkin.break_touch_point @= BaseSkin.break_touch_point
+    ActiveSkin.each_touch_point @= BaseSkin.each_touch_point
+
+    ActiveSkin.normal_touch_fan @= BaseSkin.normal_touch_fan
+    ActiveSkin.break_touch_fan @= BaseSkin.break_touch_fan
+    ActiveSkin.each_touch_fan @= BaseSkin.each_touch_fan
+
+    ActiveSkin.normal_touch_overlap_border @= BaseSkin.normal_touch_overlap_border
+    ActiveSkin.break_touch_overlap_border @= BaseSkin.break_touch_overlap_border
+    ActiveSkin.each_touch_overlap_border @= BaseSkin.each_touch_overlap_border
+    ActiveSkin.touch_just_border @= BaseSkin.touch_just_border
     
     ActiveSkin.ring @= BaseSkin.ring
+    ActiveSkin.sensor_outline @= BaseSkin.sensor_outline
