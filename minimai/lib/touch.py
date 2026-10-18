@@ -6,9 +6,10 @@ from sonolus.script.interval import unlerp
 from sonolus.script.runtime import time
 from sonolus.script.quad import Quad
 
+from minimai.lib.game import Sensor
 from minimai.lib.options import Options
 from minimai.lib.buckets import Buckets
-from minimai.lib.layout import Sensor, layout_touch, get_touch_fan_alpha
+from minimai.lib.layout import layout_touch, get_touch_fan_alpha
 from minimai.lib.layer import ZIndexes, get_z, LAYER_TOUCH
 from minimai.lib.skin import ActiveSkin
 

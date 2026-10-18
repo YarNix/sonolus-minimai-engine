@@ -3,6 +3,8 @@ from sonolus.script.record import Record
 
 LAYER_RING = 0
 LAYER_DEBUG_LOW = 2
+LAYER_SLIDE_PATH = 5
+LAYER_SLIDE_NOTE = 6
 LAYER_NOTE_LINE = 8
 LAYER_EX = 9
 LAYER_NOTE = 10

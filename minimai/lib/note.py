@@ -8,10 +8,12 @@ from sonolus.script.sprite import Sprite
 from sonolus.script.interval import unlerp
 from sonolus.script.runtime import time
 from sonolus.script.bucket import Bucket
+from sonolus.script.debug import assert_true
 
+from minimai.lib.game import Button
 from minimai.lib.skin import ActiveSkin
 from minimai.lib.level_config import LevelConfig
-from minimai.lib.layout import Button, get_line_alpha, layout_note, layout_line, get_button_angle_vertical, DISTANCE_TRAVEL, NOTE_SCALE_RATE
+from minimai.lib.layout import get_line_alpha, layout_note, layout_line, get_button_angle_vertical, DISTANCE_TRAVEL, NOTE_SCALE_RATE
 from minimai.lib.layer import ZIndexes, get_z, LAYER_NOTE, LAYER_EX, LAYER_NOTE_LINE
 from minimai.lib.buckets import Buckets
 
@@ -181,7 +183,8 @@ def _ex_draw(kind: NoteKind, layout: Quad, layer: ZIndexes, alpha: float = 1):
             return
 
 def get_tap_appear_duration(speed: float):
-    travel_speed = abs(LevelConfig.noteSpeed * speed)
+    assert_true(speed != 0, "Speed 0 is not supported!")
+    travel_speed = max(abs(LevelConfig.noteSpeed * speed), 0.01)
     travel_time = DISTANCE_TRAVEL / travel_speed
     scale_time = 1 / (NOTE_SCALE_RATE * travel_speed)
     appear_duration = scale_time + travel_time

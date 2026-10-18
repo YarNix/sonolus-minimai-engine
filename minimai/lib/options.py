@@ -31,6 +31,26 @@ class Options:
         max=11,
         step=0.05,
     )
+    slide_fade_offset: float = slider_option(
+        name="Slide Timing",
+        scope="Maimai",
+        description="Change the display timing of slide.",
+        default=0,
+        min=-1000,
+        max=1000,
+        step=1,
+        unit=StandardText.MILLISECOND_UNIT
+    )
+    input_radius_scale: float = slider_option(
+        name="Input radius",
+        scope="Maimai",
+        description="How big the radius of your touches are. Bigger radius cover more sensors but also less accurate!",
+        default=1,
+        min=0,
+        max=3,
+        step=0.1,
+        unit=StandardText.PERCENTAGE_UNIT,
+    )
     ring_size: float = slider_option(
         name="Ring Size",
         scope="Maimai",
@@ -38,6 +58,7 @@ class Options:
         min=0.1,
         max=1.2,
         step=0.01,
+        unit=StandardText.PERCENTAGE_UNIT,
     )
     ring_offset: float = slider_option(
         name="Ring Y Offset",
@@ -55,6 +76,7 @@ class Options:
         min=0,
         max=0.8,
         step=0.05,
+        unit=StandardText.PERCENTAGE_UNIT,
     )
     button_size: float = slider_option(
         name="Button Size",
@@ -82,6 +104,7 @@ class Options:
         min=0.1,
         max=3,
         step=0.05,
+        unit=StandardText.PERCENTAGE_UNIT,
     )
     touch_scale: float = slider_option(
         name="Touch Scale",
@@ -91,6 +114,17 @@ class Options:
         min=0.1,
         max=3,
         step=0.05,
+        unit=StandardText.PERCENTAGE_UNIT,
+    )
+    slide_scale: float = slider_option(
+        name="Slide Scale",
+        description="Visually scale the size of slide paths",
+        scope="Maimai",
+        default=1,
+        min=0.1,
+        max=3,
+        step=0.05,
+        unit=StandardText.PERCENTAGE_UNIT,
     )
     show_input: bool = toggle_option(
         name="Show touch input.",

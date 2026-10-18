@@ -59,6 +59,10 @@ class BaseSkin:
     break_slide_path: Sprite = sprite("Mai Break Slide Path")
     each_slide_path: Sprite = sprite("Mai Each Slide Path")
 
+    wifi_slide_paths: SpriteGroup = sprite_group(f"Mai Wifi Slide Path {i}" for i in range(1, 12))
+    break_wifi_slide_paths: SpriteGroup = sprite_group(f"Mai Break Wifi Slide Path {i}" for i in range(1, 12))
+    each_wifi_slide_paths: SpriteGroup = sprite_group(f"Mai Each Wifi Slide Path {i}" for i in range(1, 12))
+
     hold_note: Sprite = sprite("Mai Hold Note")
     hold_note_off: Sprite = sprite("Mai Hold Note Off")
     hold_note_on: Sprite = sprite("Mai Hold Note On")
@@ -120,6 +124,14 @@ class ActiveSkin:
     each_touch_overlap_border: SpriteGroup
     touch_just_border: Sprite
 
+    slide_path: Sprite
+    break_slide_path: Sprite
+    each_slide_path: Sprite
+
+    wifi_slide_paths: SpriteGroup
+    break_wifi_slide_paths: SpriteGroup
+    each_wifi_slide_paths: SpriteGroup
+
     ring: Sprite
     sensor_outline: Sprite
 
@@ -168,6 +180,15 @@ def init_skin():
     ActiveSkin.break_touch_overlap_border @= BaseSkin.break_touch_overlap_border
     ActiveSkin.each_touch_overlap_border @= BaseSkin.each_touch_overlap_border
     ActiveSkin.touch_just_border @= BaseSkin.touch_just_border
+
+    ActiveSkin.slide_path @= BaseSkin.slide_path
+    ActiveSkin.break_slide_path @= BaseSkin.break_slide_path
+    ActiveSkin.each_slide_path @= BaseSkin.each_slide_path
+
+    ActiveSkin.wifi_slide_paths @= BaseSkin.wifi_slide_paths
+    ActiveSkin.break_wifi_slide_paths @= BaseSkin.break_wifi_slide_paths
+    ActiveSkin.each_wifi_slide_paths @= BaseSkin.each_wifi_slide_paths
+
     
     ActiveSkin.ring @= BaseSkin.ring
     ActiveSkin.sensor_outline @= BaseSkin.sensor_outline

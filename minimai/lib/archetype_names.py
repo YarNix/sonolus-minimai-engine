@@ -31,3 +31,11 @@ EX_BREAK_DOUBLE_STAR_NOTE = "ExBreakDoubleStarNote"
 NORMAL_TOUCH_NOTE = "NormalTouchNote"
 BREAK_TOUCH_NOTE = "BreakTouchNote"
 EACH_TOUCH_NOTE = "EachTouchNote"
+
+NORMAL_SLIDE_NOTE = "NormalSlideNote"
+BREAK_SLIDE_NOTE = "BreakSlideNote"
+EACH_SLIDE_NOTE = "EachSlideNote"
+
+NORMAL_WIFI_SLIDE_NOTE = "NormalWifiSlideNote"
+EACH_WIFI_SLIDE_NOTE = "EachWifiSlideNote"
+BREAK_WIFI_SLIDE_NOTE = "BreakWifiSlideNote"

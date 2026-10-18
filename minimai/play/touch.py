@@ -21,7 +21,7 @@ from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration, get_touch_bucket
-from minimai.lib.layout import Sensor
+from minimai.lib.game import Sensor
 
 class BaseTouch(PlayArchetype):
     beat: StandardImport.BEAT
@@ -92,7 +92,8 @@ class BaseTouch(PlayArchetype):
         return buckets.TOUCH_WINDOW
 
     def judge(self, actual_time: float):
-        self.result.judgment = self.judgment_window.judge(actual_time, self.target_time)
+        judgment = self.judgment_window.judge(actual_time, self.target_time)
+        self.result.judgment = buckets.arcade_judgement_to_normal(judgment)
         self.result.accuracy = self.judgment_window.good.clamp(actual_time - self.target_time)
         if self.result.bucket.id != -1:
             self.result.bucket_value = self.result.accuracy * buckets.WINDOW_SCALE

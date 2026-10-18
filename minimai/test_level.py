@@ -6,10 +6,12 @@ from sonolus.script.level import BpmChange, Level, LevelData
 from sonolus.build.collection import Asset
 from sonolus.script.archetype import PlayArchetype
 
+from minimai.lib.game import SENSOR_COUNT, Button, get_button_iterator
 from minimai.lib.note import is_star
-from minimai.lib.layout import SENSOR_COUNT, Button, get_button_iterator, get_sensor_iterator
+from minimai.lib.slide import SlideKind, SlideTrackKind
+from minimai.lib.game import get_sensor_iterator
 from minimai.play.initialization import Initialization
-from minimai.play import note, touch
+from minimai.play import note, touch, slide
 
 def _build_silent_wav(duration_seconds: float = 60.0, sample_rate: int = 8000) -> bytes:
     num_samples = int(duration_seconds * sample_rate)
@@ -163,8 +165,63 @@ def test_touch():
                 speed = 1
             )
 
+def test_slide():
+    yield BpmChange(
+        beat = 0,
+        bpm = 160
+    )
+
+    testing_params = [(SlideKind(i % 3 + 1), SlideTrackKind.CIRCLE_4, i * 2 + 1) for i in range(4)] \
+        + [(SlideKind.NORMAL_SLIDE, SlideTrackKind.LINE_3 + i, 1 + (i * 3 % 8)) for i in range(3)] \
+        + [(SlideKind.EACH_SLIDE, SlideTrackKind.CENTER_2, i * 4 + 1) for i in range(2)] \
+        + [(SlideKind.BREAK_SLIDE, SlideTrackKind.CENTER_4, i * 4 + 1) for i in range(2)] \
+        + [(SlideKind.NORMAL_SLIDE, SlideTrackKind.LOOP_IN_1 + i, 1) for i in range(8)] \
+        + [(SlideKind.EACH_SLIDE, SlideTrackKind.LOOP_OUT_1 + i, 1 + (i % 8)) for i in range(8)] \
+        + [(SlideKind.BREAK_SLIDE, SlideTrackKind.REFLECT_2 + i, 4 + i) for i in range(4)] \
+        + [(SlideKind.NORMAL_SLIDE, SlideTrackKind.ZIG_ZAG, 1 + i) for i in range(8)] \
+    
+    for s, (kind, track, button) in enumerate(testing_params):
+        yield slide.SLIDE_ARCHETYPES[int(kind) - 1](
+            beat=s * 4,
+            track=track,
+            start_button=button,
+            is_mirrored=False,
+            wait_duration=1,
+            slide_duration=1,
+            speed=1
+        )
+        yield slide.SLIDE_ARCHETYPES[int(kind) - 1](
+            beat=s * 4 + 2,
+            track=track,
+            start_button=button,
+            is_mirrored=True,
+            wait_duration=1,
+            slide_duration=1,
+            speed=1
+        )
+
+    wifi_test_params = [
+        (wifi_kind, SlideTrackKind.FAN, button) 
+        for wifi_kind in (SlideKind.WIFI_SLIDE, SlideKind.EACH_WIFI_SLIDE, SlideKind.BREAK_WIFI_SLIDE)
+        for button in (1, 4, 7)
+    ]
+    next_beat = len(testing_params) * 4
+    for s, (kind, track, button) in enumerate(wifi_test_params):
+        s = s * 5 + next_beat
+        yield slide.SLIDE_ARCHETYPES[int(kind) - 1](
+            beat=s,
+            track=track,
+            start_button=button,
+            is_mirrored=False,
+            wait_duration=1,
+            slide_duration=4,
+            speed=1
+        )
+
+
 levels = [
     build_level("test-notes", "Test Notes", level_entities=test_notes()),
     build_level("test-spin", "Test Spin", level_entities=test_spin()),
-    build_level("test-touch", "Test Touch", level_entities=test_touch())
+    build_level("test-touch", "Test Touch", level_entities=test_touch()),
+    build_level("test-slide", "Test Slide", level_entities=test_slide()),
 ]

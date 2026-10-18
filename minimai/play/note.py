@@ -21,6 +21,7 @@ from sonolus.script.timing import beat_to_time
 from sonolus.script.bucket import Bucket, Judgment
 # from sonolus.script.debug import notify, debug_log
 
+from minimai.lib.game import Button
 from minimai.play.slide import BaseSlide
 from minimai.lib.note import (
     NoteKind,
@@ -30,7 +31,7 @@ from minimai.lib.note import (
     is_ex,
     get_note_angle
 )
-from minimai.lib.layout import Button, Sensor
+from minimai.lib.game import Sensor
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib import archetype_names, buckets
 
@@ -39,7 +40,6 @@ class BaseNote(PlayArchetype):
     button: Button = imported(default=1)
     speed: float = imported(default=1)
     rotate_speed: float = imported(default=0)
-    slide_ref: EntityRef[BaseSlide] = imported(name="slide")
 
     kind: NoteKind = entity_data()
     start_time: float = entity_data()
@@ -134,10 +134,10 @@ class BaseNote(PlayArchetype):
             error = self.judgment_window.good.clamp(actual_time - self.target_time)
             bucket_val = error * buckets.WINDOW_SCALE
         else:
-            judgment = Judgment.PERFECT
+            judgment = buckets.ArcadeJudgment.CRITICAL_PERFECT
             error = 0
             bucket_val = self.judgment_window.good.clamp(actual_time - self.target_time) * buckets.WINDOW_SCALE
-        self.result.judgment = judgment
+        self.result.judgment = buckets.arcade_judgement_to_normal(judgment)
         self.result.accuracy = error
         if self.result.bucket.id != -1:
             self.result.bucket_value = bucket_val
