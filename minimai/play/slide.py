@@ -144,6 +144,8 @@ class BaseSlide(PlayArchetype):
 
     def preprocess(self):
         self.kind = self.resolve_kind()
+        if self.is_scored:
+            self.result.bucket = buckets.get_slide_bucket(self.kind)
         self.is_wifi = BaseWifiSlide.is_at(self.index)
         self.parent_is_wifi = self.prev_slide_ref.index > 0 and BaseWifiSlide.is_at(self.prev_slide_ref.index)
         self.next_indices = Array(
@@ -290,7 +292,7 @@ class BaseSlide(PlayArchetype):
         self.result.judgment = buckets.arcade_judgement_to_normal(judgment)
         self.result.accuracy = error
         if self.result.bucket.id != -1:
-            self.result.bucket_value = error * buckets.WINDOW_SCALE
+            self.result.bucket_value = self.judgment_window.normalize_error(error)
         self.despawn = True
 
     def handle_miss(self):
@@ -298,7 +300,7 @@ class BaseSlide(PlayArchetype):
             self.result.judgment = Judgment.GOOD
             self.result.accuracy = self.judgment_window.good.end
             if self.result.bucket.id != -1:
-                self.result.bucket_value = self.result.accuracy * buckets.WINDOW_SCALE
+                self.result.bucket_value = self.judgment_window.normalize_error(self.result.accuracy)
         else:
             self.result.judgment = Judgment.MISS
             self.result.accuracy = 0

@@ -25,7 +25,6 @@ from minimai.lib.game import Button
 from minimai.lib.note import (
     NoteKind,
     get_tap_appear_duration,
-    get_note_bucket,
     draw_note,
     is_ex,
     is_star,
@@ -69,7 +68,7 @@ class BaseNote(PlayArchetype):
 
     def preprocess(self):
         self.kind = cast(NoteKind, self.key)
-        self.result.bucket = get_note_bucket(self.kind)
+        self.result.bucket = buckets.get_note_bucket(self.kind)
 
         # TODO: Handle mirror options
 

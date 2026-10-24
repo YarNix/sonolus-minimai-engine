@@ -7,7 +7,6 @@ from sonolus.script.vec import Vec2
 from sonolus.script.sprite import Sprite
 from sonolus.script.interval import unlerp
 from sonolus.script.runtime import time
-from sonolus.script.bucket import Bucket
 from sonolus.script.debug import assert_true
 
 from minimai.lib.game import Button
@@ -15,7 +14,6 @@ from minimai.lib.skin import ActiveSkin
 from minimai.lib.level_config import LevelConfig
 from minimai.lib.layout import get_line_alpha, layout_note, layout_line, get_button_angle_vertical, DISTANCE_TRAVEL, NOTE_SCALE_RATE
 from minimai.lib.layer import ZIndexes, get_z, LAYER_NOTE, LAYER_EX, LAYER_NOTE_LINE
-from minimai.lib.buckets import Buckets
 
 
 class NoteKind(IntEnum):
@@ -45,25 +43,6 @@ class NoteKind(IntEnum):
 
     BREAK_DOUBLE_STAR = auto()
     EX_BREAK_DOUBLE_STAR = auto()
-
-def get_note_bucket(kind: NoteKind) -> Bucket:
-    result = Bucket(-1)
-    match kind:
-        case NoteKind.NORM_TAP | NoteKind.EACH_TAP \
-            | NoteKind.NORM_STAR | NoteKind.EACH_STAR \
-            | NoteKind.DOUBLE_STAR | NoteKind.EACH_DOUBLE_STAR:
-            result @= Buckets.standard_tap
-        case NoteKind.BREAK_TAP | NoteKind.BREAK_STAR | NoteKind.BREAK_DOUBLE_STAR:
-            result @= Buckets.break_tap
-        case NoteKind.EX_TAP | NoteKind.EX_EACH_TAP | NoteKind.EX_BREAK_TAP \
-            | NoteKind.EX_STAR | NoteKind.EX_EACH_STAR | NoteKind.EX_BREAK_STAR \
-            | NoteKind.EX_DOUBLE_STAR | NoteKind.EX_EACH_DOUBLE_STAR | NoteKind.EX_BREAK_DOUBLE_STAR:
-            result @= Buckets.ex_tap
-        # case NoteKind.OTHER
-        #    result @= Bucket(-1)
-        case _:
-            assert_never(kind)
-    return result
 
 def is_ex(kind: NoteKind):
     ex_kinds = {

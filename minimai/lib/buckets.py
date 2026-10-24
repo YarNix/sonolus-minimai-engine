@@ -1,69 +1,242 @@
 from enum import Enum, auto
-from typing import Iterable
+from typing import assert_never
 
 from sonolus.script.bucket import Bucket, Judgment, JudgmentWindow, bucket, bucket_sprite, buckets, _BucketSprite
-from sonolus.script.interval import Interval
+from sonolus.script.interval import Interval, lerp
 from sonolus.script.record import Record
 from sonolus.script.sprite import Sprite
 from sonolus.script.text import StandardText
-from sonolus.script.debug import static_assert
 
+from minimai.lib.layout import SLIDE_PATH_BASE_SIZE, TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, TOUCH_DOT_BASE_SIZE, TOUCH_FAN_BASE_SIZE
+from minimai.lib.note import NoteKind
 from minimai.lib.skin import BaseSkin
+from minimai.lib.slide import SlideKind
+from minimai.lib.touch import TouchKind
 
-WINDOW_SCALE = 1000  # Windows are in ms
+WINDOW_SCALE = 1000  # Note and touch windows are in ms
 
-def create_bucket_sprites(*sprites: Iterable[Sprite], outlines: Iterable[Sprite | None] | None = None):
+# Slide windows depend on the slide, so slide buckets use a normalized error:
+# ±1 is the perfect window edge, ±2 the great edge, ±3 the good edge.
+SLIDE_BUCKET_WINDOW = JudgmentWindow(
+    perfect=Interval(-1, 1),
+    great=Interval(-2, 2),
+    good=Interval(-3, 3),
+)
+
+NOTE_BUCKET_SIZE = 2
+NOTE_BUCKET_STEP = 2
+
+# Touch icon with the fans at their spawn distance, scaled to about the note icon size.
+TOUCH_BUCKET_SCALE = 1 / (TOUCH_DISTANCE_START + TOUCH_FAN_BASE_SIZE.y / 2)
+TOUCH_BUCKET_STEP = 2.4
+
+SLIDE_BUCKET_BAR_COUNT = 5
+SLIDE_BUCKET_BAR_H = 2
+SLIDE_BUCKET_BAR_W = SLIDE_BUCKET_BAR_H * SLIDE_PATH_BASE_SIZE.x / SLIDE_PATH_BASE_SIZE.y
+SLIDE_BUCKET_BAR_STEP = 1
+SLIDE_BUCKET_GROUP_GAP = 1
+
+
+def get_note_bucket_sprite(kind: NoteKind) -> Sprite:
+    if kind in (NoteKind.NORM_TAP, NoteKind.EX_TAP):
+        return BaseSkin.normal_note
+    if kind in (NoteKind.EACH_TAP, NoteKind.EX_EACH_TAP):
+        return BaseSkin.each_note
+    if kind in (NoteKind.BREAK_TAP, NoteKind.EX_BREAK_TAP):
+        return BaseSkin.break_note
+    if kind in (NoteKind.NORM_STAR, NoteKind.EX_STAR):
+        return BaseSkin.normal_star
+    if kind in (NoteKind.EACH_STAR, NoteKind.EX_EACH_STAR):
+        return BaseSkin.each_star
+    if kind in (NoteKind.BREAK_STAR, NoteKind.EX_BREAK_STAR):
+        return BaseSkin.break_star
+    if kind in (NoteKind.DOUBLE_STAR, NoteKind.EX_DOUBLE_STAR):
+        return BaseSkin.double_star
+    if kind in (NoteKind.EACH_DOUBLE_STAR, NoteKind.EX_EACH_DOUBLE_STAR):
+        return BaseSkin.each_double_star
+    if kind in (NoteKind.BREAK_DOUBLE_STAR, NoteKind.EX_BREAK_DOUBLE_STAR):
+        return BaseSkin.break_double_star
+    raise ValueError(f"No bucket sprite for {kind!r}")
+
+
+def get_note_bucket_outline(kind: NoteKind) -> Sprite | None:
+    outlines = {
+        NoteKind.EX_TAP: BaseSkin.normal_note_ex_outline,
+        NoteKind.EX_EACH_TAP: BaseSkin.each_note_ex_outline,
+        NoteKind.EX_BREAK_TAP: BaseSkin.break_note_ex_outline,
+        NoteKind.EX_STAR: BaseSkin.normal_star_ex_outline,
+        NoteKind.EX_EACH_STAR: BaseSkin.each_star_ex_outline,
+        NoteKind.EX_BREAK_STAR: BaseSkin.break_star_ex_outline,
+        NoteKind.EX_DOUBLE_STAR: BaseSkin.double_star_ex_outline,
+        NoteKind.EX_EACH_DOUBLE_STAR: BaseSkin.each_double_star_ex_outline,
+        NoteKind.EX_BREAK_DOUBLE_STAR: BaseSkin.break_double_star_ex_outline,
+    }
+    return outlines.get(kind)
+
+
+def create_note_bucket_sprites(*kinds: NoteKind) -> list[_BucketSprite]:
+    """One note per kind, left to right; EX kinds get their outline underneath."""
     out_sprites: list[_BucketSprite] = []
-    static_assert(outlines is None or len(sprites) == len(outlines), "Can't have sprites size mismatch with outlines")
-
-    sprite_len = len(sprites)
-    x_offset = (sprite_len - 1) * 2 / 2
-    for i, sprite in enumerate(sprites):
-        if outlines is not None and outlines[i] is not None:
-            out_sprites.append(bucket_sprite(
-                sprite = outlines[i],
-                x = 2 * i - x_offset,
-                y = 0,
-                w = 2,
-                h = 2,
-            ))
-
-        out_sprites.append(bucket_sprite(
-            sprite = sprite,
-            x = 2 * i - x_offset,
-            y = 0,
-            w = 2,
-            h = 2,
-        ))
-
+    x_offset = (len(kinds) - 1) * NOTE_BUCKET_STEP / 2
+    for i, kind in enumerate(kinds):
+        x = NOTE_BUCKET_STEP * i - x_offset
+        for sprite in (get_note_bucket_outline(kind), get_note_bucket_sprite(kind)):
+            if sprite is not None:
+                out_sprites.append(bucket_sprite(sprite=sprite, x=x, y=0, w=NOTE_BUCKET_SIZE, h=NOTE_BUCKET_SIZE))
     return out_sprites
+
+
+def get_touch_bucket_sprites(kind: TouchKind) -> tuple[Sprite, Sprite]:
+    """(point, fan)"""
+    match kind:
+        case TouchKind.NORM_TOUCH:
+            return BaseSkin.normal_touch_point, BaseSkin.normal_touch_fan
+        case TouchKind.EACH_TOUCH:
+            return BaseSkin.each_touch_point, BaseSkin.each_touch_fan
+        case TouchKind.BREAK_TOUCH:
+            return BaseSkin.break_touch_point, BaseSkin.break_touch_fan
+    raise ValueError(f"No bucket sprite for {kind!r}")
+
+
+def create_touch_bucket_sprites(*kinds: TouchKind) -> list[_BucketSprite]:
+    """One touch per kind, left to right: four fans pointing at the point, drawn in game order."""
+    out_sprites: list[_BucketSprite] = []
+    x_offset = (len(kinds) - 1) * TOUCH_BUCKET_STEP / 2
+    dot_size = TOUCH_DOT_BASE_SIZE * TOUCH_BUCKET_SCALE
+    fan_size = TOUCH_FAN_BASE_SIZE * TOUCH_BUCKET_SCALE
+    fan_distance = lerp(TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, 0.5) * TOUCH_BUCKET_SCALE
+    for i, kind in enumerate(kinds):
+        x = TOUCH_BUCKET_STEP * i - x_offset
+        point, fan = get_touch_bucket_sprites(kind)
+        # Left, right, top, bottom: (offset, rotation in degrees) of the bottom fan rotated about the point.
+        for (dx, dy), rotation in (((-1, 0), -90), ((1, 0), 90), ((0, 1), 180), ((0, -1), 0)):
+            out_sprites.append(bucket_sprite(
+                sprite=fan,
+                x=x + dx * fan_distance,
+                y=dy * fan_distance,
+                w=fan_size.x,
+                h=fan_size.y,
+                rotation=rotation,
+            ))
+        out_sprites.append(bucket_sprite(sprite=point, x=x, y=0, w=dot_size, h=dot_size))
+    return out_sprites
+
+
+def get_slide_bucket_sprite(kind: SlideKind) -> Sprite:
+    match kind:
+        case SlideKind.NORMAL_SLIDE | SlideKind.WIFI_SLIDE:
+            return BaseSkin.slide_path
+        case SlideKind.EACH_SLIDE | SlideKind.EACH_WIFI_SLIDE:
+            return BaseSkin.each_slide_path
+        case SlideKind.BREAK_SLIDE | SlideKind.BREAK_WIFI_SLIDE:
+            return BaseSkin.break_slide_path
+    raise ValueError(f"No bucket sprite for {kind!r}")
+
+
+def create_slide_bucket_sprites(*kinds: SlideKind) -> list[_BucketSprite]:
+    """Five slide bars pointing left per kind, groups left to right."""
+    out_sprites: list[_BucketSprite] = []
+    group_w = (SLIDE_BUCKET_BAR_COUNT - 1) * SLIDE_BUCKET_BAR_STEP + SLIDE_BUCKET_BAR_W
+    group_step = group_w + SLIDE_BUCKET_GROUP_GAP
+    x_offset = (len(kinds) - 1) * group_step / 2 + (SLIDE_BUCKET_BAR_COUNT - 1) * SLIDE_BUCKET_BAR_STEP / 2
+    for i, kind in enumerate(kinds):
+        sprite = get_slide_bucket_sprite(kind)
+        # Rightmost first so the leading (left) bar is drawn on top, as in game.
+        for j in reversed(range(SLIDE_BUCKET_BAR_COUNT)):
+            out_sprites.append(bucket_sprite(
+                sprite=sprite,
+                x=group_step * i + SLIDE_BUCKET_BAR_STEP * j - x_offset,
+                y=0,
+                w=SLIDE_BUCKET_BAR_W,
+                h=SLIDE_BUCKET_BAR_H,
+            ))
+    return out_sprites
+
 
 @buckets
 class Buckets:
     standard_tap: Bucket = bucket(
-        sprites=create_bucket_sprites(BaseSkin.normal_note, BaseSkin.each_note, BaseSkin.normal_star, BaseSkin.each_star),
-        unit=StandardText.MILLISECOND_UNIT
+        sprites=create_note_bucket_sprites(NoteKind.NORM_TAP, NoteKind.EACH_TAP, NoteKind.NORM_STAR, NoteKind.EACH_STAR),
+        unit=StandardText.MILLISECOND_UNIT,
     )
     ex_tap: Bucket = bucket(
-        sprites=create_bucket_sprites(
-            BaseSkin.normal_note, BaseSkin.each_note, BaseSkin.break_note,
-            BaseSkin.normal_star, BaseSkin.each_star, BaseSkin.break_star,
-            outlines=[
-                BaseSkin.normal_note_ex_outline, BaseSkin.each_note_ex_outline, BaseSkin.break_note_ex_outline,
-                BaseSkin.normal_star_ex_outline, BaseSkin.each_star_ex_outline, BaseSkin.break_star_ex_outline,
-            ]
+        sprites=create_note_bucket_sprites(
+            NoteKind.EX_TAP, NoteKind.EX_EACH_TAP, NoteKind.EX_BREAK_TAP,
+            NoteKind.EX_STAR, NoteKind.EX_EACH_STAR, NoteKind.EX_BREAK_STAR,
         ),
-        unit=StandardText.MILLISECOND_UNIT
+        unit=StandardText.MILLISECOND_UNIT,
     )
     break_tap: Bucket = bucket(
-        sprites=create_bucket_sprites(BaseSkin.break_note, BaseSkin.break_star),
-        unit=StandardText.MILLISECOND_UNIT
+        sprites=create_note_bucket_sprites(NoteKind.BREAK_TAP, NoteKind.BREAK_STAR),
+        unit=StandardText.MILLISECOND_UNIT,
     )
+    standard_touch: Bucket = bucket(
+        sprites=create_touch_bucket_sprites(TouchKind.NORM_TOUCH, TouchKind.EACH_TOUCH),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
+    break_touch: Bucket = bucket(
+        sprites=create_touch_bucket_sprites(TouchKind.BREAK_TOUCH),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
+    standard_slide: Bucket = bucket(
+        sprites=create_slide_bucket_sprites(SlideKind.NORMAL_SLIDE, SlideKind.EACH_SLIDE),
+    )
+    break_slide: Bucket = bucket(
+        sprites=create_slide_bucket_sprites(SlideKind.BREAK_SLIDE),
+    )
+
 
 def init_buckets():
     Buckets.standard_tap.window = NOTE_WINDOW.bucket_window
     Buckets.ex_tap.window = NOTE_WINDOW.bucket_window
     Buckets.break_tap.window = NOTE_WINDOW.bucket_window
+    Buckets.standard_touch.window = TOUCH_WINDOW.bucket_window
+    Buckets.break_touch.window = TOUCH_WINDOW.bucket_window
+    Buckets.standard_slide.window = SLIDE_BUCKET_WINDOW
+    Buckets.break_slide.window = SLIDE_BUCKET_WINDOW
+
+
+def get_note_bucket(kind: NoteKind) -> Bucket:
+    result = Bucket(-1)
+    match kind:
+        case NoteKind.NORM_TAP | NoteKind.EACH_TAP \
+            | NoteKind.NORM_STAR | NoteKind.EACH_STAR \
+            | NoteKind.DOUBLE_STAR | NoteKind.EACH_DOUBLE_STAR:
+            result @= Buckets.standard_tap
+        case NoteKind.BREAK_TAP | NoteKind.BREAK_STAR | NoteKind.BREAK_DOUBLE_STAR:
+            result @= Buckets.break_tap
+        case NoteKind.EX_TAP | NoteKind.EX_EACH_TAP | NoteKind.EX_BREAK_TAP \
+            | NoteKind.EX_STAR | NoteKind.EX_EACH_STAR | NoteKind.EX_BREAK_STAR \
+            | NoteKind.EX_DOUBLE_STAR | NoteKind.EX_EACH_DOUBLE_STAR | NoteKind.EX_BREAK_DOUBLE_STAR:
+            result @= Buckets.ex_tap
+        case _:
+            assert_never(kind)
+    return result
+
+
+def get_touch_bucket(kind: TouchKind) -> Bucket:
+    result = Bucket(-1)
+    match kind:
+        case TouchKind.NORM_TOUCH | TouchKind.EACH_TOUCH:
+            result @= Buckets.standard_touch
+        case TouchKind.BREAK_TOUCH:
+            result @= Buckets.break_touch
+        case _:
+            assert_never(kind)
+    return result
+
+
+def get_slide_bucket(kind: SlideKind) -> Bucket:
+    result = Bucket(-1)
+    match kind:
+        case SlideKind.NORMAL_SLIDE | SlideKind.EACH_SLIDE | SlideKind.WIFI_SLIDE | SlideKind.EACH_WIFI_SLIDE:
+            result @= Buckets.standard_slide
+        case SlideKind.BREAK_SLIDE | SlideKind.BREAK_WIFI_SLIDE:
+            result @= Buckets.break_slide
+        case _:
+            assert_never(kind)
+    return result
+
 
 def round_interval(interval: Interval) -> Interval:
     return Interval(
@@ -107,6 +280,12 @@ class ArcadeWindow(Record):
             good=round_interval(self.good * WINDOW_SCALE),
         )
 
+    def normalize_error(self, error: float) -> float:
+        """Piecewise linear: perfect edge -> ±1, great edge -> ±2, good edge -> ±3."""
+        if error >= 0:
+            return normalize_window_side(error, self.low_perfect.end, self.low_great.end, self.good.end)
+        return -normalize_window_side(-error, -self.low_perfect.start, -self.low_great.start, -self.good.start)
+
     def judge(self, actual: float, target: float) -> ArcadeJudgment:
         diff = actual - target
         if diff in self.critical_perfect:
@@ -126,8 +305,18 @@ class ArcadeWindow(Record):
         else:
             return ArcadeJudgment.MISS
 
-class SlideWindow(Record):
-    perfect: Interval
+def normalize_window_side(error: float, perfect: float, great: float, good: float) -> float:
+    """``error`` and the edges are distances from the target; a narrower outer edge collapses its band."""
+    great = max(great, perfect)
+    good = max(good, great)
+    result = 3.0
+    if error <= perfect:
+        result = error / perfect if perfect > 0 else 0.0
+    elif error <= great:
+        result = 1 + (error - perfect) / (great - perfect)
+    elif error <= good:
+        result = 2 + (error - great) / (good - great)
+    return result
 
 
 def note_interval(frames: int):
@@ -155,7 +344,3 @@ TOUCH_WINDOW = ArcadeWindow(
     low_great = touch_interval(6),
     good = touch_interval(18),
 )
-
-# SLIDE_WINDOW = ArcadeWindow(
-    
-# )

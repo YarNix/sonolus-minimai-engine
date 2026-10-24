@@ -20,7 +20,7 @@ from sonolus.script.containers import VarArray
 from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib import archetype_names, buckets
-from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration, get_touch_bucket
+from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration
 from minimai.lib.game import Sensor
 
 class BaseTouch(PlayArchetype):
@@ -47,7 +47,7 @@ class BaseTouch(PlayArchetype):
 
     def preprocess(self):
         self.kind = cast(TouchKind, self.key)
-        self.result.bucket = get_touch_bucket(self.kind)
+        self.result.bucket = buckets.get_touch_bucket(self.kind)
 
         # Handle mirror options
 

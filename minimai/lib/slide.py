@@ -101,7 +101,7 @@ class SlideTrackKind(IntEnum):
 class SlideBranch(IntEnum):
     BRANCH_C = 0
     BRANCH_L = 1
-    BRANCH_R = 1
+    BRANCH_R = 2
 
 SLIDE_PATH_ALL_HIDDEN = 1000
 class SlideArea(Record):

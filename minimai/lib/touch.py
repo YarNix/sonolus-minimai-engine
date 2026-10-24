@@ -1,14 +1,12 @@
 from enum import IntEnum, auto
 from typing import assert_never
 
-from sonolus.script.bucket import Bucket
 from sonolus.script.interval import unlerp
 from sonolus.script.runtime import time
 from sonolus.script.quad import Quad
 
 from minimai.lib.game import Sensor
 from minimai.lib.options import Options
-from minimai.lib.buckets import Buckets
 from minimai.lib.layout import layout_touch, get_touch_fan_alpha
 from minimai.lib.layer import ZIndexes, get_z, LAYER_TOUCH
 from minimai.lib.skin import ActiveSkin
@@ -17,20 +15,6 @@ class TouchKind(IntEnum):
     NORM_TOUCH = auto()
     EACH_TOUCH = auto()
     BREAK_TOUCH = auto()
-
-def get_touch_bucket(kind: TouchKind) -> Bucket:
-    result = Bucket(-1)
-    return result
-    match kind:
-        case TouchKind.NORM_TOUCH | TouchKind.EACH_TOUCH:
-            result @= Buckets.standard_tap
-        case TouchKind.BREAK_TOUCH:
-            result @= Buckets.ex_tap
-        # case NoteKind.OTHER
-        #    result @= Bucket(-1)
-        case _:
-            assert_never(kind)
-    return result
 
 def draw_touch(kind: TouchKind, sensor: Sensor, start_time: float, target_time: float):
     progress = unlerp(start_time, target_time, time())
