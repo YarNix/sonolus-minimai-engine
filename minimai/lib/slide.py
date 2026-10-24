@@ -1,4 +1,5 @@
 from enum import IntEnum, auto
+from math import pi
 from typing import TypeAlias, assert_never
 
 from sonolus.script.array import Array, Dim
@@ -27,7 +28,6 @@ from minimai.lib.input_state import InputState
 from minimai.lib.game import (
     Button,
     Sensor,
-    get_button_range,
     sensor_mirror,
     sensor_shift,
 )
@@ -97,32 +97,25 @@ class SlideTrackKind(IntEnum):
     FAN_C = auto()
     FAN_R = auto()
 
+# Wi-Fi branches
+class SlideBranch(IntEnum):
+    BRANCH_C = 0
+    BRANCH_L = 1
+    BRANCH_R = 1
+
+SLIDE_PATH_ALL_HIDDEN = 1000
 class SlideArea(Record):
     sensors: VarArray[Sensor, Dim[2]]
     path_on_active: int
     path_on_finish: int
     can_skip: bool
 
-class ActiveSensor(Record):
-    sensor: Sensor
-    was_activated: bool
-    was_released: bool
-
-
-class ActiveSlideArea(Record):
-    sensors: VarArray[ActiveSensor, Dim[2]]
-    can_skip: bool
-    is_last: bool
-
-    @property
-    def active(self):
-        return any(s.was_activated for s in self.sensors)
-
-    @property
-    def finished(self):
-        return any(s.was_activated if self.is_last else (s.was_activated and s.was_released) for s in self.sensors)
-
-ActiveSlideJudgeQueue = VarArray[ActiveSlideArea, Dim[2]]
+class SlideChainInfo(Record):
+    """How a slide sits in a connection chain; drives area ``is_last``/``can_skip`` overrides."""
+    is_part: bool       # has a previous or a next slide
+    is_head: bool       # has no previous slide
+    is_final: bool      # has no next slide (scored)
+    total_areas: int    # judge areas of the whole chain (shared areas counted once)
 
 SlideAreaInfo: TypeAlias = (
     tuple[Sensor | tuple[Sensor, Sensor], int, int]
@@ -195,8 +188,8 @@ SLIDE_AREAS = Array(
     build_slide_areas((Sensor.A1, 0, 3), (Sensor.B1, 5, 7), (Sensor.C, 10, 13), (Sensor.B4, 15, 17), (Sensor.A3, 21, 26), (Sensor.A2, 29, 32), (Sensor.A1, 33, 35)),
     build_slide_areas((Sensor.A1, 0, 3), (Sensor.B1, 5, 7), (Sensor.C, 9, 13), (Sensor.B4, 14, 17), (Sensor.A3, 20, 25), (Sensor.A2, 26, 28)),
     build_slide_areas((Sensor.A1, 0, 3), (Sensor.B1, 4, 7), (Sensor.C, 9, 13), (Sensor.B4, 14, 17), (Sensor.A3, 19, 22)),
-    build_slide_areas((Sensor.A1, 0, 3), (Sensor.B1, 5, 7), (Sensor.C, 9, 13), (Sensor.B4, 14, 17), (Sensor.A3, 20, 25), (Sensor.A2, 28, 33), (Sensor.B1, 34, 37), (Sensor.C, 39, 43), (Sensor.B5, 44, 46), (Sensor.A5, 47, 49)),
     build_slide_areas((Sensor.A1, 0, 3), (Sensor.B1, 5, 7), (Sensor.C, 9, 13), (Sensor.B4, 14, 17), (Sensor.A3, 20, 25), (Sensor.A2, 28, 33), (Sensor.B1, 34, 37), (Sensor.C, 39, 43), (Sensor.B4, 44, 46), (Sensor.A4, 47, 49)),
+    build_slide_areas((Sensor.A1, 0, 3), (Sensor.B1, 5, 7), (Sensor.C, 9, 13), (Sensor.B4, 14, 17), (Sensor.A3, 20, 25), (Sensor.A2, 28, 33), (Sensor.B1, 34, 37), (Sensor.C, 39, 43), (Sensor.B5, 44, 46), (Sensor.A5, 47, 49)),
     build_slide_areas((Sensor.A1, 0, 3), (Sensor.B1, 5, 7), (Sensor.C, 9, 13), (Sensor.B4, 14, 17), (Sensor.A3, 20, 25), (Sensor.A2, 28, 33), (Sensor.B1, 34, 37), ((Sensor.C, Sensor.B8), 38, 40), ((Sensor.B7, Sensor.B6), 42, 44), (Sensor.A6, 46, 48)),
     build_slide_areas((Sensor.A1, 0, 3), (Sensor.B1, 5, 7), (Sensor.C, 9, 13), (Sensor.B4, 14, 17), (Sensor.A3, 20, 25), (Sensor.A2, 28, 33), (Sensor.B1, 34, 37), (Sensor.B8, 38, 42), (Sensor.A7, 43, 46)),
     build_slide_areas((Sensor.A1, 0, 3), (Sensor.B1, 5, 7), (Sensor.C, 9, 13), (Sensor.B4, 14, 17), (Sensor.A3, 20, 25), (Sensor.A2, 28, 33), ((Sensor.B1, Sensor.A1), 35, 37), (Sensor.A8, 38, 41)),
@@ -214,11 +207,178 @@ SLIDE_AREAS = Array(
     build_slide_areas((Sensor.A1, 0, 0), (Sensor.B2, 2, 2), (Sensor.B3, 4, 4), ((Sensor.A4, Sensor.D5), 7, 7)),
 )
 
-def get_path_on_active(track: SlideTrackKind, judged_area_count: int):
+def get_slide_area_count(track: SlideTrackKind) -> int:
+    return len(SLIDE_AREAS[track])
+
+def get_slide_area_sensor(
+    track: SlideTrackKind,
+    area_index: int,
+    sensor_index: int,
+    button: Button,
+    is_mirrored: bool,
+) -> Sensor:
+    source = SLIDE_AREAS[track][area_index].sensors[sensor_index]
+    sensor = sensor_mirror(source, Sensor.A1) if is_mirrored else source
+    return sensor_shift(sensor, button - 1)
+
+def get_slide_area_path_on_active(track: SlideTrackKind, judged_area_count: int):
     return SLIDE_AREAS[track][judged_area_count].path_on_active
 
-def get_path_on_finish(track: SlideTrackKind, judged_area_count: int):
+def get_slide_area_path_on_finish(track: SlideTrackKind, judged_area_count: int):
     return SLIDE_AREAS[track][judged_area_count].path_on_finish
+
+def get_slide_area_can_skip(track: SlideTrackKind, area_index: int, chain: SlideChainInfo) -> bool:
+    """Chain overrides of the area skip flags (slide skipping enabled)."""
+    can_skip = SLIDE_AREAS[track][area_index].can_skip
+    if chain.is_part:
+        if chain.total_areas >= 4:
+            can_skip = True
+        elif chain.is_head and area_index < 2:
+            can_skip = area_index == 0
+        elif chain.is_final and area_index < 2:
+            can_skip = area_index == 1
+    return can_skip
+
+class SlideQueueState(Record):
+    """Represent a compact judge-queue state.
+
+    The queue's areas are never stored: they are rebuilt from ``SLIDE_AREAS``.
+    The latched state of the queue's areas are packed into a flag value
+    """
+    judged_area_count: int
+    flags: int # Note: memories are f32 no matter how we typed it
+    """
+    Stores the touch state of the two judgment areas the slide is currently checking in bit
+    | Bit | Area | Sensor | State     |
+    |-----|------|--------|-----------|
+    | 1   | 0    | 0      | activated |
+    | 2   | 0    | 0      | released  |
+    | 3   | 0    | 1      | activated |
+    | 4   | 0    | 1      | released  |
+    | 5   | 1    | 0      | activated |
+    | 6   | 1    | 0      | released  |
+    | 7   | 1    | 1      | activated |
+    | 8   | 1    | 1      | released  |
+    """
+
+    @staticmethod
+    def _flag_bit(area_offset: int, sensor_offset: int, activated: bool):
+        bit = 1 if activated else 2
+        if area_offset == 1:
+            bit *= 16
+        if sensor_offset == 1:
+            bit *= 4
+        return bit
+
+    def _test_flag(self, bit: int):
+        return (self.flags // bit) % 2 == 1
+
+    def _set_flag(self, bit: int, value: bool) -> int:
+        current = self._test_flag(bit)
+        if value and not current:
+            self.flags = self.flags + bit
+        elif not value and current:
+            self.flags = self.flags - bit
+        return self.flags
+
+    def _check_slide_area(
+        self,
+        area_offset: int,
+        track: SlideTrackKind,
+        button: Button,
+        is_mirrored: bool,
+        is_last: bool,
+    ) -> tuple[bool, bool]:
+        """Update the latches of window area ``area_offset``; return ``(active, finished)``."""
+        area_index = self.judged_area_count + area_offset
+        sensor_count = len(SLIDE_AREAS[track][area_index].sensors)
+        active = False
+        finished = False
+        for sensor_offset in range(sensor_count):
+            sensor = get_slide_area_sensor(track, area_index, sensor_offset, button, is_mirrored)
+            activated_bit = self._flag_bit(area_offset, sensor_offset, True)
+            released_bit = self._flag_bit(area_offset, sensor_offset, False)
+            was_activated = (
+                self._test_flag(activated_bit)
+                or InputState.sensor_touch_started[sensor - 1]
+                or InputState.sensor_touch_down[sensor - 1]
+            )
+            was_released = was_activated and InputState.sensor_touch_ended[sensor - 1]
+            self._set_flag(activated_bit, was_activated)
+            self._set_flag(released_bit, was_released)
+            active = active or was_activated
+            if is_last:
+                finished = finished or was_activated
+            else:
+                finished = finished or (was_activated and was_released)
+        return active, finished
+
+    def advance_queue(self, steps: int):
+        self.judged_area_count += steps
+        if steps == 1:
+            self.flags = self.flags // 16
+        else:
+            self.flags = 0
+
+    def check_queue(
+        self,
+        track: SlideTrackKind,
+        button: Button,
+        is_mirrored: bool,
+        is_final_queue: bool,
+        chain: SlideChainInfo,
+    ) -> bool:
+        """Advance the queue from this frame's input. Returns whether any area is triggered
+        (active or finished)."""
+        triggered = False
+        area_count = get_slide_area_count(track)
+        while self.judged_area_count < area_count:
+            index = self.judged_area_count
+            advance = 0
+            active, finished = self._check_slide_area(
+                0, track, button, is_mirrored, is_final_queue and index == area_count - 1
+            )
+            triggered = triggered or active
+            if finished:
+                advance = 1
+            if index + 1 < area_count and (get_slide_area_can_skip(track, index, chain) or active):
+                next_active, next_finished = self._check_slide_area(
+                    1, track, button, is_mirrored, is_final_queue and index + 1 == area_count - 1
+                )
+                triggered = triggered or next_active
+                if next_finished:
+                    advance = 2
+                elif next_active:
+                    advance = 1
+            if advance == 0:
+                break
+            self.advance_queue(advance)
+        return triggered
+
+    def get_remaining_area(self, track: SlideTrackKind) -> int:
+        return max(get_slide_area_count(track) - self.judged_area_count, 0)
+
+    def force_finish(self, track: SlideTrackKind):
+        """Empty the queue (and hide the whole path)."""
+        self.judged_area_count = get_slide_area_count(track)
+        self.flags = 0
+
+    def get_path_hidden_count(self, track: SlideTrackKind) -> int:
+        """Number of leading path points to hide, derived from the queue state."""
+        area_count = get_slide_area_count(track)
+        index = self.judged_area_count
+        hidden = 0
+        if index >= area_count:
+            hidden = SLIDE_PATH_ALL_HIDDEN
+        else:
+            if index > 0:
+                hidden = get_slide_area_path_on_finish(track, index - 1)
+            FIRST_WAS_ACTIVATED_BIT = self._flag_bit(0, 0, activated=True)
+            SECOND_WAS_ACTIVATED_BIT = self._flag_bit(0, 1, activated=True)
+            if self._test_flag(FIRST_WAS_ACTIVATED_BIT) or self._test_flag(SECOND_WAS_ACTIVATED_BIT):
+                hidden = max(hidden, get_slide_area_path_on_active(track, index))
+        return hidden
+
 
 SLIDE_JUDGMENT_CONST = Array(
     0.0,
@@ -239,103 +399,6 @@ SLIDE_JUDGMENT_CONST = Array(
     # Fan
     0.16287, 0.0, 0.0, 0.0,
 )
-
-def create_active_slide_area(
-    track: SlideTrackKind,
-    area_index: int,
-    button: Button,
-    is_mirrored: bool,
-) -> ActiveSlideArea:
-    template_slide = SLIDE_AREAS[track]
-    template_area = template_slide[area_index]
-    # Convert template sensors to active sensors
-    sensors = VarArray[ActiveSensor, Dim[2]].new()
-    for source in template_area.sensors:
-        sensor = sensor_mirror(source, Sensor.A1) if is_mirrored else source
-        sensor = sensor_shift(sensor, button - 1)
-        active_sensor = ActiveSensor(sensor=sensor, was_activated=False, was_released=False)
-        sensors.append(active_sensor)
-
-    return ActiveSlideArea(
-        sensors=sensors,
-        can_skip=template_area.can_skip,
-        is_last=area_index == len(template_slide) - 1
-    )
-
-def advance_slide_judge_queue(
-    judge_queue: ActiveSlideJudgeQueue,
-    judged_area_count: int,
-    advance_steps: int,
-    track: SlideTrackKind,
-    button: Button,
-    is_mirrored: bool,
-):   
-    queue = +judge_queue
-    judge_queue.clear()
-    for index in range(advance_steps, len(queue)):
-        judge_queue.append(queue[index])
-
-    next_area_index = judged_area_count + advance_steps
-    next_queue_index = next_area_index + len(judge_queue)
-    stop_queue_index = min(next_area_index + judge_queue.capacity(), len(SLIDE_AREAS[track]))
-    for next_index in range(next_queue_index, stop_queue_index) :
-        judge_queue.append(create_active_slide_area(track, next_index, button, is_mirrored))
-
-    return next_area_index
-
-def check_active_slide_area(area: ActiveSlideArea):
-    sensor_active = InputState.sensor_touch_active
-    sensor_started = InputState.sensor_touch_started
-    sensor_ended = InputState.sensor_touch_ended
-    for area_sensor in area.sensors:
-        area_sensor.was_activated = (
-            area_sensor.was_activated
-            or sensor_started[area_sensor.sensor - 1]
-            or any(area_sensor.sensor in down_sensors for down_sensors in sensor_active.values())
-        )
-        area_sensor.was_released = area_sensor.was_activated and sensor_ended[area_sensor.sensor - 1]
-
-def check_slide_judge_queue(
-        queue: ActiveSlideJudgeQueue,
-        judged_area_count: int,
-        track: SlideTrackKind,
-        start_button: int,
-        is_mirrored: bool = False,
-    ) -> tuple[int, int]:
-        path_hidden = 0
-
-        while len(queue) != 0:
-            advance = 0
-            current_area = queue[0]
-            check_active_slide_area(current_area)
-            if current_area.finished:
-                path_hidden = max(path_hidden, get_path_on_finish(track, judged_area_count))
-                advance = 1
-            else:
-                path_hidden = max(path_hidden, get_path_on_active(track, judged_area_count))
-
-            if len(queue) >= 2 and (current_area.can_skip or current_area.active):
-                next_area = queue[1]
-                check_active_slide_area(next_area)
-
-                if next_area.finished:
-                    path_hidden = max(path_hidden, get_path_on_finish(track, judged_area_count + 1))
-                    advance = 2
-                elif next_area.active:
-                    path_hidden = max(path_hidden, get_path_on_active(track, judged_area_count + 1))
-                    advance = 1
-
-            if advance <= 0:
-                break
-            judged_area_count = advance_slide_judge_queue(
-                queue,
-                judged_area_count,
-                advance,
-                track,
-                start_button,
-                is_mirrored,
-            )
-        return (judged_area_count, path_hidden)
 
 def get_slide_end_button(track: SlideTrackKind, start_button: Button, is_mirrored: bool) -> Button:
     end_button = 1
@@ -372,7 +435,7 @@ def get_slide_end_button(track: SlideTrackKind, start_button: Button, is_mirrore
             end_button = 5
     if is_mirrored:
         end_button = ((-end_button + 1) % 8) + 1
-    end_button = end_button + (start_button - 1)
+    end_button = (end_button + start_button - 2) % 8 + 1
     return end_button
 
 def get_star_note_kind(kind: SlideKind) -> NoteKind:
@@ -387,6 +450,32 @@ def get_star_note_kind(kind: SlideKind) -> NoteKind:
             assert_never(kind)
             return NoteKind.NORM_STAR
 
+def get_slide_kind_variant(kind: SlideKind, wifi: bool) -> SlideKind:
+    """Same colour (normal / each / break) as ``kind``, as a Wi-Fi or a single-track kind."""
+    result = SlideKind.NORMAL_SLIDE
+    match kind:
+        case SlideKind.NORMAL_SLIDE | SlideKind.WIFI_SLIDE:
+            result = SlideKind.WIFI_SLIDE if wifi else SlideKind.NORMAL_SLIDE
+        case SlideKind.EACH_SLIDE | SlideKind.EACH_WIFI_SLIDE:
+            result = SlideKind.EACH_WIFI_SLIDE if wifi else SlideKind.EACH_SLIDE
+        case SlideKind.BREAK_SLIDE | SlideKind.BREAK_WIFI_SLIDE:
+            result = SlideKind.BREAK_WIFI_SLIDE if wifi else SlideKind.BREAK_SLIDE
+        case _:
+            assert_never(kind)
+    return result
+
+
+def get_wifi_star_angle(star_track: SlideTrackKind, button: Button, is_mirrored: bool) -> float:
+    """Fixed Wi-Fi star angle: ``-22.5 * (8 + i + 2 * (button - 1))`` degrees,
+    i = 0 right star, 1 centre star, 2 left star (by on-screen side)."""
+    side = 1
+    if star_track == SlideTrackKind.FAN_R:
+        side = 2 if is_mirrored else 0
+    elif star_track == SlideTrackKind.FAN_L:
+        side = 0 if is_mirrored else 2
+    return -pi / 8 * (8 + side + 2 * (button - 1))
+
+
 def draw_slide(
     kind: SlideKind,
     track: SlideTrackKind,
@@ -397,6 +486,8 @@ def draw_slide(
     target_time: float,
     slide_time: float,
     end_time: float,
+    is_chain_head: bool,
+    is_chain_final: bool,
 ):
     current_time = time()
     track_points = SLIDE_TRACK_POINTS[track]
@@ -416,20 +507,29 @@ def draw_slide(
             layout = layout_slide_path(index, track_points, button, is_mirrored)
             _slide_path_draw(kind, layout, layer, path_alpha)
 
+    # Star visibility:
+    # - chain head: fades/scales in from the star-note time to the slide start
+    # - chain middle: hidden until their own slide start, then show and travel until end time, then hide on arrival
+    # - chain final: don't hide on arrival, wait at the last point until despawn
+    if not is_chain_head and current_time < slide_time:
+        return
+    if not is_chain_final and current_time >= end_time:
+        return
+    star_alpha = 1.0
+    if is_chain_head and slide_time > target_time:
+        star_alpha = unlerp_clamped(target_time, slide_time, current_time)
+    star_scale = star_alpha + 0.5
+
     star_kind = get_star_note_kind(kind)
     progress = unlerp(slide_time, end_time, current_time)
-    if slide_time > target_time:
-        star_alpha = unlerp_clamped(target_time, slide_time, current_time)
-    else:
-        star_alpha = 1.0
-    star_scale = star_alpha + 0.5
     if is_wifi:
         for draw_order, star_track in enumerate(
             (SlideTrackKind.FAN_R, SlideTrackKind.FAN_L, SlideTrackKind.FAN_C)
         ):
             star_points = SLIDE_TRACK_POINTS[star_track]
-            star_layout = layout_slide_head(progress, star_points, button, is_mirrored)
+            star_layout = layout_slide_head(progress, star_points, button, is_mirrored, rotate_head=False)
             star_layout = star_layout.scale_centered(Vec2.one() * star_scale)
+            star_layout = star_layout.rotate_centered(get_wifi_star_angle(star_track, button, is_mirrored))
             _note_draw(star_kind, star_layout, get_z(LAYER_SLIDE_NOTE, target_time, draw_order), star_alpha)
     else:
         star_points = build_slide_star_points(track_points, get_slide_end_button(track, 1, False))

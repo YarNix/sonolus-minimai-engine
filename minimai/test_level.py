@@ -9,6 +9,7 @@ from sonolus.script.archetype import PlayArchetype
 from minimai.lib.game import SENSOR_COUNT, Button, get_button_iterator
 from minimai.lib.note import is_star
 from minimai.lib.slide import SlideKind, SlideTrackKind
+from minimai.lib.layout import SLIDE_TRACK_POINTS
 from minimai.lib.game import get_sensor_iterator
 from minimai.play.initialization import Initialization
 from minimai.play import note, touch, slide
@@ -44,7 +45,8 @@ def build_level(
     initialization = Initialization()
     entities: list[PlayArchetype] = [ initialization, *level_entities ]
 
-    if not any(isinstance(e, BpmChange) for e in level_entities):
+    # level_entities may be a generator: inspect the materialised list, not the consumed generator.
+    if not any(isinstance(e, BpmChange) for e in entities):
         entities.insert(1, BpmChange(
             beat = 0,
             bpm = 120
@@ -67,7 +69,8 @@ def test_notes():
                 beat = a * 8 + i,
                 button = b,
                 speed = 1,
-                rotate_speed = b if is_star(note_arch.key) and b != 8 else 0
+                import_rotate_speed = b if is_star(note_arch.key) and b != 8 else 0,
+                has_custom_rotation = True,
             )
 
 @dataclass
@@ -79,7 +82,8 @@ class LevelBuilderContext:
             beat = self.curr_beat,
             button = button,
             speed = 1,
-            rotate_speed = 0,
+            import_rotate_speed = 0,
+            has_custom_rotation = False,
         )
 
     def inc_beat(self, division: float):
@@ -165,6 +169,8 @@ def test_touch():
                 speed = 1
             )
 
+SLIDE_ARCHETYPE_BY_KIND = {arch.key: arch for arch in slide.SLIDE_ARCHETYPES if arch.is_scored}
+
 def test_slide():
     yield BpmChange(
         beat = 0,
@@ -181,7 +187,7 @@ def test_slide():
         + [(SlideKind.NORMAL_SLIDE, SlideTrackKind.ZIG_ZAG, 1 + i) for i in range(8)] \
     
     for s, (kind, track, button) in enumerate(testing_params):
-        yield slide.SLIDE_ARCHETYPES[int(kind) - 1](
+        yield SLIDE_ARCHETYPE_BY_KIND[kind](
             beat=s * 4,
             track=track,
             start_button=button,
@@ -190,7 +196,7 @@ def test_slide():
             slide_duration=1,
             speed=1
         )
-        yield slide.SLIDE_ARCHETYPES[int(kind) - 1](
+        yield SLIDE_ARCHETYPE_BY_KIND[kind](
             beat=s * 4 + 2,
             track=track,
             start_button=button,
@@ -208,7 +214,7 @@ def test_slide():
     next_beat = len(testing_params) * 4
     for s, (kind, track, button) in enumerate(wifi_test_params):
         s = s * 5 + next_beat
-        yield slide.SLIDE_ARCHETYPES[int(kind) - 1](
+        yield SLIDE_ARCHETYPE_BY_KIND[kind](
             beat=s,
             track=track,
             start_button=button,
@@ -219,9 +225,94 @@ def test_slide():
         )
 
 
+def _segment_beats(tracks: list[SlideTrackKind], total: float) -> list[float]:
+    """Split a chain's total duration by bar count."""
+    bars = [11 if t == SlideTrackKind.FAN else len(SLIDE_TRACK_POINTS[t]) for t in tracks]
+    return [total * b / sum(bars) for b in bars]
+
+
+def _link(parent, child, attr: str = "next_slide_ref"):
+    setattr(parent, attr, child.ref())
+    child.prev_slide_ref = parent.ref()
+
+
+def _slide_kwargs(beat: float, track: SlideTrackKind, button: int, mirrored: bool, duration: float, wait: float = 1):
+    return dict(
+        beat=beat,
+        track=track,
+        start_button=button,
+        is_mirrored=mirrored,
+        wait_duration=wait,
+        slide_duration=duration,
+        speed=1,
+    )
+
+
+def _star(beat: float, button: int):
+    return note.NormalStarNote(beat=beat, button=button, speed=1, import_rotate_speed=0, has_custom_rotation=False)
+
+
+def test_connected_slide():
+    yield BpmChange(beat=0, bpm=120)
+    beat = 2
+
+    # 1-4>7 : LINE_4 (1 -> 4) then CIRCLE_4 (4 -> 7), normal colour
+    tracks = [SlideTrackKind.LINE_4, SlideTrackKind.CIRCLE_4]
+    d = _segment_beats(tracks, 3)
+    star = _star(beat, 1)
+    head = slide.ConnSlide(**_slide_kwargs(beat, tracks[0], 1, False, d[0]), head_note_ref=star.ref())
+    tail = slide.NormalSlideNote(**_slide_kwargs(beat, tracks[1], 4, False, d[1]))
+    _link(head, tail)
+    yield from (star, head, tail)
+    beat += 6
+
+    # 1>2>3 : two CIRCLE_2, 3 areas in total -> head [skip, no], tail [no, skip]; break colour
+    tracks = [SlideTrackKind.CIRCLE_2, SlideTrackKind.CIRCLE_2]
+    d = _segment_beats(tracks, 2)
+    star = _star(beat, 1)
+    head = slide.ConnSlide(**_slide_kwargs(beat, tracks[0], 1, False, d[0]), head_note_ref=star.ref())
+    tail = slide.BreakSlideNote(**_slide_kwargs(beat, tracks[1], 2, False, d[1]))
+    _link(head, tail)
+    yield from (star, head, tail)
+    beat += 6
+
+    # 3 segments, mirrored middle: 1-3, 3<1 (mirrored CIRCLE_3), 1-5 ; each colour
+    tracks = [SlideTrackKind.LINE_3, SlideTrackKind.CIRCLE_3, SlideTrackKind.LINE_5]
+    d = _segment_beats(tracks, 4)
+    star = _star(beat, 1)
+    head = slide.ConnSlide(**_slide_kwargs(beat, tracks[0], 1, False, d[0]), head_note_ref=star.ref())
+    middle = slide.ConnSlide(**_slide_kwargs(beat, tracks[1], 3, True, d[1]))
+    tail = slide.EachSlideNote(**_slide_kwargs(beat, tracks[2], 1, False, d[2]))
+    _link(head, middle)
+    _link(middle, tail)
+    yield from (star, head, middle, tail)
+    beat += 8
+
+    # 1-5 then Wi-Fi from 5 as the final slide
+    tracks = [SlideTrackKind.LINE_5, SlideTrackKind.FAN]
+    d = _segment_beats(tracks, 3)
+    star = _star(beat, 1)
+    head = slide.ConnSlide(**_slide_kwargs(beat, tracks[0], 1, False, d[0]), head_note_ref=star.ref())
+    tail = slide.NormalWifiSlideNote(**_slide_kwargs(beat, tracks[1], 5, False, d[1]))
+    _link(head, tail)
+    yield from (star, head, tail)
+    beat += 7
+
+    # Wi-Fi from 1 as chain head: C (ends 5) -> 5-7, L (ends 6) -> 6>8, R (ends 4) not continued
+    wifi_d = 2
+    star = _star(beat, 1)
+    wifi = slide.ConnWifiSlide(**_slide_kwargs(beat, SlideTrackKind.FAN, 1, False, wifi_d), head_note_ref=star.ref())
+    tail_c = slide.NormalSlideNote(**_slide_kwargs(beat, SlideTrackKind.LINE_3, 5, False, 1))
+    tail_l = slide.NormalSlideNote(**_slide_kwargs(beat, SlideTrackKind.CIRCLE_3, 6, False, 1.5))
+    _link(wifi, tail_c, "next_slide_ref")
+    _link(wifi, tail_l, "next_slide_l_ref")
+    yield from (star, wifi, tail_c, tail_l)
+
+
 levels = [
     build_level("test-notes", "Test Notes", level_entities=test_notes()),
     build_level("test-spin", "Test Spin", level_entities=test_spin()),
     build_level("test-touch", "Test Touch", level_entities=test_touch()),
     build_level("test-slide", "Test Slide", level_entities=test_slide()),
+    build_level("test-connected-slide", "Test Connected Slide", level_entities=test_connected_slide()),
 ]

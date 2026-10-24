@@ -22,28 +22,37 @@ from sonolus.script.bucket import Bucket, Judgment
 # from sonolus.script.debug import notify, debug_log
 
 from minimai.lib.game import Button
-from minimai.play.slide import BaseSlide
 from minimai.lib.note import (
     NoteKind,
     get_tap_appear_duration,
     get_note_bucket,
     draw_note,
     is_ex,
-    get_note_angle
+    is_star,
+    get_note_angle,
 )
 from minimai.lib.game import Sensor
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib import archetype_names, buckets
 
+# Fake-rotate star (simai ``$$``): -440 deg/s, in half-turns per second.
+FAKE_ROTATION_SPEED = 440 / 180
+
+
 class BaseNote(PlayArchetype):
     beat: StandardImport.BEAT
     button: Button = imported(default=1)
     speed: float = imported(default=1)
-    rotate_speed: float = imported(default=0)
+    # Specify whether to use the imported rotation speed
+    has_custom_rotation: bool = imported(name="hasCustomRotation", default=False)
+    import_rotate_speed: float = imported(name="rotateSpeed", default=0)
 
     kind: NoteKind = entity_data()
     start_time: float = entity_data()
     target_time: float = entity_data()
+
+    rotate_speed: float = entity_memory()
+    slide_rotate_speed: float = shared_memory()
 
     input_interval: Interval = shared_memory()
     unadjusted_input_interval: Interval = shared_memory()
@@ -62,7 +71,7 @@ class BaseNote(PlayArchetype):
         self.kind = cast(NoteKind, self.key)
         self.result.bucket = get_note_bucket(self.kind)
 
-        # Handle mirror options
+        # TODO: Handle mirror options
 
         self.target_time = beat_to_time(self.beat)
         appear_time = get_tap_appear_duration(self.speed)
@@ -70,7 +79,16 @@ class BaseNote(PlayArchetype):
 
         self.input_interval = self.judgment_window.good + self.target_time + input_offset()
         self.unadjusted_input_interval = self.judgment_window.good + self.target_time
+
+        if not self.has_custom_rotation:
+            self.import_rotate_speed = FAKE_ROTATION_SPEED if is_star(self.kind) else 0
         
+    def initialize(self):
+        if not self.has_custom_rotation and self.slide_rotate_speed != 0:
+            self.rotate_speed = self.slide_rotate_speed
+        else:
+            self.rotate_speed = self.import_rotate_speed
+
     def update_sequential(self):
         if self.despawn:
             return

@@ -15,4 +15,5 @@ class InputState:
     processing_sensor_touch: VarArray[Pair[int, Sensor], Dim[32]]
     sensor_touch_active: ArrayMap[int, ArraySet[Sensor, Dim[8]], Dim[16]]
     sensor_touch_started: Array[bool, Dim[33]]
+    sensor_touch_down: Array[bool, Dim[33]]
     sensor_touch_ended: Array[bool, Dim[33]]

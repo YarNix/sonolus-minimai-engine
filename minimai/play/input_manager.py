@@ -1,5 +1,6 @@
 from __future__ import annotations
 from math import floor
+from typing import cast
 
 from sonolus.script.archetype import PlayArchetype, callback
 from sonolus.script.array import Array, Dim
@@ -20,6 +21,7 @@ from minimai.lib.options import Options
 from minimai.lib.skin import ActiveSkin
 from minimai.lib.layer import get_z, LAYER_DEBUG_LOW
 from minimai.play.note import NoteMemory
+from minimai.play.slide import SlideMemory
 from minimai.play.touch import TouchMemory
 
 INPUT_SLOTS = 16
@@ -71,11 +73,13 @@ class InputManager(PlayArchetype):
     def update_sequential(self):
         NoteMemory.active_tap_inputs.clear()
         TouchMemory.active_touch_inputs.clear()
+        SlideMemory.active_slide_inputs.clear()
         self.update_current_input()
 
     @callback(order=-1)
     def touch(self):
         self.preassign_inputs()
+        self.process_inputs()
 
     def update_parallel(self):
         if not Options.show_input:
@@ -104,6 +108,7 @@ class InputManager(PlayArchetype):
         cleared = +Array[bool, Dim[33]]
         InputState.button_started = +Array[bool, Dim[8]]
         InputState.sensor_touch_started @= cleared
+        InputState.sensor_touch_down @= cleared
         InputState.sensor_touch_ended @= cleared
         InputState.sensor_touch_active.clear()
         InputState.processing_sensor_touch.clear()
@@ -153,7 +158,16 @@ class InputManager(PlayArchetype):
                 for sensor in current_sensors:
                     sensor_started(touch.id, sensor)
 
+            if touch.ended:
+                for sensor in current_sensors:
+                    sensor_ended(sensor)
+                continue # Touch ended don't add it to the active touches
+
             InputState.sensor_touch_active[touch.id] = current_sensors
+
+        for down_sensors in InputState.sensor_touch_active.values():
+            for sensor in down_sensors:
+                InputState.sensor_touch_down[sensor - 1] = True
 
     @staticmethod
     def preassign_inputs():
@@ -202,3 +216,29 @@ class InputManager(PlayArchetype):
                     target_touch.captured_touch_id = touch_id
                     InputState.processing_sensor_touch.pop(idx)
                     break
+
+    @staticmethod
+    def process_inputs():
+
+        ## Process slide input
+        # Advance every registered slide's judge queue, parents before children.
+        active_slides = SlideMemory.active_slide_inputs
+        active_slides.sort(key=lambda slide_ref: slide_ref.get(check=False).chain_depth)
+        for slide_ref in active_slides:
+            slide = slide_ref.get(check=False)
+            prev_index = slide.prev_slide_ref.index
+            if not slide.is_checkable:
+                if prev_index <= 0:
+                    # Head is gated by time
+                    slide.is_checkable = True
+                else:
+                    # While later parts gated until the parent has at most 1 area left.
+                    slide.is_checkable = slide.parent_total_remaining <= 1
+
+            if not slide.is_checkable:
+                continue
+            # Advancing the queue
+            advanced = slide.check_judge_queues()
+
+            if advanced and prev_index > 0:
+                slide.parent_force_finish()

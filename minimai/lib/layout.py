@@ -483,7 +483,13 @@ def layout_wifi_slide_path(
         layout @= layout.scale_centered(Vec2(-1, 1))
     return layout.rotate_centered(angle_offset)
 
-def layout_slide_head(progress: float, star_points: SlideTrackPointArray, button: Button, is_mirrored: bool):
+def layout_slide_head(
+    progress: float,
+    star_points: SlideTrackPointArray,
+    button: Button,
+    is_mirrored: bool,
+    rotate_head: bool = True,
+):
     point_count = len(star_points)
     point_progress = progress * (point_count - 1)
     point = SlidePoint(Vec2.zero(), 0)
@@ -505,5 +511,7 @@ def layout_slide_head(progress: float, star_points: SlideTrackPointArray, button
     center = Layout.ring_center + point.position * Layout.ring_distance
     note_size = NOTE_BASE_SIZE * Layout.ring_distance * Options.note_scale
     layout = Rect.from_center(center, Vec2(note_size, note_size)).as_quad()
+    if rotate_head:
+        layout @= layout.rotate_centered(point.rotation)
     return layout
 
