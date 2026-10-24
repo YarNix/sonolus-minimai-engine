@@ -1,0 +1,154 @@
+# Minimai Level Data Format
+
+## Types
+
+### Button
+
+The 8 ring buttons, clockwise: `1` (upper right) … `8` (upper left).
+
+### Sensor
+
+Touch sensors:
+
+* N0 = 0: None.
+* A1 .. A8 = 1 .. 8: Outer ring.
+* B1 .. B8 = 9 .. 16: Inner ring.
+* C = 17: Center.
+* D1 .. D8 = 18 .. 25: Outer ring, between A sensors.
+* E1 .. E8 = 26 .. 33: Inner ring, between B sensors.
+
+<img src="img/sensor_layout.png" alt="Sensor Layout">
+
+### SlideTrackKind
+
+Tracks are defined starting from button 1. `button` rotates them, `isMirrored` mirrors them across the button-1 axis. "End" is the end button for a start at button 1, unmirrored.
+
+* CIRCLE_1 .. CIRCLE_8 = 1 .. 8: Clockwise arc along the ring, ending at button 1 .. 8.
+
+<img src="img/slide_tracks_edge.png" height=300 alt="Circle tracks">
+
+* LINE_3 .. LINE_5 = 9 .. 11: Straight line to button 3 .. 5.
+
+<img src="img/slide_tracks_straight.png" height=150 alt="Line tracks">
+
+* CENTER_1 .. CENTER_4 = 12 .. 15: Through the center (`v`) to button 1 .. 4.
+
+<img src="img/slide_tracks_center.png" height=150 alt="Center tracks">
+
+* LOOP_IN_1 .. LOOP_IN_8 = 16 .. 23: Counter-clockwise curve around the center (`p`) to button 1 .. 8.
+
+<img src="img/slide_tracks_inner_loop.png" height=300 alt="Inner Loop tracks">
+
+* LOOP_OUT_1 .. LOOP_OUT_8 = 24 .. 31: Large curve (`pp`) to button 1 .. 8.
+
+<img src="img/slide_tracks_outer_loop.png" height=300 alt="Outer Loop tracks">
+
+* REFLECT_2 .. REFLECT_5 = 32 .. 35: Two lines turning at button 7 (`V`) to button 2 .. 5.
+
+<img src="img/slide_tracks_reflect.png" height=150 alt="Reflect tracks">
+
+* ZIG_ZAG = 36: `s` shape to button 5.
+
+<img src="img/slide_tracks_zigzag.png" height=150 alt="Zigzag tracks">
+
+* FAN = 37: Wi-Fi, three stars to buttons 4, 5 and 6.
+
+<img src="img/slide_tracks_fan.png" height=150 alt="Wifi track">
+
+* FAN_L = 38, FAN_C = 39, FAN_R = 40: [Internal] The three Wi-Fi branches, ending at buttons 6, 5 and 4. Not valid in level data.
+
+## Initialization
+
+Handles common initialization logic for the engine. Must appear exactly once as the first entity in level data.
+
+### Fields
+
+None.
+
+## #BPM_CHANGE
+
+The standard bpm change archetype.
+
+### Fields
+
+* **#BEAT (float)**
+* **#BPM (float)**
+
+## *Note
+
+Comprised of many archetypes according to the following naming scheme:
+
+[![][note_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Sequence%28Choice%280%252C%20%27Normal%27%252C%20%27Ex%27%252C%20Sequence%28Optional%28%27Ex%27%252C%20%27skip%27%29%252CChoice%280%252C%20%27Each%27%252C%20%27Break%27%29%29%29%252CChoice%280%252C%20%27Tap%27%252C%20%27Star%27%252C%20%27DoubleStar%27%29%29%252C%20%27Note%27%29)
+
+A star note is usually the head of a slide (see **headNote** below). Double stars are used when more than one slide starts from the same star.
+
+### Fields
+
+* **#BEAT (float)**
+* **button (Button)**: Defaults to 1.
+* **speed (float)**: Note speed multiplier. Defaults to 1.
+* **rotateSpeed (float)**: Star spin in half-turns per second; positive is clockwise. Used only when **hasCustomRotation** is set; 0 means no spin. Defaults to 0.
+* **hasCustomRotation (bool)**: Whether **rotateSpeed** is used. Otherwise a star spins at the speed set by the slide that uses it as **headNote**, or at the fake-rotation speed (440°/s, simai `$$`) when no slide does. Taps never spin unless this is set. Defaults to false.
+
+## *TouchNote
+
+Comprised of many archetypes according to the following naming scheme:
+
+[![][touch_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Choice%280%2C%20%27Normal%27%2C%20%27Each%27%2C%20%27Break%27%29%2C%20%27TouchNote%27%29)
+
+### Fields
+
+* **#BEAT (float)**
+* **sensor (Sensor)**
+* **speed (float)**: Note speed multiplier. Defaults to 1.
+
+## Slides
+
+A slide is one entity, or a chain of entities linked by **prevSlide** / **nextSlide**. Every chain has exactly one head (no **prevSlide**) and one or more final slides (no next).
+
+[![][slide_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Choice%280%2C%20%27Normal%27%2C%20%27Each%27%2C%20%27Break%27%2C%20%27Conn%27%29%2C%20Optional%28%27Wifi%27%2C%20%27skip%27%29%2C%20%27SlideNote%27%29)
+
+Conn slides are not scored and take their colour (normal / each / break) from the chain's final slide reached by following the center, then left, then right branch.
+
+### Timing
+
+All segments of a chain use the same **#BEAT** (the star note time). The chain head waits **waitDuration**, then the star travels the whole chain at a constant speed:
+
+1. **slideDuration** is summed from the head to each final slide, giving that path's total travel time.
+2. The total is split across the path's segments by track bar count.
+3. A conn slide takes its speed from its primary final (center, then left, then right). A final slide on another branch gets the rest of its own path total.
+
+Writing the chain's total on the final slide and 0 on every conn slide is the usual form. Per-segment values also work; only their sum along each path matters.
+
+### Fields
+
+* **#BEAT (float)**: The star note time, shared by every segment of a chain.
+* **track (SlideTrackKind)**: FAN for Wi-Fi archetypes.
+* **button (Button)**: Start button. For a later segment, the end button of the parent (or of the parent's Wi-Fi branch). Defaults to 1.
+* **isMirrored (bool)**: Mirror the track across the start button's axis.
+* **waitDuration (float)**: Beats between **#BEAT** and the star starting to move. Only read on the chain head.
+* **slideDuration (float)**: Beats. Summed along each path; see [Timing](#timing).
+* **speed (float)**: Note speed multiplier for the fade-in. Defaults to 1.
+* **headNote (ref?[*Note])**: The star (or tap) note the slide starts from. Only meaningful on the chain head. The slide sets the star's spin speed from the chain's length and duration.
+* **prevSlide (ref?[Slide])**: The previous segment. Unset on the chain head.
+
+ConnSlideNote also has:
+
+* **nextSlide (ref[Slide])**: The next segment.
+
+ConnWifiSlideNote also has:
+
+* **nextSlide (ref?[Slide])**: The segment continuing from the center branch (end button 5).
+* **nextSlideL (ref?[Slide])**: The segment continuing from the left branch (end button 6).
+* **nextSlideR (ref?[Slide])**: The segment continuing from the right branch (end button 4).
+
+At least one of the three must be set.
+
+## Planned
+
+* Hold and touch hold notes.
+* Fireworks: the level builder already accepts `firework` on every note, touch, hold and slide, but it isn't written to level data yet.
+
+[note_diagram]: img/note_rr_diagram.png
+[touch_diagram]: img/touch_rr_diagram.png
+[slide_diagram]: img/slide_rr-diagram.png
