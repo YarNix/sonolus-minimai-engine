@@ -7,6 +7,7 @@ from sonolus.script.archetype import (
     StandardImport,
     entity_data,
     imported,
+    entity_memory,
     shared_memory,
 )
 from sonolus.script.array import Array, Dim
@@ -64,6 +65,7 @@ class BaseSlide(PlayArchetype):
     segment_duration: float = entity_data()
 
     # Chain data
+    chain_start_beat: float = entity_data()
     chain_end_beat: float = entity_data()
     chain_depth: int = entity_data()
     chain_total_areas: int = entity_data()
@@ -78,6 +80,8 @@ class BaseSlide(PlayArchetype):
     is_checkable: bool = shared_memory()
     judge_queue: SlideQueueState = shared_memory()
 
+    is_judged: bool = entity_memory()
+    despawn_time: float = entity_memory()
 
     @property
     def segment_slide_time(self) -> float:
@@ -94,6 +98,9 @@ class BaseSlide(PlayArchetype):
         """The arrive time of the latest final slide reachable from this segment."""
         return beat_to_time(self.chain_end_beat)
 
+    @property
+    def chain_start_time(self) -> float:
+        return beat_to_time(self.chain_start_beat)
 
     @property
     def is_chain_head(self) -> bool:
@@ -132,6 +139,7 @@ class BaseSlide(PlayArchetype):
         self.segment_start_beat = head_start_beat + preceding_beats
         self.segment_duration = get_segment_beats(self.index)
         self.chain_depth = depth
+        self.chain_start_beat = head_start_beat
         self.chain_end_beat = head_start_beat + get_chain_max_total(self.index)
         self.chain_total_areas = get_chain_total_areas(head_index)
 
@@ -169,7 +177,9 @@ class BaseSlide(PlayArchetype):
     def update_sequential(self):
         if self.despawn:
             return
-        if time() in self.input_interval and not self.judge_queues_finished:
+        if (time() in self.input_interval
+            and not self.judge_queues_finished
+            and not self.is_judged):
             if not SlideMemory.active_slide_inputs.is_full():
                 SlideMemory.active_slide_inputs.append(self.ref().with_archetype(BaseSlide))
 
@@ -187,7 +197,7 @@ class BaseSlide(PlayArchetype):
             self.track,
             self.start_button,
             self.is_mirrored,
-            self.path_hidden_count,
+            self.path_hidden_count if not self.is_judged else SLIDE_PATH_ALL_HIDDEN,
             self.start_time,
             self.target_time,
             self.segment_slide_time,
@@ -197,6 +207,15 @@ class BaseSlide(PlayArchetype):
         )
 
     def update_final(self):
+        """
+        Update parallel for the final segment of the slide
+        
+        Only the final segment can handle judgment
+        """
+        if self.is_judged:
+            if time() >= self.despawn_time:
+                self.despawn = True
+            return
         if time() > self.input_interval.end:
             self.handle_miss()
             return
@@ -204,11 +223,25 @@ class BaseSlide(PlayArchetype):
             self.handle_finished()
 
     def update_connection(self):
-        # Ending propagates from the final slide back to its parents:
-        # a non-final part ends once every part continuing from it has ended.
+        """
+        Update parallel for the connection segment of the slide
+        
+        Ending propagates from the final slide back to its parents:
+        a non-final part ends once every part continuing from it has ended.
+        """
         all_next_ended = all(next_index <= 0 or BaseSlide.at(next_index, check=False).is_despawned for next_index in self.next_indices)
         if all_next_ended or time() > self.input_interval.end:
             self.despawn = True
+
+    def get_despawn_wait_duration(self, actual_time: float) -> float:
+        if actual_time < self.chain_start_time:
+            # very early
+            return (self.chain_start_time - actual_time) / 2
+        if actual_time - self.judgment_time >= 36 / 60:
+            # very late Good
+            return 0.05
+        # remaining star travel (travel × judgment const)
+        return self.segment_end_time - self.judgment_time
 
     def check_judge_queues(self) -> bool:
         return False # Stub for override
@@ -284,7 +317,7 @@ class BaseSlide(PlayArchetype):
         self.judge(time())
 
     def judge(self, actual_time: float):
-        if self.despawn:
+        if self.is_judged:
             return
 
         judgment = self.judgment_window.judge(actual_time, self.judgment_time)
@@ -293,7 +326,8 @@ class BaseSlide(PlayArchetype):
         self.result.accuracy = error
         if self.result.bucket.id != -1:
             self.result.bucket_value = self.judgment_window.normalize_error(error)
-        self.despawn = True
+        self.is_judged = True
+        self.despawn_time = time() + self.get_despawn_wait_duration(actual_time)
 
     def handle_miss(self):
         if self.queue_remaining == 1:
@@ -305,6 +339,7 @@ class BaseSlide(PlayArchetype):
             self.result.judgment = Judgment.MISS
             self.result.accuracy = 0
             self.result.bucket = Bucket(-1)
+        self.is_judged = True
         self.despawn = True
 
 
