@@ -8,14 +8,16 @@ from sonolus.script.archetype import PlayArchetype
 from sonolus.script.level import BpmChange
 
 from minimai.lib.game import Button, Sensor
+from minimai.lib.hold import HoldKind
 from minimai.lib.note import NoteKind
 from minimai.lib.slide import SlideKind, SlideTrackKind, get_slide_end_button, get_slide_kind_variant
 from minimai.lib.touch import TouchKind
-from minimai.play import note, slide, touch
+from minimai.play import hold, note, slide, touch
 from minimai import simai
 from minimai.simai import SimaiChart, SimaiGroup, SimaiHold, SimaiSegment, SimaiSlideNote, SimaiState, SimaiTap, SimaiTouch
 
 NOTE_ARCHETYPES = {arch.key: arch for arch in note.NOTE_ARCHETYPES}
+HOLD_ARCHETYPES = {arch.key: arch for arch in hold.HOLD_ARCHETYPES}
 TOUCH_ARCHETYPES = {arch.key: arch for arch in touch.TOUCH_ARCHETYPES}
 SLIDE_ARCHETYPES = {arch.key: arch for arch in slide.SLIDE_ARCHETYPES if arch.is_scored}
 
@@ -51,6 +53,15 @@ def get_note_kind(*, star: bool = False, double: bool = False, ex: bool = False,
     return _NOTE_KINDS[(star, star and double, ex, each and not brk, brk)]
 
 
+def get_hold_kind(*, ex: bool = False, each: bool = False, brk: bool = False) -> HoldKind:
+    """Break overrides each."""
+    if brk:
+        return HoldKind.EX_BREAK_HOLD if ex else HoldKind.BREAK_HOLD
+    if each:
+        return HoldKind.EX_EACH_HOLD if ex else HoldKind.EACH_HOLD
+    return HoldKind.EX_HOLD if ex else HoldKind.NORM_HOLD
+
+
 def get_slide_kind(*, each: bool = False, brk: bool = False, wifi: bool = False) -> SlideKind:
     kind = SlideKind.BREAK_SLIDE if brk else SlideKind.EACH_SLIDE if each else SlideKind.NORMAL_SLIDE
     return SlideKind(get_slide_kind_variant(kind, wifi))
@@ -74,6 +85,8 @@ class SlideTrackArg:
     sub_tracks: tuple[SlideTrackArg | Sequence[SlideTrackArg] | None, SlideTrackArg | Sequence[SlideTrackArg] | None] | None = None
     # Beats. Summed along each head-to-final path; the engine splits that total by bar count.
     slide_time: float | None = None
+    # Or seconds (fixed time, see LevelBuilder.emit_slides). A chain uses one or the other.
+    slide_seconds: float | None = None
 
 
 def mirror_key(key: int) -> int:
@@ -138,11 +151,76 @@ def get_simai_track_args(segments: Sequence[SimaiSegment]) -> list[SlideTrackArg
     args = []
     for segment in segments:
         track, mirrored = get_simai_track(segment.shape, segment.start, segment.end, segment.turn)
-        arg = SlideTrackArg(track, mirrored, slide_time=segment.length.beats if segment.length else None)
+        arg = SlideTrackArg(track, mirrored, slide_seconds=segment.length.seconds if segment.length else None)
         if any(segment.branches):
             arg.sub_tracks = tuple(get_simai_track_args(b) if b else None for b in segment.branches)
         args.append(arg)
     return args
+
+
+def _uses_seconds(args: Sequence[SlideTrackArg]) -> bool:
+    for arg in args:
+        if arg.slide_seconds is not None:
+            return True
+        for sub in arg.sub_tracks or ():
+            if _uses_seconds(_as_chain(sub)):
+                return True
+    return False
+
+
+class TempoMap:
+    """Beat <-> time (seconds) from BPM changes, as the engine converts them."""
+
+    def __init__(self, changes: Iterable[tuple[float, float]]):
+        points: dict[float, float] = {}
+        for beat, bpm in sorted(changes, key=lambda change: change[0]):
+            points[beat] = bpm  # the last change at a beat wins
+        if not points:
+            points[0] = DEFAULT_BPM
+        self.beats = sorted(points)
+        self.bpms = [points[beat] for beat in self.beats]
+        self.times = [0.0]
+        for i in range(1, len(self.beats)):
+            self.times.append(self.times[-1] + (self.beats[i] - self.beats[i - 1]) * 60 / self.bpms[i - 1])
+
+    def _segment_by_beat(self, beat: float) -> int:
+        index = 0
+        while index + 1 < len(self.beats) and self.beats[index + 1] <= beat:
+            index += 1
+        return index
+
+    def _segment_by_time(self, time: float) -> int:
+        index = 0
+        while index + 1 < len(self.times) and self.times[index + 1] <= time:
+            index += 1
+        return index
+
+    def beat_to_time(self, beat: float) -> float:
+        i = self._segment_by_beat(beat)
+        return self.times[i] + (beat - self.beats[i]) * 60 / self.bpms[i]
+
+    def time_to_beat(self, time: float) -> float:
+        i = self._segment_by_time(time)
+        return self.beats[i] + (time - self.times[i]) * self.bpms[i] / 60
+
+
+@dataclass
+class _PendingHold:
+    entity: PlayArchetype
+    beat: float
+    seconds: float
+
+
+@dataclass
+class _PendingSlide:
+    """A chain timed in seconds, resolved to beats once every BPM change is known."""
+
+    beat: float
+    wait_beats: float | None
+    wait_seconds: float | None
+    # (entity, seconds from the star start to the segment start, segment seconds).
+    # The offset is None when the durations are in beats and only the wait is in seconds.
+    segments: list[tuple[PlayArchetype, float | None, float]] = field(default_factory=list)
 
 
 def _as_chain(sub: SlideTrackArg | Sequence[SlideTrackArg] | None) -> tuple[SlideTrackArg, ...]:
@@ -161,6 +239,9 @@ class LevelBuilder:
     comma_seconds: float | None = None
     entities: list[PlayArchetype] = field(default_factory=list)
     last_advance: float = 0
+    # Lengths given in seconds; resolved to beats in get_level().
+    _pending_holds: list[_PendingHold] = field(default_factory=list)
+    _pending_slides: list[_PendingSlide] = field(default_factory=list)
 
     ## Timing
 
@@ -228,8 +309,18 @@ class LevelBuilder:
         self.emit_touch(kind, sensor, speed=speed, firework=firework)
         self.advance()
 
-    def add_hold(self, kind: NoteKind, button: Button, *, speed: float = 1, firework: bool | None = None):
-        # TODO: hold archetypes
+    def add_hold(
+        self,
+        kind: HoldKind,
+        button: Button,
+        hold_time: float = 0,
+        *,
+        hold_seconds: float | None = None,
+        speed: float = 1,
+        firework: bool | None = None,
+    ):
+        """``hold_time`` in beats, or ``hold_seconds``; 0 = a hold that ends with its head."""
+        self.emit_hold(kind, button, hold_time, hold_seconds=hold_seconds, speed=speed, firework=firework)
         self.advance()
 
     def add_touch_hold(self, kind: TouchKind, *, sensor: Sensor = Sensor.C, speed: float = 1, firework: bool | None = None):
@@ -292,7 +383,9 @@ class LevelBuilder:
         button: Button,
         *track_args: SlideTrackArg,
         total_slide_time: float | None = None,
+        total_slide_seconds: float | None = None,
         wait_time: float = 1,
+        wait_seconds: float | None = None,
         head_kind: NoteKind | None = None,
         headless: bool = False,
         speed: float = 1,
@@ -300,13 +393,15 @@ class LevelBuilder:
         firework: bool | None = None,
     ):
         """Chained slide. ``total_slide_time`` goes on every final slide (conn slides get 0)
-        unless an arg sets its own ``slide_time``."""
+        unless an arg sets its own ``slide_time``. The ``*_seconds`` forms are fixed times."""
         self.emit_slides(
             kind,
             button,
             track_args,
             total_slide_time=total_slide_time,
+            total_slide_seconds=total_slide_seconds,
             wait_time=wait_time,
+            wait_seconds=wait_seconds,
             head_kind=head_kind,
             headless=headless,
             speed=speed,
@@ -358,7 +453,9 @@ class LevelBuilder:
                 if not parsed.hold:  # TODO: touch hold
                     self.emit_touch(kind, Sensor[parsed.sensor], firework=parsed.firework or None, beat=group.beat)
             elif isinstance(parsed, SimaiHold):
-                pass  # TODO: hold
+                kind = get_hold_kind(ex=parsed.ex, each=each_head, brk=parsed.brk)
+                hold_seconds = parsed.length.seconds if parsed.length else None
+                self.emit_hold(kind, parsed.button, hold_seconds=hold_seconds, beat=group.beat)
             elif isinstance(parsed, SimaiTap):
                 kind = get_note_kind(star=parsed.star, ex=parsed.ex, each=each_head, brk=parsed.brk)
                 rotation = None if parsed.star_rotate else (0 if parsed.star else None)
@@ -371,16 +468,40 @@ class LevelBuilder:
                         get_slide_kind(each=each_slide, brk=track.brk),
                         parsed.button,
                         get_simai_track_args(track.segments),
-                        wait_time=track.wait,
+                        wait_seconds=track.wait,
                         head_kind=head_kind,
                         headless=parsed.headless or track_index > 0,
                         beat=group.beat,
                     )
 
     def get_level(self) -> Iterable[PlayArchetype]:
+        self.resolve_seconds()
         if not any(isinstance(e, BpmChange) for e in self.entities):
             return [BpmChange(beat=0, bpm=DEFAULT_BPM), *self.entities]
         return list(self.entities)
+
+    def get_tempo_map(self) -> TempoMap:
+        return TempoMap((e.beat, e.bpm) for e in self.entities if isinstance(e, BpmChange))
+
+    def resolve_seconds(self):
+        """Turn lengths given in seconds into beats on the final tempo map, so a BPM change
+        inside a hold or slide doesn't change its duration. Safe to call more than once."""
+        tempo = self.get_tempo_map()
+        for hold_entry in self._pending_holds:
+            end = tempo.time_to_beat(tempo.beat_to_time(hold_entry.beat) + hold_entry.seconds)
+            hold_entry.entity.hold_duration = end - hold_entry.beat
+        for slide_entry in self._pending_slides:
+            if slide_entry.wait_seconds is not None:
+                star_start = tempo.beat_to_time(slide_entry.beat) + slide_entry.wait_seconds
+            else:
+                star_start = tempo.beat_to_time(slide_entry.beat + slide_entry.wait_beats)
+            wait_beats = tempo.time_to_beat(star_start) - slide_entry.beat
+            for entity, offset, seconds in slide_entry.segments:
+                entity.wait_duration = wait_beats
+                if offset is not None:
+                    entity.slide_duration = (
+                        tempo.time_to_beat(star_start + offset + seconds) - tempo.time_to_beat(star_start + offset)
+                    )
 
     ## Emitters (no advance)
 
@@ -405,6 +526,34 @@ class LevelBuilder:
         self.entities.append(entity)
         return entity
 
+    def emit_hold(
+        self,
+        kind: HoldKind,
+        button: Button,
+        hold_time: float = 0,
+        *,
+        hold_seconds: float | None = None,
+        speed: float = 1,
+        firework: bool | None = None,
+        beat: float | None = None,
+    ):
+        """``hold_time`` in beats from the head, or ``hold_seconds`` (a fixed time, resolved
+        to beats in ``get_level`` so BPM changes inside the hold don't change it)."""
+        self.ensure_bpm()
+        if hold_time < 0 or (hold_seconds is not None and hold_seconds < 0):
+            raise ValueError("Hold time can't be negative")
+        beat = self.beat if beat is None else beat
+        entity = HOLD_ARCHETYPES[kind](
+            beat=beat,
+            button=button,
+            speed=speed,
+            hold_duration=hold_time,
+        )
+        if hold_seconds is not None:
+            self._pending_holds.append(_PendingHold(entity, beat, hold_seconds))
+        self.entities.append(entity)
+        return entity
+
     def emit_touch(
         self,
         kind: TouchKind,
@@ -426,7 +575,9 @@ class LevelBuilder:
         track_args: Sequence[SlideTrackArg],
         *,
         total_slide_time: float | None = None,
+        total_slide_seconds: float | None = None,
         wait_time: float = 1,
+        wait_seconds: float | None = None,
         head_kind: NoteKind | None = None,
         headless: bool = False,
         speed: float = 1,
@@ -434,10 +585,20 @@ class LevelBuilder:
         firework: bool | None = None,
         beat: float | None = None,
     ):
+        """Slide durations are in beats (``slide_time`` / ``total_slide_time``) or in seconds
+        (``slide_seconds`` / ``total_slide_seconds``), not mixed within a chain. Seconds are a
+        fixed time: they are resolved to beats in ``get_level`` on the final tempo map, so a BPM
+        change during the slide doesn't change its duration. ``wait_seconds`` does the same for
+        the wait (either unit works with either duration unit)."""
         self.ensure_bpm()
         if not track_args:
             raise ValueError("A slide needs at least one track")
         beat = self.beat if beat is None else beat
+        use_seconds = total_slide_seconds is not None or _uses_seconds(track_args)
+        pending = None
+        if use_seconds or wait_seconds is not None:
+            pending = _PendingSlide(beat, None if wait_seconds is not None else wait_time, wait_seconds)
+            self._pending_slides.append(pending)
 
         head_note = None
         if not headless:
@@ -451,11 +612,21 @@ class LevelBuilder:
             sub_l, sub_r = (_as_chain(sub) for sub in (arg.sub_tracks or (None, None)))
             has_next = bool(rest or sub_l or sub_r)
 
-            slide_time = arg.slide_time
-            if slide_time is None:
-                slide_time = 0 if has_next else total_slide_time
-            if slide_time is None:
-                raise ValueError("A final slide needs slide_time or total_slide_time")
+            if use_seconds:
+                if arg.slide_time is not None:
+                    raise ValueError("A slide chain can't mix slide_time (beats) and slide_seconds")
+                slide_time = arg.slide_seconds
+                if slide_time is None:
+                    slide_time = 0 if has_next else total_slide_seconds
+                if slide_time is None:
+                    raise ValueError("A final slide needs slide_seconds or total_slide_seconds")
+            else:
+                slide_time = arg.slide_time
+                if slide_time is None:
+                    slide_time = 0 if has_next else total_slide_time
+                if slide_time is None:
+                    raise ValueError("A final slide needs slide_time or total_slide_time")
+            path_start = path_time
             path_time += slide_time
             if not has_next and path_time < 0:
                 raise ValueError("Total slide time along a path can't be negative")
@@ -470,9 +641,12 @@ class LevelBuilder:
                 start_button=start,
                 is_mirrored=arg.mirrored,
                 wait_duration=wait_time,
-                slide_duration=slide_time,
+                slide_duration=0 if use_seconds else slide_time,
                 speed=speed,
             )
+            if pending is not None:
+                # Durations in beats (only the wait is in seconds): offset None keeps slide_duration.
+                pending.segments.append((entity, path_start if use_seconds else None, slide_time))
             if prev is None and head_note is not None:
                 entity.head_note_ref = head_note.ref()
             if prev is not None:

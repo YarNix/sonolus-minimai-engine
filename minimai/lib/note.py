@@ -1,10 +1,8 @@
 from enum import IntEnum, auto
-from math import atan, ceil, cos, floor, log, pi, sin
+from math import pi
 from typing import assert_never
 
 from sonolus.script.quad import Quad
-from sonolus.script.vec import Vec2
-from sonolus.script.sprite import Sprite
 from sonolus.script.interval import unlerp
 from sonolus.script.runtime import time
 from sonolus.script.debug import assert_true
@@ -13,7 +11,7 @@ from minimai.lib.game import Button
 from minimai.lib.skin import ActiveSkin
 from minimai.lib.level_config import LevelConfig
 from minimai.lib.layout import get_line_alpha, layout_note, layout_line, get_button_angle_vertical, DISTANCE_TRAVEL, NOTE_SCALE_RATE
-from minimai.lib.layer import ZIndexes, get_z, LAYER_NOTE, LAYER_EX, LAYER_NOTE_LINE
+from minimai.lib.layer import ZIndexes, get_z, LAYER_NOTE, LAYER_NOTE_LINE, LAYER_OFFSET_EX
 
 
 class NoteKind(IntEnum):
@@ -80,7 +78,8 @@ def draw_note(
     layout = layout_note(progress, button).rotate_centered(angle + note_angle)
     _note_draw(kind, layout, get_z(LAYER_NOTE, target_time))
     if is_ex(kind):
-        _ex_draw(kind, layout, get_z(LAYER_EX, target_time))
+        # The EX outline goes over the note (z4 1; a break light layer is at 0.5).
+        _ex_draw(kind, layout, get_z(LAYER_NOTE, target_time, etc=LAYER_OFFSET_EX))
 
     line_layout = layout_line(progress).rotate_centered(angle)
     line_alpha = get_line_alpha(progress)
@@ -91,10 +90,7 @@ def _note_draw(kind: NoteKind, layout: Quad, layer: ZIndexes, alpha: float = 1):
         case NoteKind.NORM_TAP | NoteKind.EX_TAP:
             ActiveSkin.normal_note.draw(layout, layer.tuple, alpha)
         case NoteKind.BREAK_TAP | NoteKind.EX_BREAK_TAP:
-            ActiveSkin.break_note_dark.draw(layout, layer.tuple, alpha)
-            pulse = max(sin(time() * pi * 4), 0)
-            layer.z4 = layer.z4 + 1
-            ActiveSkin.break_note_light.draw(layout, layer.tuple, pulse * alpha)
+            ActiveSkin.break_note.draw(layout, layer.tuple, alpha)
         case NoteKind.EACH_TAP | NoteKind.EX_EACH_TAP:
             ActiveSkin.each_note.draw(layout, layer.tuple, alpha)
 

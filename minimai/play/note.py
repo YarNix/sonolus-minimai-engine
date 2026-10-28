@@ -33,14 +33,14 @@ from minimai.lib.note import (
 from minimai.lib.game import Sensor
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib import archetype_names, buckets
+from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
 
 # Fake-rotate star (simai ``$$``): -440 deg/s, in half-turns per second.
 FAKE_ROTATION_SPEED = 440 / 180
 
 
-class BaseNote(PlayArchetype):
+class BaseNote(ButtonBaseInput):
     beat: StandardImport.BEAT
-    button: Button = imported(default=1)
     speed: float = imported(default=1)
     # Specify whether to use the imported rotation speed
     has_custom_rotation: bool = imported(name="hasCustomRotation", default=False)
@@ -48,17 +48,9 @@ class BaseNote(PlayArchetype):
 
     kind: NoteKind = entity_data()
     start_time: float = entity_data()
-    target_time: float = entity_data()
 
     rotate_speed: float = entity_memory()
     slide_rotate_speed: float = shared_memory()
-
-    input_interval: Interval = shared_memory()
-    unadjusted_input_interval: Interval = shared_memory()
-
-    # The id of the input that activated this note.
-    # This is set by the input manager rather than the note itself.
-    captured_touch_id: int = shared_memory()
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -92,7 +84,7 @@ class BaseNote(PlayArchetype):
         if self.despawn:
             return
         if self.is_scored and time() in self.input_interval and self.captured_touch_id == 0:
-            NoteMemory.active_tap_inputs.append(self.ref())
+            BaseInputMemory.active_tap_inputs.append(self.ref().with_archetype(ButtonBaseInput))
 
     def update_parallel(self):
         if self.despawn:
@@ -138,10 +130,6 @@ class BaseNote(PlayArchetype):
         pass
 
     @property
-    def sensor(self) -> Sensor:
-        return Sensor.A1 + (self.button - 1)
-
-    @property
     def judgment_window(self):
         return buckets.NOTE_WINDOW
 
@@ -173,10 +161,6 @@ class BaseNote(PlayArchetype):
         self.result.accuracy = self.judgment_window.good.end
         self.result.bucket = Bucket(-1)
         self.despawn = True
-
-@level_memory
-class NoteMemory:
-    active_tap_inputs: VarArray[EntityRef[BaseNote], Dim[256]]
 
 NormalTapNote = BaseNote.derive(archetype_names.NORMAL_TAP_NOTE, is_scored=True, key=NoteKind.NORM_TAP)
 ExTapNote = BaseNote.derive(archetype_names.EX_TAP_NOTE, is_scored=True, key=NoteKind.EX_TAP)

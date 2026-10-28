@@ -27,7 +27,7 @@ Text after the last comma is placed but doesn't move time forward.
 | `1x` | EX. Combines with `b` in any order: `1bx`. |
 | `1$` | Star-shaped tap, no spin. |
 | `1$$` | Star-shaped tap, spinning. |
-| `5h[2:1]` | Hold. Parsed but not placed yet. |
+| `5h[2:1]` | Hold. `5h` without a length is a zero-length hold. Combines with `b` and `x`. |
 | `B1`, `D4`, `E8` | Touch. `C`, `C1`, `C2` are all the center. |
 | `Cb` | Break touch. |
 | `Cf` | Touch with a firework. Parsed; no effect yet. |
@@ -61,7 +61,6 @@ Used by holds and slides.
 | `[3##8:3]` | 3 eighth notes | 3 seconds |
 | `[3##160#8:3]` | 3 eighth notes at BPM 160 | 3 seconds |
 
-Seconds are converted to beats at the current BPM, so a BPM change during a slide shifts it slightly.
 
 ## Slides
 

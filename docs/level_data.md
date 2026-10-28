@@ -90,11 +90,25 @@ A star note is usually the head of a slide (see **headNote** below). Double star
 * **rotateSpeed (float)**: Star spin in half-turns per second; positive is clockwise. Used only when **hasCustomRotation** is set; 0 means no spin. Defaults to 0.
 * **hasCustomRotation (bool)**: Whether **rotateSpeed** is used. Otherwise a star spins at the speed set by the slide that uses it as **headNote**, or at the fake-rotation speed (440°/s, simai `$$`) when no slide does. Taps never spin unless this is set. Defaults to false.
 
+## *HoldNote
+
+Comprised of many archetypes according to the following naming scheme:
+
+[![][hold_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Sequence%28Choice%280,%20%27Normal%27,%20%27Ex%27,%20Sequence%28Optional%28%27Ex%27,%20%27skip%27%29,Choice%280,%20%27Each%27,%20%27Break%27%29%29%29%29,%20%27HoldNote%27%29)
+
+
+### Fields
+
+* **#BEAT (float)**
+* **button (Button)**: Defaults to 1.
+* **holdDuration (float)**: Beats from the head to the end. 0 is a hold that ends with its head. Defaults to 0.
+* **speed (float)**: Note speed multiplier. Defaults to 1.
+
 ## *TouchNote
 
 Comprised of many archetypes according to the following naming scheme:
 
-[![][touch_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Choice%280%2C%20%27Normal%27%2C%20%27Each%27%2C%20%27Break%27%29%2C%20%27TouchNote%27%29)
+[![][touch_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Choice%280,%20%27Normal%27,%20%27Each%27,%20%27Break%27%29,%20%27TouchNote%27%29)
 
 ### Fields
 
@@ -106,7 +120,7 @@ Comprised of many archetypes according to the following naming scheme:
 
 A slide is one entity, or a chain of entities linked by **prevSlide** / **nextSlide**. Every chain has exactly one head (no **prevSlide**) and one or more final slides (no next).
 
-[![][slide_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Choice%280%2C%20%27Normal%27%2C%20%27Each%27%2C%20%27Break%27%2C%20%27Conn%27%29%2C%20Optional%28%27Wifi%27%2C%20%27skip%27%29%2C%20%27SlideNote%27%29)
+[![][slide_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Choice%280,%20%27Normal%27,%20%27Each%27,%20%27Break%27,%20%27Conn%27%29,%20Optional%28%27Wifi%27,%20%27skip%27%29,%20%27SlideNote%27%29)
 
 Conn slides are not scored and take their colour (normal / each / break) from the chain's final slide reached by following the center, then left, then right branch.
 
@@ -146,9 +160,10 @@ At least one of the three must be set.
 
 ## Planned
 
-* Hold and touch hold notes.
+* Touch hold notes.
 * Fireworks: the level builder already accepts `firework` on every note, touch, hold and slide, but it isn't written to level data yet.
 
 [note_diagram]: img/note_rr_diagram.png
+[hold_diagram]: img/hold_rr-diagram.png
 [touch_diagram]: img/touch_rr_diagram.png
 [slide_diagram]: img/slide_rr-diagram.png

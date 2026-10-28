@@ -22,22 +22,14 @@ from sonolus.script.bucket import Bucket, Judgment
 from minimai.lib import archetype_names, buckets
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration
 from minimai.lib.game import Sensor
+from minimai.play.base_input import BaseInputMemory, TouchBaseInput
 
-class BaseTouch(PlayArchetype):
+class BaseTouch(TouchBaseInput):
     beat: StandardImport.BEAT
-    sensor: Sensor = imported()
     speed: float = imported(default=1)
 
     kind: TouchKind = entity_data()
     start_time: float = entity_data()
-    target_time: float = entity_data()
-
-    input_interval: Interval = shared_memory()
-    unadjusted_input_interval: Interval = shared_memory()
-
-    # The id of the input that activated this note.
-    # This is set by the input manager rather than the note itself.
-    captured_touch_id: int = shared_memory()
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -63,7 +55,7 @@ class BaseTouch(PlayArchetype):
             return
         if self.is_scored and time() in self.input_interval: 
             # and self.captured_touch_id == 0:
-            TouchMemory.active_touch_inputs.append(self.ref())
+            BaseInputMemory.active_touch_inputs.append(self.ref().with_archetype(TouchBaseInput))
 
     def update_parallel(self):
         if self.despawn:
@@ -112,10 +104,6 @@ class BaseTouch(PlayArchetype):
         self.result.accuracy = self.judgment_window.good.end
         self.result.bucket = Bucket(-1)
         self.despawn = True
-
-@level_memory
-class TouchMemory:
-    active_touch_inputs: VarArray[EntityRef[BaseTouch], Dim[256]]
 
 NormalTouchNote = BaseTouch.derive(archetype_names.NORMAL_TOUCH_NOTE, is_scored=True, key=TouchKind.NORM_TOUCH)
 BreakTouchNote = BaseTouch.derive(archetype_names.BREAK_TOUCH_NOTE, is_scored=True, key=TouchKind.BREAK_TOUCH)

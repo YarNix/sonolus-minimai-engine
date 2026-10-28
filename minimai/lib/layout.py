@@ -125,6 +125,10 @@ def get_sensor_pos_from_center(sensor: Sensor):
 def get_dist_from_center(pos: Vec2):
     return (pos - Layout.ring_center).magnitude
 
+def get_quad_from_center(button: Button, dist: float, size: Vec2) -> Quad:
+    center = get_pos_from_center(get_button_angle_horizontal(button), dist)
+    return Rect.from_center(center, size).as_quad().rotate_centered(get_button_angle_vertical(button))
+
 def layout_ring():
     return Rect.from_center(
         Layout.ring_center, 
@@ -155,6 +159,47 @@ def layout_line(progress: float):
 
 def get_line_alpha(progress: float):
     return unlerp_clamped(0, NOTE_END_SCALING_PROGRESS, progress)
+
+
+class HoldLayout(Record):
+    head: Quad
+    body: Quad
+    tail: Quad
+    end_point: Quad
+    # The tail has left the inner start point (the end point is drawn from then on).
+    tail_visible: bool
+
+
+def layout_hold(head_progress: float, tail_progress: float, button: Button) -> HoldLayout:
+    note_size = NOTE_BASE_SIZE * Layout.ring_distance * Options.note_scale
+    head_pos = TRAVEL_DISTANCE_PROGRESS
+    tail_pos = TRAVEL_DISTANCE_PROGRESS
+    tail_visible = False
+    if head_progress <= NOTE_END_SCALING_PROGRESS:
+        note_size = note_size * clamp(unlerp(0, NOTE_END_SCALING_PROGRESS, head_progress), 1e-4, 1)
+    else:
+        head_pos = min(remap(NOTE_END_SCALING_PROGRESS, 1, TRAVEL_DISTANCE_PROGRESS, 1, head_progress), 1)
+        if tail_progress > NOTE_END_SCALING_PROGRESS:
+            tail_visible = True
+            tail_pos = remap(NOTE_END_SCALING_PROGRESS, 1, TRAVEL_DISTANCE_PROGRESS, 1, tail_progress)
+            tail_pos = clamp(tail_pos, TRAVEL_DISTANCE_PROGRESS, head_pos)
+
+    head_dist = head_pos * Layout.ring_distance
+    tail_dist = tail_pos * Layout.ring_distance
+    # Scale hold sprite base on the proportions to the note size
+    width = note_size * 122 / 180
+    cap = note_size * 58 / 180
+    body = note_size * 24 / 180
+    end_point_size = note_size * 64 / 180
+
+    return HoldLayout(
+        head=get_quad_from_center(button, head_dist + body / 2 + cap / 2, Vec2(width, cap)),
+        body=get_quad_from_center(button, (head_dist + tail_dist) / 2, Vec2(width, head_dist - tail_dist + body)),
+        tail=get_quad_from_center(button, tail_dist - body / 2 - cap / 2, Vec2(width, cap)),
+        end_point=get_quad_from_center(button, tail_dist, Vec2(end_point_size, end_point_size)),
+        tail_visible=tail_visible,
+    )
+
 
 class TouchLayoutGroup(Record):
     dot: Quad

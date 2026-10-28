@@ -20,9 +20,8 @@ from minimai.lib.layout import get_sensor_pos_from_center
 from minimai.lib.options import Options
 from minimai.lib.skin import ActiveSkin
 from minimai.lib.layer import get_z, LAYER_DEBUG_LOW
-from minimai.play.note import NoteMemory
+from minimai.play.base_input import BaseInputMemory
 from minimai.play.slide import SlideMemory
-from minimai.play.touch import TouchMemory
 
 INPUT_SLOTS = 16
 
@@ -71,8 +70,8 @@ class InputManager(PlayArchetype):
 
     @callback(order=-1)
     def update_sequential(self):
-        NoteMemory.active_tap_inputs.clear()
-        TouchMemory.active_touch_inputs.clear()
+        BaseInputMemory.active_tap_inputs.clear()
+        BaseInputMemory.active_touch_inputs.clear()
         SlideMemory.active_slide_inputs.clear()
         self.update_current_input()
 
@@ -172,9 +171,9 @@ class InputManager(PlayArchetype):
     @staticmethod
     def preassign_inputs():
         # Assigning the touchs
-        active_taps = NoteMemory.active_tap_inputs
+        active_taps = BaseInputMemory.active_tap_inputs
         active_taps.sort(key=lambda ref: ref.get().target_time)
-        active_touches = TouchMemory.active_touch_inputs
+        active_touches = BaseInputMemory.active_touch_inputs
         active_touches.sort(key=lambda ref: ref.get().target_time)
 
         for tap_note in active_taps:

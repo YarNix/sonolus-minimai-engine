@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import IntEnum, auto
 from typing import assert_never
 
 from sonolus.script.bucket import Bucket, Judgment, JudgmentWindow, bucket, bucket_sprite, buckets, _BucketSprite
@@ -7,6 +7,7 @@ from sonolus.script.record import Record
 from sonolus.script.sprite import Sprite
 from sonolus.script.text import StandardText
 
+from minimai.lib.hold import HoldKind
 from minimai.lib.layout import SLIDE_PATH_BASE_SIZE, TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, TOUCH_DOT_BASE_SIZE, TOUCH_FAN_BASE_SIZE
 from minimai.lib.note import NoteKind
 from minimai.lib.skin import BaseSkin
@@ -75,14 +76,58 @@ def get_note_bucket_outline(kind: NoteKind) -> Sprite | None:
 
 
 def create_note_bucket_sprites(*kinds: NoteKind) -> list[_BucketSprite]:
-    """One note per kind, left to right; EX kinds get their outline underneath."""
+    """One note per kind, left to right; EX kinds get their outline on top, as in game."""
     out_sprites: list[_BucketSprite] = []
     x_offset = (len(kinds) - 1) * NOTE_BUCKET_STEP / 2
     for i, kind in enumerate(kinds):
         x = NOTE_BUCKET_STEP * i - x_offset
-        for sprite in (get_note_bucket_outline(kind), get_note_bucket_sprite(kind)):
+        for sprite in (get_note_bucket_sprite(kind), get_note_bucket_outline(kind)):
             if sprite is not None:
                 out_sprites.append(bucket_sprite(sprite=sprite, x=x, y=0, w=NOTE_BUCKET_SIZE, h=NOTE_BUCKET_SIZE))
+    return out_sprites
+
+
+def get_hold_bucket_sprites(kind: HoldKind) -> tuple[Sprite, Sprite, Sprite]:
+    """(head, body, tail)"""
+    match kind:
+        case HoldKind.NORM_HOLD | HoldKind.EX_HOLD:
+            return BaseSkin.hold_note_head, BaseSkin.hold_note_body, BaseSkin.hold_note_tail
+        case HoldKind.EACH_HOLD | HoldKind.EX_EACH_HOLD:
+            return BaseSkin.each_hold_note_head, BaseSkin.each_hold_note_body, BaseSkin.each_hold_note_tail
+        case HoldKind.BREAK_HOLD | HoldKind.EX_BREAK_HOLD:
+            return BaseSkin.break_hold_note_head_dark, BaseSkin.break_hold_note_body_dark, BaseSkin.break_hold_note_tail_dark
+    raise ValueError(f"No bucket sprite for {kind!r}")
+
+
+def get_hold_bucket_outlines(kind: HoldKind) -> tuple[Sprite, Sprite, Sprite] | None:
+    """(head, body, tail) EX outline, or None for non-EX kinds."""
+    match kind:
+        case HoldKind.EX_HOLD:
+            return BaseSkin.hold_note_head_ex_outline, BaseSkin.hold_note_body_ex_outline, BaseSkin.hold_note_tail_ex_outline
+        case HoldKind.EX_EACH_HOLD:
+            return BaseSkin.each_hold_note_head_ex_outline, BaseSkin.each_hold_note_body_ex_outline, BaseSkin.each_hold_note_tail_ex_outline
+        case HoldKind.EX_BREAK_HOLD:
+            return BaseSkin.break_hold_note_head_ex_outline, BaseSkin.break_hold_note_body_ex_outline, BaseSkin.break_hold_note_tail_ex_outline
+    return None
+
+
+def create_hold_bucket_sprites(*kinds: HoldKind) -> list[_BucketSprite]:
+    """One short hold per kind, left to right; EX kinds get their outline on top, as in game."""
+    out_sprites: list[_BucketSprite] = []
+    x_offset = (len(kinds) - 1) * NOTE_BUCKET_STEP / 2
+    w = NOTE_BUCKET_SIZE * 122 / 180
+    cap = NOTE_BUCKET_SIZE * 60 / 180
+    body = NOTE_BUCKET_SIZE * 60 / 180
+    cap_y = (body + cap) / 2
+    for i, kind in enumerate(kinds):
+        x = NOTE_BUCKET_STEP * i - x_offset
+        for pieces in (get_hold_bucket_sprites(kind), get_hold_bucket_outlines(kind)):
+            if pieces is None:
+                continue
+            head, body_sprite, tail = pieces
+            out_sprites.append(bucket_sprite(sprite=body_sprite, x=x, y=0, w=w, h=body))
+            out_sprites.append(bucket_sprite(sprite=tail, x=x, y=-cap_y, w=w, h=cap))
+            out_sprites.append(bucket_sprite(sprite=head, x=x, y=cap_y, w=w, h=cap))
     return out_sprites
 
 
@@ -170,6 +215,18 @@ class Buckets:
         sprites=create_note_bucket_sprites(NoteKind.BREAK_TAP, NoteKind.BREAK_STAR),
         unit=StandardText.MILLISECOND_UNIT,
     )
+    standard_hold: Bucket = bucket(
+        sprites=create_hold_bucket_sprites(HoldKind.NORM_HOLD, HoldKind.EACH_HOLD),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
+    ex_hold: Bucket = bucket(
+        sprites=create_hold_bucket_sprites(HoldKind.EX_HOLD, HoldKind.EX_EACH_HOLD, HoldKind.EX_BREAK_HOLD),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
+    break_hold: Bucket = bucket(
+        sprites=create_hold_bucket_sprites(HoldKind.BREAK_HOLD),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
     standard_touch: Bucket = bucket(
         sprites=create_touch_bucket_sprites(TouchKind.NORM_TOUCH, TouchKind.EACH_TOUCH),
         unit=StandardText.MILLISECOND_UNIT,
@@ -190,6 +247,9 @@ def init_buckets():
     Buckets.standard_tap.window = NOTE_WINDOW.bucket_window
     Buckets.ex_tap.window = NOTE_WINDOW.bucket_window
     Buckets.break_tap.window = NOTE_WINDOW.bucket_window
+    Buckets.standard_hold.window = NOTE_WINDOW.bucket_window
+    Buckets.ex_hold.window = NOTE_WINDOW.bucket_window
+    Buckets.break_hold.window = NOTE_WINDOW.bucket_window
     Buckets.standard_touch.window = TOUCH_WINDOW.bucket_window
     Buckets.break_touch.window = TOUCH_WINDOW.bucket_window
     Buckets.standard_slide.window = SLIDE_BUCKET_WINDOW
@@ -209,6 +269,20 @@ def get_note_bucket(kind: NoteKind) -> Bucket:
             | NoteKind.EX_STAR | NoteKind.EX_EACH_STAR | NoteKind.EX_BREAK_STAR \
             | NoteKind.EX_DOUBLE_STAR | NoteKind.EX_EACH_DOUBLE_STAR | NoteKind.EX_BREAK_DOUBLE_STAR:
             result @= Buckets.ex_tap
+        case _:
+            assert_never(kind)
+    return result
+
+
+def get_hold_bucket(kind: HoldKind) -> Bucket:
+    result = Bucket(-1)
+    match kind:
+        case HoldKind.NORM_HOLD | HoldKind.EACH_HOLD:
+            result @= Buckets.standard_hold
+        case HoldKind.BREAK_HOLD:
+            result @= Buckets.break_hold
+        case HoldKind.EX_HOLD | HoldKind.EX_EACH_HOLD | HoldKind.EX_BREAK_HOLD:
+            result @= Buckets.ex_hold
         case _:
             assert_never(kind)
     return result
@@ -244,7 +318,8 @@ def round_interval(interval: Interval) -> Interval:
         end=round(interval.end),
     )
 
-class ArcadeJudgment(Enum):
+class ArcadeJudgment(IntEnum):
+    NONE = 0
     CRITICAL_PERFECT = auto()
     HIGH_PERFECT = auto()
     LOW_PERFECT = auto()
@@ -305,6 +380,47 @@ class ArcadeWindow(Record):
         else:
             return ArcadeJudgment.MISS
 
+def hold_end_judge(head: ArcadeJudgment, percent: float) -> ArcadeJudgment:
+    """Final hold grade from the head grade and the share of the body that was held (0..1).
+
+    | Body       | P1   | P2 / P3 | G1-G3 / Good | Miss |
+    |------------|------|---------|--------------|------|
+    | 100%       | P1   | kept    | G1           | Good |
+    | [67, 100)  | P2   | kept    | G1           | Good |
+    | [33, 67)   | G2   | G1      | G1           | Good |
+    | [5, 33)    | Good | Good    | Good         | Good |
+    | [0, 5)     | Good | Good    | Good         | Miss |
+    """
+    HOLD_BAND_FULL = 1.0
+    HOLD_BAND_HIGH = 0.67
+    HOLD_BAND_MID = 0.33
+    HOLD_BAND_LOW = 0.05
+    result = ArcadeJudgment.GOOD
+    is_perfect = (
+        head == ArcadeJudgment.CRITICAL_PERFECT
+        or head == ArcadeJudgment.HIGH_PERFECT
+        or head == ArcadeJudgment.LOW_PERFECT
+    )
+    if head == ArcadeJudgment.MISS:
+        if percent < HOLD_BAND_LOW:
+            result = ArcadeJudgment.MISS
+    elif percent >= HOLD_BAND_FULL:
+        result = head if is_perfect else ArcadeJudgment.CRITICAL_GREAT
+    elif percent >= HOLD_BAND_HIGH:
+        if head == ArcadeJudgment.CRITICAL_PERFECT:
+            result = ArcadeJudgment.HIGH_PERFECT
+        elif is_perfect:
+            result = head
+        else:
+            result = ArcadeJudgment.CRITICAL_GREAT
+    elif percent >= HOLD_BAND_MID:
+        if head == ArcadeJudgment.CRITICAL_PERFECT:
+            result = ArcadeJudgment.HIGH_GREAT
+        else:
+            result = ArcadeJudgment.CRITICAL_GREAT
+    return result
+
+
 def normalize_window_side(error: float, perfect: float, great: float, good: float) -> float:
     """``error`` and the edges are distances from the target; a narrower outer edge collapses its band."""
     great = max(great, perfect)
@@ -324,6 +440,9 @@ def note_interval(frames: int):
 
 def touch_interval(frames: int):
     return Interval(-9 / 60, frames / 60)
+
+def hold_interval(start: float, end: float):
+    return Interval(start + 6 / 60, end - 12 / 60)
 
 NOTE_WINDOW = ArcadeWindow(
     critical_perfect = note_interval(1),

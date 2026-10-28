@@ -6,7 +6,8 @@ from sonolus.build.collection import Asset
 from sonolus.script.archetype import PlayArchetype
 
 from minimai.lib.game import get_button_iterator, get_sensor_iterator
-from minimai.lib.note import is_star
+from minimai.lib.hold import HoldKind
+from minimai.lib.note import NoteKind, is_star
 from minimai.lib.slide import SlideKind, SlideTrackKind
 from minimai.lib.layout import SLIDE_TRACK_POINTS
 from minimai.level_builder import LevelBuilder, SlideTrackArg
@@ -102,6 +103,39 @@ def test_spin():
         "8x/4b,5,6,7,8,1,2,3,4,"
         "5x/8b,7,6,5,4,3,2,1,8,"
         "7x/3b,4,5,6,7,8,,"
+    )
+    return builder.get_level()
+
+
+def test_hold():
+    builder = LevelBuilder()
+    builder.set_bpm(120, division=4)
+    # At 120 BPM: 0.6 beat = 18 frames (no body check), 0.9 beat = 27 frames
+    lengths = (0, 0.6, 0.9, 2)
+    for kind in HoldKind:
+        for _, button in get_button_iterator():
+            builder.add_hold(kind, button, lengths[(button - 1) % len(lengths)])
+        builder.advance(2)
+
+    # BPM change inside a hold: 2 beats at 120, then 2 beats at 60 (3 s in total).
+    builder.add_hold(HoldKind.NORM_HOLD, 1, 4)
+    builder.advance(1)
+    builder.set_bpm(60)
+    builder.advance(3)
+    builder.set_bpm(120)
+    builder.advance(2)
+
+    # A tap on the same lane during a hold must still be catchable.
+    builder.add_hold(HoldKind.NORM_HOLD, 3, 4)
+    builder.add_note(NoteKind.NORM_TAP, 3)
+    builder.add_note(NoteKind.NORM_TAP, 3)
+    builder.advance(4)
+
+    # simai: each holds, EX / break holds, a zero-length hold and a seconds length.
+    builder.parse_line(
+        "1h[2:1]/5h[2:1],,,,"
+        "3bh[4:3],,,,4xh[4:1],,6bxh[4:1],,8h,,"
+        "2h[#1.5],,,,"
     )
     return builder.get_level()
 
@@ -238,6 +272,8 @@ def test_simai():
         "1-5[160#8:3],,1-5[1##1],,"
         "C/B1/E8,A1,D3b,Cf,{#0.25}1`2`3,,,,"
         "{4}1w5-1[2:1]~^1,,,,1w5-1[2:1]~4^1~6^1,,,,1w5w1[4:1]~6^1[4:1],,,,1w5-1[2:1]~^1w5~~~-1,,,,"
+        # Lengths are fixed times: 4 quarter notes at 120 = 2 s, across a drop to 60 and back.
+        "(120)7h[4:4]/3-7[4:4],(60),,(120),,,,"
         "E"
     )
     return builder.get_level()
@@ -246,6 +282,7 @@ def test_simai():
 levels = [
     build_level("test-notes", "Test Notes", level_entities=test_notes()),
     build_level("test-spin", "Test Spin", level_entities=test_spin()),
+    build_level("test-hold", "Test Hold", level_entities=test_hold()),
     build_level("test-touch", "Test Touch", level_entities=test_touch()),
     build_level("test-slide", "Test Slide", level_entities=test_slide()),
     build_level("test-slide-tracks", "Test Slide Tracks", level_entities=test_slide_tracks()),

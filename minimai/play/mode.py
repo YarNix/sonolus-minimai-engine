@@ -4,6 +4,7 @@ from minimai.play.initialization import Initialization
 from minimai.play.input_manager import InputManager
 from minimai.play.bpm_change import BpmChange
 from minimai.play.note import NOTE_ARCHETYPES
+from minimai.play.hold import HOLD_ARCHETYPES
 from minimai.play.ring import Ring
 from minimai.play.touch import TOUCH_ARCHETYPES
 from minimai.play.slide import SLIDE_ARCHETYPES
@@ -20,6 +21,7 @@ play_mode = PlayMode(
         Ring,
         BpmChange,
         *NOTE_ARCHETYPES,
+        *HOLD_ARCHETYPES,
         *TOUCH_ARCHETYPES,
         *SLIDE_ARCHETYPES,
     ],

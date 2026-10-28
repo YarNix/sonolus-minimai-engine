@@ -48,6 +48,10 @@ class SimaiState:
         """At the current BPM."""
         return seconds * self.current_bpm / 60
 
+    def beats_to_seconds(self, beats: float, bpm: float | None = None) -> float:
+        """At ``bpm``, or the current BPM."""
+        return beats * 60 / (self.current_bpm if bpm is None else bpm)
+
     def advance(self):
         self.last_advance = self.comma_beats
         self.beat += self.last_advance
@@ -55,8 +59,8 @@ class SimaiState:
 
 @dataclass
 class SimaiLength:
-    beats: float
-    wait: float | None  # beats; None = default (1 beat)
+    seconds: float
+    wait: float | None  # seconds; None = default (1 beat at the current BPM)
 
 
 @dataclass
@@ -75,7 +79,7 @@ class SimaiSlide:
     """One ``*`` track."""
 
     segments: list[SimaiSegment]
-    wait: float  # beats
+    wait: float  # seconds
     brk: bool
 
 
@@ -227,27 +231,25 @@ def parse_group(group: str, beat: float, state: SimaiState, extensions: frozense
 
 
 def parse_length(text: str, state: SimaiState) -> SimaiLength:
-    """``[...]`` body."""
+    """``[...]`` body, as seconds."""
     wait = None
     if "##" in text:
         wait_text, text = text.split("##", 1)
-        wait = state.seconds_to_beats(float(wait_text))
+        wait = float(wait_text)
     bpm = None
     if "#" in text:
         bpm_text, text = text.split("#", 1)
         if not bpm_text:
-            return SimaiLength(state.seconds_to_beats(float(text)), wait)
+            return SimaiLength(float(text), wait)
         bpm = float(bpm_text)
         if wait is None:
-            wait = state.current_bpm / bpm
+            wait = state.beats_to_seconds(1, bpm)
     if ":" in text:
         divider, count = text.split(":")
         beats = 4 / float(divider) * float(count)
-        if bpm is not None:
-            beats = beats * state.current_bpm / bpm
-        return SimaiLength(beats, wait)
+        return SimaiLength(state.beats_to_seconds(beats, bpm), wait)
     if bpm is not None or wait is not None:
-        return SimaiLength(state.seconds_to_beats(float(text)), wait)
+        return SimaiLength(float(text), wait)
     raise ValueError(f"Invalid length [{text}]")
 
 
@@ -356,14 +358,14 @@ def parse_slide(button: int, text: str, state: SimaiState, extensions: frozenset
             push_wifi_slots(stack, branch)
 
     waits = [s.length.wait for s in main if s.length is not None and s.length.wait is not None]
-    return SimaiSlide(main, waits[0] if waits else 1.0, brk)
+    return SimaiSlide(main, waits[0] if waits else state.beats_to_seconds(1), brk)
 
 
 @dataclass
 class WifiSlots:
     segment: SimaiSegment
-    # Default branch length: what the containing chain has left after the Wi-Fi.
-    remaining_beats: float
+    # Default branch length (seconds): what the containing chain has left after the Wi-Fi.
+    remaining_seconds: float
     used: list[bool] = field(default_factory=lambda: [False, False])
 
     @property
@@ -385,7 +387,7 @@ class WifiSlots:
             return None
         branch, brk = parse_segments(ends[side], slot, state)
         if all(s.length is None for s in branch):
-            branch[-1].length = SimaiLength(self.remaining_beats, None)
+            branch[-1].length = SimaiLength(self.remaining_seconds, None)
         branches = list(self.segment.branches)
         branches[side] = branch
         self.segment.branches = (branches[0], branches[1])
@@ -395,5 +397,5 @@ class WifiSlots:
 def push_wifi_slots(stack: list[WifiSlots], segments: list[SimaiSegment]):
     for index, segment in enumerate(segments):
         if segment.shape == "w":
-            remaining = sum(s.length.beats for s in segments[index + 1 :] if s.length is not None)
+            remaining = sum(s.length.seconds for s in segments[index + 1 :] if s.length is not None)
             stack.append(WifiSlots(segment, remaining))
