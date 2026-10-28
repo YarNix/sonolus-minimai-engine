@@ -11,16 +11,10 @@ from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.input_state import InputState
+from minimai.lib.hold import HoldState
 from minimai.lib.touch import get_touch_appear_duration
-from minimai.lib.touch_hold import TouchHoldBorderState, TouchHoldKind, draw_touch_hold
+from minimai.lib.touch_hold import TouchHoldKind, draw_touch_hold
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
-
-
-class TouchHoldPressState(IntEnum):
-    # No body frame checked yet.
-    NONE = auto()
-    RELEASED = auto()
-    PRESSED = auto()
 
 
 class BaseTouchHold(TouchBaseInput):
@@ -40,7 +34,7 @@ class BaseTouchHold(TouchBaseInput):
 
     release_time: float = entity_memory()
     pending_release: float = entity_memory()
-    press_state: TouchHoldPressState = entity_memory()
+    hold_state: HoldState = entity_memory()
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -62,7 +56,7 @@ class BaseTouchHold(TouchBaseInput):
         self.hold_input_interval = buckets.touch_hold_interval(self.target_time, self.end_time) + input_offset()
 
     def initialize(self):
-        self.press_state = TouchHoldPressState.NONE
+        self.hold_state = HoldState.DEFAULT
 
     @property
     def judgment_window(self):
@@ -90,19 +84,20 @@ class BaseTouchHold(TouchBaseInput):
     def check_body(self, pressed: bool):
         if pressed:
             self.pending_release = 0
-            self.press_state = TouchHoldPressState.PRESSED
+            self.hold_state = HoldState.PRESSED
             return
         # The first frames of a release after the head (or a press) are forgiven.
         if (
             self.is_head_judged
-            and self.press_state != TouchHoldPressState.RELEASED
+            and self.hold_state != HoldState.RELEASED
             and self.pending_release <= 2 / 60
         ):
             self.pending_release += delta_time()
+            self.hold_state = HoldState.RELEASED_GRACE
             return
         self.release_time += self.pending_release + delta_time()
         self.pending_release = 0
-        self.press_state = TouchHoldPressState.RELEASED
+        self.hold_state = HoldState.RELEASED
 
     def touch(self):
         if not self.is_scored or self.despawn or self.is_head_judged:
@@ -114,6 +109,7 @@ class BaseTouchHold(TouchBaseInput):
         captured_touch = next(touch for touch in touches() if touch.id == self.captured_touch_id)
         self.head_judgment = self.judgment_window.judge(captured_touch.time, self.target_time)
         self.head_error = self.judgment_window.good.clamp(captured_touch.time - self.target_time)
+        self.hold_state = HoldState.PRESSED
 
     def update_parallel(self):
         if self.despawn:
@@ -127,21 +123,13 @@ class BaseTouchHold(TouchBaseInput):
         if self.is_scored and self.is_head_judged and time() >= self.end_time + input_offset():
             self.finish()
             return
-        draw_touch_hold(self.kind, self.sensor, self.start_time, self.target_time, self.end_time, self.border_state)
-
-    @property
-    def border_state(self) -> TouchHoldBorderState:
-        # The border turns grey while released and back when pressed again.
-        result = TouchHoldBorderState.ON
-        if self.press_state == TouchHoldPressState.RELEASED:
-            result = TouchHoldBorderState.OFF
-        return result
+        draw_touch_hold(self.kind, self.sensor, self.start_time, self.target_time, self.end_time, self.hold_state)
 
     def finish(self):
         final = self.head_judgment
         if self.hold_input_interval.length > 0:
-            if self.press_state == TouchHoldPressState.RELEASED or (
-                self.press_state == TouchHoldPressState.NONE
+            if self.hold_state == HoldState.RELEASED or (
+                self.hold_state == HoldState.DEFAULT
                 and self.head_judgment == buckets.ArcadeJudgment.MISS
             ):
                 self.release_time += delta_time()

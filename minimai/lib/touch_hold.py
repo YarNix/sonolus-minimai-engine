@@ -6,6 +6,7 @@ from sonolus.script.quad import Quad
 from sonolus.script.runtime import time
 
 from minimai.lib.game import Sensor
+from minimai.lib.hold import HoldState
 from minimai.lib.layer import LAYER_TOUCH, LAYER_TOUCH_HOLD_BORDER, ZIndexes, get_z
 from minimai.lib.layout import TouchHoldBorderLayout, get_touch_fan_alpha, layout_touch_hold
 from minimai.lib.skin import ActiveSkin
@@ -16,21 +17,13 @@ class TouchHoldKind(IntEnum):
     EACH_TOUCH_HOLD = auto()
     BREAK_TOUCH_HOLD = auto()
 
-
-class TouchHoldBorderState(IntEnum):
-    # Not released (yet): the coloured border.
-    ON = auto()
-    # Released during the body: the grey border.
-    OFF = auto()
-
-
 def draw_touch_hold(
     kind: TouchHoldKind,
     sensor: Sensor,
     start_time: float,
     target_time: float,
     end_time: float,
-    border_state: TouchHoldBorderState,
+    state: HoldState,
 ):
     progress = unlerp(start_time, target_time, time())
     if progress < 0:
@@ -47,7 +40,7 @@ def draw_touch_hold(
         border_progress = 1.0
         if end_time > target_time:
             border_progress = min((time() - target_time) / (end_time - target_time), 1)
-        _border_draw(border_state, border_progress, sensor, layout.border, get_z(LAYER_TOUCH_HOLD_BORDER, target_time))
+        _border_draw(state, border_progress, sensor, layout.border, get_z(LAYER_TOUCH_HOLD_BORDER, target_time))
 
 
 def _point_draw(kind: TouchHoldKind, layout: Quad, layer: ZIndexes):
@@ -62,17 +55,18 @@ def _point_draw(kind: TouchHoldKind, layout: Quad, layer: ZIndexes):
             assert_never(kind)
 
 
-def _border_draw(state: TouchHoldBorderState, progress: float, sensor: Sensor, full: Quad, layer: ZIndexes):
+def _border_draw(state: HoldState, progress: float, sensor: Sensor, full: Quad, layer: ZIndexes):
     if progress <= 0:
         return
+    is_on = state == HoldState.DEFAULT or state == HoldState.PRESSED
     if progress >= 1:
-        if state == TouchHoldBorderState.ON:
+        if is_on:
             ActiveSkin.touch_hold_border_on.draw(full, layer.tuple)
         else:
             ActiveSkin.touch_hold_border_off.draw(full, layer.tuple)
         return
     for piece in TouchHoldBorderLayout.build(progress, sensor).pieces:
-        if state == TouchHoldBorderState.ON:
+        if is_on:
             ActiveSkin.touch_hold_border_on_bars[piece.side].draw(piece.quad, layer.tuple)
         else:
             ActiveSkin.touch_hold_border_off_bars[piece.side].draw(piece.quad, layer.tuple)

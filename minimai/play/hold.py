@@ -7,7 +7,6 @@ from sonolus.script.bucket import Bucket
 from sonolus.script.interval import Interval, clamp
 from sonolus.script.runtime import delta_time, input_offset, time, touches
 from sonolus.script.timing import beat_to_time
-from sonolus.script.debug import debug_log
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.hold import HoldState, HoldKind, draw_hold, is_ex_hold
@@ -69,7 +68,6 @@ class BaseHold(ButtonBaseInput):
     def update_sequential(self):
         if self.despawn:
             return
-        debug_log(self.hold_state)
         if (
             self.is_scored
             and not self.is_head_judged
