@@ -12,13 +12,15 @@ from minimai.lib.hold import HoldKind
 from minimai.lib.note import NoteKind
 from minimai.lib.slide import SlideKind, SlideTrackKind, get_slide_end_button, get_slide_kind_variant
 from minimai.lib.touch import TouchKind
-from minimai.play import hold, note, slide, touch
+from minimai.lib.touch_hold import TouchHoldKind
+from minimai.play import hold, note, slide, touch, touch_hold
 from minimai import simai
 from minimai.simai import SimaiChart, SimaiGroup, SimaiHold, SimaiSegment, SimaiSlideNote, SimaiState, SimaiTap, SimaiTouch
 
 NOTE_ARCHETYPES = {arch.key: arch for arch in note.NOTE_ARCHETYPES}
 HOLD_ARCHETYPES = {arch.key: arch for arch in hold.HOLD_ARCHETYPES}
 TOUCH_ARCHETYPES = {arch.key: arch for arch in touch.TOUCH_ARCHETYPES}
+TOUCH_HOLD_ARCHETYPES = {arch.key: arch for arch in touch_hold.TOUCH_HOLD_ARCHETYPES}
 SLIDE_ARCHETYPES = {arch.key: arch for arch in slide.SLIDE_ARCHETYPES if arch.is_scored}
 
 DEFAULT_BPM = simai.DEFAULT_BPM
@@ -60,6 +62,13 @@ def get_hold_kind(*, ex: bool = False, each: bool = False, brk: bool = False) ->
     if each:
         return HoldKind.EX_EACH_HOLD if ex else HoldKind.EACH_HOLD
     return HoldKind.EX_HOLD if ex else HoldKind.NORM_HOLD
+
+
+def get_touch_hold_kind(*, each: bool = False, brk: bool = False) -> TouchHoldKind:
+    """Break overrides each."""
+    if brk:
+        return TouchHoldKind.BREAK_TOUCH_HOLD
+    return TouchHoldKind.EACH_TOUCH_HOLD if each else TouchHoldKind.NORM_TOUCH_HOLD
 
 
 def get_slide_kind(*, each: bool = False, brk: bool = False, wifi: bool = False) -> SlideKind:
@@ -323,8 +332,18 @@ class LevelBuilder:
         self.emit_hold(kind, button, hold_time, hold_seconds=hold_seconds, speed=speed, firework=firework)
         self.advance()
 
-    def add_touch_hold(self, kind: TouchKind, *, sensor: Sensor = Sensor.C, speed: float = 1, firework: bool | None = None):
-        # TODO: touch hold archetypes
+    def add_touch_hold(
+        self,
+        kind: TouchHoldKind,
+        sensor: Sensor = Sensor.C,
+        hold_time: float = 0,
+        *,
+        hold_seconds: float | None = None,
+        speed: float = 1,
+        firework: bool | None = None,
+    ):
+        """``hold_time`` in beats, or ``hold_seconds``; 0 = a touch hold that ends with its head."""
+        self.emit_touch_hold(kind, sensor, hold_time, hold_seconds=hold_seconds, speed=speed, firework=firework)
         self.advance()
 
     def add_slide(
@@ -449,8 +468,15 @@ class LevelBuilder:
 
         for parsed in notes:
             if isinstance(parsed, SimaiTouch):
-                kind = TouchKind.BREAK_TOUCH if parsed.brk else TouchKind.EACH_TOUCH if each_head else TouchKind.NORM_TOUCH
-                if not parsed.hold:  # TODO: touch hold
+                if parsed.hold:
+                    kind = get_touch_hold_kind(each=each_head, brk=parsed.brk)
+                    hold_seconds = parsed.length.seconds if parsed.length else None
+                    self.emit_touch_hold(
+                        kind, Sensor[parsed.sensor], hold_seconds=hold_seconds,
+                        firework=parsed.firework or None, beat=group.beat,
+                    )
+                else:
+                    kind = TouchKind.BREAK_TOUCH if parsed.brk else TouchKind.EACH_TOUCH if each_head else TouchKind.NORM_TOUCH
                     self.emit_touch(kind, Sensor[parsed.sensor], firework=parsed.firework or None, beat=group.beat)
             elif isinstance(parsed, SimaiHold):
                 kind = get_hold_kind(ex=parsed.ex, each=each_head, brk=parsed.brk)
@@ -546,6 +572,34 @@ class LevelBuilder:
         entity = HOLD_ARCHETYPES[kind](
             beat=beat,
             button=button,
+            speed=speed,
+            hold_duration=hold_time,
+        )
+        if hold_seconds is not None:
+            self._pending_holds.append(_PendingHold(entity, beat, hold_seconds))
+        self.entities.append(entity)
+        return entity
+
+    def emit_touch_hold(
+        self,
+        kind: TouchHoldKind,
+        sensor: Sensor = Sensor.C,
+        hold_time: float = 0,
+        *,
+        hold_seconds: float | None = None,
+        speed: float = 1,
+        firework: bool | None = None,
+        beat: float | None = None,
+    ):
+        """``hold_time`` in beats from the head, or ``hold_seconds`` (a fixed time, resolved
+        to beats in ``get_level``)."""
+        self.ensure_bpm()
+        if hold_time < 0 or (hold_seconds is not None and hold_seconds < 0):
+            raise ValueError("Hold time can't be negative")
+        beat = self.beat if beat is None else beat
+        entity = TOUCH_HOLD_ARCHETYPES[kind](
+            beat=beat,
+            sensor=sensor,
             speed=speed,
             hold_duration=hold_time,
         )

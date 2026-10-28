@@ -135,6 +135,10 @@ class BaseSkin:
     normal_touch_hold_fan: SpriteGroup = sprite_group(f"Mai Normal Touch Hold Fan {i}" for i in range(1, 5))
     touch_hold_border_on: Sprite = sprite("Mai Touch Hold Border On")
     touch_hold_border_off: Sprite = sprite("Mai Touch Hold Border Off")
+    # Cross-sections of the four border sides (clockwise from the top-right one)
+    # used to draw the partly filled border.
+    touch_hold_border_on_bars: SpriteGroup = sprite_group(f"Mai Touch Hold Border On Bar {i}" for i in range(1, 5))
+    touch_hold_border_off_bars: SpriteGroup = sprite_group(f"Mai Touch Hold Border Off Bar {i}" for i in range(1, 5))
 
     ring: Sprite = sprite("Mai Ring")
     sensor_outline: Sprite = sprite("Mai Sensor Outline")
@@ -284,6 +288,8 @@ class ActiveSkin:
     normal_touch_hold_fan: SpriteGroup
     touch_hold_border_on: Sprite
     touch_hold_border_off: Sprite
+    touch_hold_border_on_bars: SpriteGroup
+    touch_hold_border_off_bars: SpriteGroup
 
     ring: Sprite
     sensor_outline: Sprite
@@ -451,6 +457,8 @@ def init_skin():
     ActiveSkin.normal_touch_hold_fan = BaseSkin.normal_touch_hold_fan
     ActiveSkin.touch_hold_border_on = BaseSkin.touch_hold_border_on
     ActiveSkin.touch_hold_border_off = BaseSkin.touch_hold_border_off
+    ActiveSkin.touch_hold_border_on_bars = BaseSkin.touch_hold_border_on_bars
+    ActiveSkin.touch_hold_border_off_bars = BaseSkin.touch_hold_border_off_bars
 
     ActiveSkin.ring = BaseSkin.ring
     ActiveSkin.sensor_outline = BaseSkin.sensor_outline

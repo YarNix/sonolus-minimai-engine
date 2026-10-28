@@ -39,6 +39,10 @@ NORMAL_TOUCH_NOTE = "NormalTouchNote"
 BREAK_TOUCH_NOTE = "BreakTouchNote"
 EACH_TOUCH_NOTE = "EachTouchNote"
 
+NORMAL_TOUCH_HOLD_NOTE = "NormalTouchHoldNote"
+EACH_TOUCH_HOLD_NOTE = "EachTouchHoldNote"
+BREAK_TOUCH_HOLD_NOTE = "BreakTouchHoldNote"
+
 NORMAL_SLIDE_NOTE = "NormalSlideNote"
 BREAK_SLIDE_NOTE = "BreakSlideNote"
 EACH_SLIDE_NOTE = "EachSlideNote"
