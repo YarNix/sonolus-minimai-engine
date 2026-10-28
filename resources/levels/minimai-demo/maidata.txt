@@ -1,0 +1,16 @@
+&title=Minimai Demo
+&artist=Minimai
+&des=Every element, one beat apart, over a 160 BPM kick.
+&first=0
+&wholebpm=160
+&genre=Demo
+&demo_seek=0
+&lv_1=1
+&des_1=Minimai
+&inote_1=(160){4},,,,
+1,2,3,4,5,6,7,8,
+1h[8:1],2h[8:1],3h[8:1],4h[8:1],5h[8:1],6h[8:1],7h[8:1],8h[8:1],
+B1,B2,B3,B4,B5,B6,B7,B8,
+Ch[8:1],E1h[8:1],E2h[8:1],E3h[8:1],E4h[8:1],E5h[8:1],E6h[8:1],E7h[8:1],E8h[8:1],
+1-4[4:1],1-5[4:1],1-6[4:1],1>1[1:1],,,,,,
+E

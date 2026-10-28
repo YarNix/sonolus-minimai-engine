@@ -7,3 +7,9 @@ requires-python = ">=3.13"
 dependencies = [
     "sonolus-py>=0.18.1",
 ]
+
+[project.optional-dependencies]
+# Audio conversion for the chart folders in resources/levels.
+levels = [
+    "imageio-ffmpeg>=0.7.0",
+]

@@ -1,7 +1,13 @@
+import hashlib
+import re
 import struct
+import subprocess
+from collections.abc import Iterator
+from pathlib import Path
 from typing import Iterable
 
 from sonolus.script.level import BpmChange, Level, LevelData
+from sonolus.script.metadata import Tag
 from sonolus.build.collection import Asset
 from sonolus.script.archetype import PlayArchetype
 
@@ -14,6 +20,7 @@ from minimai.lib.note import NoteKind, is_star
 from minimai.lib.slide import SlideKind, SlideTrackKind
 from minimai.lib.layout import SLIDE_TRACK_POINTS
 from minimai.level_builder import LevelBuilder, SlideTrackArg
+from minimai.simai import read_maidata
 from minimai.play.initialization import Initialization
 from minimai.play import note, touch
 
@@ -314,6 +321,137 @@ def test_simai():
     return builder.get_level()
 
 
+## Levels from simai chart folders in resources/levels (see: resources/levels/README.md)
+LEVELS_DIR = Path(__file__).parent.parent / "resources" / "levels"
+# Converted audio, kept between builds
+AUDIO_CACHE_DIR = Path(__file__).parent.parent / "tmp" / "resource_levels"
+
+
+def build_resource_levels(levels_dir: Path = LEVELS_DIR) -> Iterator[Level]:
+    """One level per chart of every song folder in ``levels_dir`` (sorted by folder name).
+
+    A folder that doesn't match the layout is skipped.
+    Without imageio-ffmpeg, folders with an mp3/wav track are built without a preview and the others are skipped.
+    """
+    if not levels_dir.is_dir():
+        return
+    folders = sorted(path for path in levels_dir.iterdir() if path.is_dir())
+    if not folders:
+        return
+    try:
+        import imageio_ffmpeg  # noqa: F401
+        has_ffmpeg = True
+    except ImportError:
+        has_ffmpeg = False
+        print("imageio-ffmpeg isn't installed (uv sync --extra levels): "
+              "chart levels get no preview, and only mp3 tracks are used.")
+    for folder in folders:
+        yield from build_song_levels(folder, has_ffmpeg=has_ffmpeg)
+
+
+def build_song_levels(folder: Path, *, has_ffmpeg: bool = True) -> Iterator[Level]:
+    """The levels of one song folder; named ``<folder>``, or ``<folder>-<N>`` when it has several charts."""
+    # Helpers
+    def get_float_or_None(maidata: dict[str, str], key: str) -> float | None:
+        try:
+            return float(maidata[key].strip())
+        except (KeyError, ValueError):
+            return None
+    def parse_rating(text: str) -> float:
+        # 13 -> 13
+        # 13+ -> 13
+        # 13.7 -> 13.7
+        # 0 when there's no number
+        m = re.match(r"\s*(\d+(?:\.\d+)?)(\+?)", text)
+        if m is None:
+            return 0
+        rating = float(m.group(1))
+        return int(rating) if rating.is_integer() else rating
+
+    maidata_path = folder / "maidata.txt"
+    track = resolve_file(folder, "track", (".mp3", ".ogg", ".wav"))
+    if not maidata_path.is_file() or track is None:
+        missing = [
+            name for name, found in (("maidata.txt", maidata_path.is_file()), ("track.mp3/.ogg/.wav", track)) if not found
+        ]
+        print(f"Skipping chart folder {folder}: no {' or '.join(missing)}.")
+        return
+    no_conversion = track.suffix.lower() == ".mp3" or track.suffix.lower() == ".wav"
+    if not no_conversion and not has_ffmpeg:
+        print(f"Skipping chart folder {folder}: {track.name} needs imageio-ffmpeg.")
+        return
+    cover = resolve_file(folder, "bg", (".png", ".jpg", ".jpeg"))
+
+    text = maidata_path.read_text(encoding="utf-8-sig")
+    maidata = read_maidata(text)
+    charts = sorted(
+        (int(m.group(1)) for key, value in maidata.items() if (m := re.fullmatch(r"inote_(\d+)", key)) and value.strip()),
+    )
+    if not charts:
+        print(f"Skipping chart folder {folder}: maidata.txt has no &inote_N chart.")
+        return
+
+    bgm = track if no_conversion else convert_audio(track, [])
+    preview = None
+    demo_seek = get_float_or_None(maidata, "demo_seek")
+    if demo_seek is not None and has_ffmpeg:
+        # 30 s from the demo point, fading out over the last 3 s.
+        preview = convert_audio(track, ["-ss", f"{demo_seek}", "-t", "30", "-af", "afade=t=out:st=27:d=3"])
+    tags = [Tag(maidata[key].strip()) for key in ("genre", "wholebpm") if maidata.get(key, "").strip()]
+
+    for chart in charts:
+        builder = LevelBuilder()
+        try:
+            builder.parse_maidata(text, chart)
+            entities = [Initialization(), *builder.get_level()]
+        except Exception as error:
+            raise ValueError(f"{maidata_path}: &inote_{chart}: {error}") from error
+        # The chart starts &first seconds into the track.
+        first = get_float_or_None(maidata, f"first_{chart}")
+        if first is None:
+            first = get_float_or_None(maidata, "first") or 0.0
+        yield Level(
+            name=folder.name if len(charts) == 1 else f"{folder.name}-{chart}",
+            title=maidata.get("title", "").strip() or folder.name,
+            artists=maidata.get("artist", "").strip() or "Unknown",
+            author=maidata.get(f"des_{chart}", "").strip() or maidata.get("des", "").strip() or "Unknown",
+            rating=parse_rating(maidata.get(f"lv_{chart}", "")),
+            cover=cover,
+            bgm=bgm,
+            preview=preview,
+            data=LevelData(bgm_offset=first, entities=entities),
+            description=maidata.get("des", "").strip() or None,
+            tags=tags,
+        )
+
+def resolve_file(folder: Path, stem: str, suffixes: tuple[str, ...]) -> Path | None:
+    for suffix in suffixes:
+        for path in (folder / f"{stem}{suffix}", folder / f"{stem}{suffix.upper()}"):
+            if path.is_file():
+                return path
+    return None
+
+def convert_audio(source: Path, args: list[str]) -> Path:
+    """``source`` through ffmpeg ``args`` to mp3. The result is kept in ``AUDIO_CACHE_DIR`` and reused
+    while the source file (path, size, modified time) and ``args`` stay the same."""
+    stat = source.stat()
+    key_text = "\0".join([str(source.resolve()), str(stat.st_size), str(stat.st_mtime_ns), *args])
+    key = hashlib.sha256(key_text.encode()).hexdigest()[:16]
+    output = AUDIO_CACHE_DIR / f"{source.parent.name}-{key}.mp3"
+    if not output.is_file():
+        import imageio_ffmpeg
+
+        output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = output.with_suffix(".part.mp3")
+        subprocess.run(
+            [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(source), *args,
+             "-vn", "-codec:a", "libmp3lame", "-q:a", "2", str(temporary)],
+            check=True,
+        )
+        temporary.replace(output)
+    return output
+
+
 levels = [
     build_level("test-notes", "Test Notes", level_entities=test_notes()),
     build_level("test-spin", "Test Spin", level_entities=test_spin()),
@@ -324,4 +462,5 @@ levels = [
     build_level("test-slide-tracks", "Test Slide Tracks", level_entities=test_slide_tracks()),
     build_level("test-connected-slide", "Test Connected Slide", level_entities=test_connected_slide()),
     build_level("test-simai", "Test Simai", level_entities=test_simai()),
+    *build_resource_levels(),
 ]
