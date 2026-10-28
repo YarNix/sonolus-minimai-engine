@@ -438,7 +438,7 @@ def normalize_window_side(error: float, perfect: float, great: float, good: floa
 def note_interval(frames: int):
     return Interval(-frames / 60, frames / 60)
 
-def touch_interval(frames: int):
+def touch_interval(frames: float):
     return Interval(-9 / 60, frames / 60)
 
 def hold_interval(start: float, end: float):
@@ -458,8 +458,8 @@ TOUCH_WINDOW = ArcadeWindow(
     critical_perfect = touch_interval(9),
     high_perfect = touch_interval(10.5),
     low_perfect = touch_interval(12),
-    critical_great = touch_interval(15),
-    high_great = touch_interval(5),
-    low_great = touch_interval(6),
+    critical_great = touch_interval(13),
+    high_great = touch_interval(14),
+    low_great = touch_interval(15),
     good = touch_interval(18),
 )
