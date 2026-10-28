@@ -1,4 +1,4 @@
-from math import cos, floor, log, pi, sin, e
+from math import atan2, ceil, cos, floor, log, pi, sin, sqrt, tan, e
 from typing import assert_never
 
 from sonolus.script.globals import level_data
@@ -39,6 +39,7 @@ NOTE_BASE_SIZE = 0.3828
 LINE_BASE_SIZE = 1.095
 TOUCH_DOT_BASE_SIZE = 0.076
 TOUCH_FAN_BASE_SIZE = Vec2(112, 82) / 112 * 0.2514
+TOUCH_HOLD_BORDER_BASE_SIZE = Vec2(211, 210) / 112 * 0.2514
 SLIDE_PATH_BASE_SIZE = Vec2(70, 94) / 480
 SLIDE_UNIT = 4.8
 WIFI_SLIDE_PATH_BASE_SIZES = Array(*(size / 480 for size in (
@@ -235,6 +236,151 @@ def layout_touch(progress: float, sensor: Sensor):
         border=dot_rect.scale_centered(Vec2(4, 4)).as_quad(),
     )
 
+class TouchHoldLayoutGroup(Record):
+    dot: Quad
+    fan: Quad
+    border: Quad
+
+    def get_fan(self, index: int) -> Quad:
+        return self.fan.rotate_about(3 * pi / 4 - index * pi / 2, pivot=self.dot.center)
+
+def layout_touch_hold(progress: float, sensor: Sensor):
+    pos = get_sensor_pos_from_center(sensor)
+
+    dot_size = TOUCH_DOT_BASE_SIZE * Layout.ring_distance * Options.touch_scale
+    dot_rect = Rect.from_center(pos, Vec2(dot_size, dot_size))
+
+    # Same approach as a touch.
+    dist_progress = unlerp_clamped(0.4, 0, 0.42 - e ** (4.3 * progress - 5.15))
+    fan_dist = lerp(TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, dist_progress) * Layout.ring_distance * Options.touch_scale
+    fan_size = TOUCH_FAN_BASE_SIZE * Layout.ring_distance * Options.touch_scale
+    fan_rect = Rect.from_center(pos + Vec2(0, -fan_dist), fan_size)
+
+    border_size = TOUCH_HOLD_BORDER_BASE_SIZE * Layout.ring_distance * Options.touch_scale
+
+    return TouchHoldLayoutGroup(
+        dot=dot_rect.as_quad(),
+        fan=fan_rect.as_quad(),
+        border=Rect.from_center(pos, border_size).as_quad(),
+    )
+
+class TouchHoldBorderPiece(Record):
+    """A piece of the partly filled touch hold border, drawn with that side's bar sprite."""
+    # Border side, clockwise from the top-right one (0..3).
+    side: int
+    quad: Quad
+
+class TouchHoldBorderLayout(Record):
+    """The touch hold border layout as bar pieces.
+
+    The border sprite is a rounded diamond.
+    Each side is one colour from the corner before it to the corner after.
+    Per side: half corner, straight side, half corner.
+    """
+    # Rectangles per half corner (45 degrees).
+    CORNER_STEPS = 6
+    # Per side: CORNER_STEPS pieces for each of the two half corners and 1 for the straight part.
+    Pieces = VarArray[TouchHoldBorderPiece, Dim[52]]  # (6 + 6 + 1) * 4 = 52
+
+    pieces: Pieces
+
+    # Pixel distance of the side from the center
+    SIDE_DISTANCE = 66.5
+    # Arc of the border on each corner
+    CORNER_RADIUS = 34.25
+    # Half the thickness of the bar sprites (ring and glow).
+    BAR_HALF = 26
+    # Distance from the center to the corner arc centers.
+    CORNER_DISTANCE = (SIDE_DISTANCE - CORNER_RADIUS) * sqrt(2)
+
+    @classmethod
+    def build(cls, progress: float, sensor: Sensor):
+        straight_start = atan2(cls.CORNER_RADIUS / sqrt(2), cls.CORNER_DISTANCE + cls.CORNER_RADIUS / sqrt(2))
+        straight_end = pi / 2 - straight_start
+
+        layout = cls(pieces=cls.Pieces.new())
+        sweep = clamp(progress, 0, 1) * 2 * pi
+        for side in range(4):
+            if sweep > side * pi / 2:
+                # Built for the top-right side (y up, pixels), then turned to its place.
+                phi = min(sweep - side * pi / 2, pi / 2)
+                top_corner = Vec2(0, cls.CORNER_DISTANCE)
+                right_corner = Vec2(cls.CORNER_DISTANCE, 0)
+                # Angles around each corner's center: the top corner's half runs from pi / 2 down
+                # to pi / 4, the right corner's from pi / 4 down to 0.
+                top_end = pi / 4
+                if phi < straight_start:
+                    top_end = cls.ray_angle(phi, top_corner, pi / 2, pi / 4)
+                layout.add_arc(sensor, side, top_corner, pi / 2, top_end)
+                if phi > straight_start:
+                    straight_from = top_corner + Vec2.unit(pi / 4) * cls.CORNER_RADIUS
+                    along = Vec2.unit(-pi / 4)
+                    length = cls.CORNER_DISTANCE * sqrt(2)
+                    if phi < straight_end:
+                        ray = Vec2(sin(phi), cos(phi))
+                        hit = ray * (cls.SIDE_DISTANCE * sqrt(2) / (ray.x + ray.y))
+                        length = clamp((hit - straight_from).dot(along), 0, length)
+                    straight_to = straight_from + along * length
+                    normal = Vec2.unit(pi / 4) * cls.BAR_HALF
+                    layout.add_piece(
+                        sensor, side, straight_from - normal, straight_from + normal,
+                        straight_to + normal, straight_to - normal,
+                    )
+                if phi > straight_end:
+                    right_end = 0.0
+                    if phi < pi / 2:
+                        right_end = cls.ray_angle(phi, right_corner, pi / 4, 0)
+                    layout.add_arc(sensor, side, right_corner, pi / 4, right_end)
+        return layout
+
+    @classmethod
+    def ray_angle(cls, phi: float, corner_center: Vec2, start: float, end: float) -> float:
+        """Angle around ``corner_center`` (clamped to ``end``..``start``) where the sweep ray at
+        ``phi`` (clockwise from 12 o'clock) crosses the corner's centerline arc."""
+        ray = Vec2(sin(phi), cos(phi))
+        b = ray.dot(corner_center)
+        disc = b * b - (corner_center.dot(corner_center) - cls.CORNER_RADIUS ** 2)
+        result = start
+        if disc >= 0:
+            hit = ray * (b + sqrt(disc))
+            result = clamp(atan2(hit.y - corner_center.y, hit.x - corner_center.x), end, start)
+        return result
+
+    def add_piece(self, sensor: Sensor, side: int, bl: Vec2, tl: Vec2, tr: Vec2, br: Vec2):
+        """Adds a piece given in border pixels of the top-right side (y up), turned clockwise to
+        ``side`` and placed on the sensor."""
+        center = get_sensor_pos_from_center(sensor)
+        # World size of one border sprite pixel.
+        scale = TOUCH_HOLD_BORDER_BASE_SIZE.x / 211 * Layout.ring_distance * Options.touch_scale
+        angle = -side * pi / 2
+        self.pieces.append(TouchHoldBorderPiece(
+            side=side,
+            quad=Quad(
+                bl=center + bl.rotate(angle) * scale,
+                tl=center + tl.rotate(angle) * scale,
+                tr=center + tr.rotate(angle) * scale,
+                br=center + br.rotate(angle) * scale,
+            ),
+        ))
+
+    def add_arc(self, sensor: Sensor, side: int, corner_center: Vec2, start_angle: float, end_angle: float):
+        """Clockwise arc around ``corner_center`` from ``start_angle`` down to ``end_angle``,
+        as up to ``CORNER_STEPS`` rectangles across the bar."""
+        if start_angle - end_angle < 1e-4:
+            return
+        meet = self.CORNER_RADIUS + self.BAR_HALF - 8
+        step = pi / 4 / self.CORNER_STEPS
+        count = ceil((start_angle - end_angle) / step - 1e-4)
+        for i in range(count):
+            angle_from = start_angle - i * step
+            angle_to = max(start_angle - (i + 1) * step, end_angle)
+            mid = Vec2.unit((angle_from + angle_to) / 2)
+            # Clockwise along the arc, half the width.
+            across = mid.rotate(-pi / 2) * (meet * tan((angle_from - angle_to) / 2))
+            inner = corner_center + mid * (self.CORNER_RADIUS - self.BAR_HALF)
+            outer = corner_center + mid * (self.CORNER_RADIUS + self.BAR_HALF)
+            self.add_piece(sensor, side, inner - across, outer - across, outer + across, inner + across)
+
 def get_touch_fan_alpha(progress: float):
     return unlerp_clamped(0, TOUCH_END_SCALING_PROGGRESS, progress)
 
@@ -242,7 +388,7 @@ class SlidePoint(Record):
     position: Vec2   # ring-unit (0 = center, 1 = ring)
     rotation: float  # radians, in the canonical orientation
 
-SlideTrackPointArray = VarArray[SlidePoint, Dim[65]]
+SlideTrackPointArray = VarArray[SlidePoint, Dim[100]]
 
 def empty_track_points() -> SlideTrackPointArray:
     return SlideTrackPointArray.new()

@@ -116,6 +116,21 @@ Comprised of many archetypes according to the following naming scheme:
 * **sensor (Sensor)**
 * **speed (float)**: Note speed multiplier. Defaults to 1.
 
+## *TouchHoldNote
+
+Comprised of many archetypes according to the following naming scheme:
+
+[![][touch_hold_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Choice%280,%20%27Normal%27,%20%27Each%27,%20%27Break%27%29,%20%27TouchHoldNote%27%29)
+
+Note: Each and break only change the centre point (and break scores as a break).
+
+### Fields
+
+* **#BEAT (float)**
+* **sensor (Sensor)**
+* **holdDuration (float)**: Beats from the head to the end. 0 is a touch hold that ends with its head. Defaults to 0.
+* **speed (float)**: Note speed multiplier. Defaults to 1.
+
 ## Slides
 
 A slide is one entity, or a chain of entities linked by **prevSlide** / **nextSlide**. Every chain has exactly one head (no **prevSlide**) and one or more final slides (no next).
@@ -160,10 +175,10 @@ At least one of the three must be set.
 
 ## Planned
 
-* Touch hold notes.
 * Fireworks: the level builder already accepts `firework` on every note, touch, hold and slide, but it isn't written to level data yet.
 
 [note_diagram]: img/note_rr_diagram.png
-[hold_diagram]: img/hold_rr-diagram.png
+[hold_diagram]: img/hold_rr_diagram.png
 [touch_diagram]: img/touch_rr_diagram.png
-[slide_diagram]: img/slide_rr-diagram.png
+[touch_hold_diagram]: img/touch_hold_rr_diagram.png
+[slide_diagram]: img/slide_rr_diagram.png

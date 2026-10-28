@@ -7,6 +7,9 @@ from sonolus.script.archetype import PlayArchetype
 
 from minimai.lib.game import get_button_iterator, get_sensor_iterator
 from minimai.lib.hold import HoldKind
+from minimai.lib.game import Sensor
+from minimai.lib.touch import TouchKind
+from minimai.lib.touch_hold import TouchHoldKind
 from minimai.lib.note import NoteKind, is_star
 from minimai.lib.slide import SlideKind, SlideTrackKind
 from minimai.lib.layout import SLIDE_TRACK_POINTS
@@ -137,6 +140,38 @@ def test_hold():
         "3bh[4:3],,,,4xh[4:1],,6bxh[4:1],,8h,,"
         "2h[#1.5],,,,"
     )
+    return builder.get_level()
+
+
+def test_touch_hold():
+    builder = LevelBuilder()
+    builder.set_bpm(120, division=4)
+    # At 120 BPM: 0.9 beat = 27 frames (no body check), then 1 and 2 beats.
+    lengths = (0, 0.9, 1, 2)
+    sensors = (Sensor.C, Sensor.B1, Sensor.E3, Sensor.A5, Sensor.D7)
+    for kind in TouchHoldKind:
+        for index, sensor in enumerate(sensors):
+            builder.add_touch_hold(kind, sensor, lengths[index % len(lengths)])
+            builder.advance(1)
+        builder.advance(2)
+
+    # A touch on the same sensor during a touch hold must still be catchable.
+    builder.add_touch_hold(TouchHoldKind.NORM_TOUCH_HOLD, Sensor.C, 4)
+    builder.add_touch(TouchKind.NORM_TOUCH, Sensor.C)
+    builder.add_touch(TouchKind.NORM_TOUCH, Sensor.C)
+    builder.advance(4)
+
+    # simai: each touch holds, break, zero-length, firework flag, a seconds length.
+    builder.parse_line(
+        "Ch[2:1]/B5h[2:1],,,,"
+        "E2bh[4:3],,,,Ch,,Chf[4:1],,"
+        "D4h[#1.5],,,,"
+    )
+
+    for i in range(8):
+        builder.add_touch_hold(TouchKind.EACH_TOUCH, Sensor.E1 + i, 5)
+        builder.same_line()
+
     return builder.get_level()
 
 
@@ -284,6 +319,7 @@ levels = [
     build_level("test-spin", "Test Spin", level_entities=test_spin()),
     build_level("test-hold", "Test Hold", level_entities=test_hold()),
     build_level("test-touch", "Test Touch", level_entities=test_touch()),
+    build_level("test-touch-hold", "Test Touch Hold", level_entities=test_touch_hold()),
     build_level("test-slide", "Test Slide", level_entities=test_slide()),
     build_level("test-slide-tracks", "Test Slide Tracks", level_entities=test_slide_tracks()),
     build_level("test-connected-slide", "Test Connected Slide", level_entities=test_connected_slide()),

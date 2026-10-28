@@ -7,6 +7,7 @@ from minimai.play.note import NOTE_ARCHETYPES
 from minimai.play.hold import HOLD_ARCHETYPES
 from minimai.play.ring import Ring
 from minimai.play.touch import TOUCH_ARCHETYPES
+from minimai.play.touch_hold import TOUCH_HOLD_ARCHETYPES
 from minimai.play.slide import SLIDE_ARCHETYPES
 
 from minimai.lib.buckets import Buckets
@@ -23,6 +24,7 @@ play_mode = PlayMode(
         *NOTE_ARCHETYPES,
         *HOLD_ARCHETYPES,
         *TOUCH_ARCHETYPES,
+        *TOUCH_HOLD_ARCHETYPES,
         *SLIDE_ARCHETYPES,
     ],
     skin=BaseSkin,

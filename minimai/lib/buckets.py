@@ -1,3 +1,4 @@
+from math import cos, degrees, radians, sin
 from enum import IntEnum, auto
 from typing import assert_never
 
@@ -6,13 +7,15 @@ from sonolus.script.interval import Interval, lerp
 from sonolus.script.record import Record
 from sonolus.script.sprite import Sprite
 from sonolus.script.text import StandardText
+from sonolus.script.vec import Vec2
 
 from minimai.lib.hold import HoldKind
-from minimai.lib.layout import SLIDE_PATH_BASE_SIZE, TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, TOUCH_DOT_BASE_SIZE, TOUCH_FAN_BASE_SIZE
+from minimai.lib.layout import SLIDE_PATH_BASE_SIZE, TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, TOUCH_DOT_BASE_SIZE, TOUCH_FAN_BASE_SIZE, TOUCH_HOLD_BORDER_BASE_SIZE
 from minimai.lib.note import NoteKind
 from minimai.lib.skin import BaseSkin
 from minimai.lib.slide import SlideKind
 from minimai.lib.touch import TouchKind
+from minimai.lib.touch_hold import TouchHoldKind
 
 WINDOW_SCALE = 1000  # Note and touch windows are in ms
 
@@ -26,6 +29,9 @@ SLIDE_BUCKET_WINDOW = JudgmentWindow(
 
 NOTE_BUCKET_SIZE = 2
 NOTE_BUCKET_STEP = 2
+
+HOLD_BUCKET_BODY = 2
+HOLD_BUCKET_GAP = 1
 
 # Touch icon with the fans at their spawn distance, scaled to about the note icon size.
 TOUCH_BUCKET_SCALE = 1 / (TOUCH_DISTANCE_START + TOUCH_FAN_BASE_SIZE.y / 2)
@@ -112,22 +118,25 @@ def get_hold_bucket_outlines(kind: HoldKind) -> tuple[Sprite, Sprite, Sprite] | 
 
 
 def create_hold_bucket_sprites(*kinds: HoldKind) -> list[_BucketSprite]:
-    """One short hold per kind, left to right; EX kinds get their outline on top, as in game."""
+    """One hold per kind lying on its side; EX kinds get their outline on top, as in game."""
     out_sprites: list[_BucketSprite] = []
-    x_offset = (len(kinds) - 1) * NOTE_BUCKET_STEP / 2
-    w = NOTE_BUCKET_SIZE * 122 / 180
+    # Sizes from the hold sprites (note size = 180 px): 122 px wide, 60 px caps.
+    thickness = NOTE_BUCKET_SIZE * 122 / 180
     cap = NOTE_BUCKET_SIZE * 60 / 180
-    body = NOTE_BUCKET_SIZE * 60 / 180
-    cap_y = (body + cap) / 2
+    body = HOLD_BUCKET_BODY
+    hold_step = body + 2 * cap + HOLD_BUCKET_GAP
+    x_offset = (len(kinds) - 1) * hold_step / 2
+    cap_x = (body + cap) / 2
     for i, kind in enumerate(kinds):
-        x = NOTE_BUCKET_STEP * i - x_offset
+        x = hold_step * i - x_offset
         for pieces in (get_hold_bucket_sprites(kind), get_hold_bucket_outlines(kind)):
             if pieces is None:
                 continue
             head, body_sprite, tail = pieces
-            out_sprites.append(bucket_sprite(sprite=body_sprite, x=x, y=0, w=w, h=body))
-            out_sprites.append(bucket_sprite(sprite=tail, x=x, y=-cap_y, w=w, h=cap))
-            out_sprites.append(bucket_sprite(sprite=head, x=x, y=cap_y, w=w, h=cap))
+            # Turned a quarter counterclockwise: the head (top) ends up on the left.
+            out_sprites.append(bucket_sprite(sprite=body_sprite, x=x, y=0, w=thickness, h=body, rotation=90))
+            out_sprites.append(bucket_sprite(sprite=tail, x=x + cap_x, y=0, w=thickness, h=cap, rotation=90))
+            out_sprites.append(bucket_sprite(sprite=head, x=x - cap_x, y=0, w=thickness, h=cap, rotation=90))
     return out_sprites
 
 
@@ -164,6 +173,44 @@ def create_touch_bucket_sprites(*kinds: TouchKind) -> list[_BucketSprite]:
                 rotation=rotation,
             ))
         out_sprites.append(bucket_sprite(sprite=point, x=x, y=0, w=dot_size, h=dot_size))
+    return out_sprites
+
+
+def get_touch_hold_bucket_point(kind: TouchHoldKind) -> Sprite:
+    match kind:
+        case TouchHoldKind.NORM_TOUCH_HOLD:
+            return BaseSkin.normal_touch_point
+        case TouchHoldKind.EACH_TOUCH_HOLD:
+            return BaseSkin.each_touch_point
+        case TouchHoldKind.BREAK_TOUCH_HOLD:
+            return BaseSkin.break_touch_point
+    raise ValueError(f"No bucket sprite for {kind!r}")
+
+
+def create_touch_hold_bucket_sprites(*kinds: TouchHoldKind) -> list[_BucketSprite]:
+    """One touch hold per kind, left to right, as it looks when it arrives: the full border, the
+    four fans at the diagonals (drawn in game order) and the point."""
+    out_sprites: list[_BucketSprite] = []
+    x_offset = (len(kinds) - 1) * TOUCH_BUCKET_STEP / 2
+    dot_size = TOUCH_DOT_BASE_SIZE * TOUCH_BUCKET_SCALE
+    fan_size = TOUCH_FAN_BASE_SIZE * TOUCH_BUCKET_SCALE
+    border_size = TOUCH_HOLD_BORDER_BASE_SIZE * TOUCH_BUCKET_SCALE
+    fan_distance = TOUCH_DISTANCE_END * TOUCH_BUCKET_SCALE
+    for i, kind in enumerate(kinds):
+        x = TOUCH_BUCKET_STEP * i - x_offset
+        out_sprites.append(bucket_sprite(sprite=BaseSkin.touch_hold_border_on, x=x, y=0, w=border_size.x, h=border_size.y))
+        # Fan j sits at 45 + 90 j degrees clockwise from 12 o'clock; fan 1 is drawn last (on top).
+        for j in reversed(range(4)):
+            angle = radians(45 + 90 * j)
+            out_sprites.append(bucket_sprite(
+                sprite=BaseSkin.normal_touch_hold_fan.get_unchecked(j),
+                x=x + sin(angle) * fan_distance,
+                y=cos(angle) * fan_distance,
+                w=fan_size.x,
+                h=fan_size.y,
+                rotation=180 - degrees(angle),
+            ))
+        out_sprites.append(bucket_sprite(sprite=get_touch_hold_bucket_point(kind), x=x, y=0, w=dot_size, h=dot_size))
     return out_sprites
 
 
@@ -235,6 +282,14 @@ class Buckets:
         sprites=create_touch_bucket_sprites(TouchKind.BREAK_TOUCH),
         unit=StandardText.MILLISECOND_UNIT,
     )
+    standard_touch_hold: Bucket = bucket(
+        sprites=create_touch_hold_bucket_sprites(TouchHoldKind.NORM_TOUCH_HOLD, TouchHoldKind.EACH_TOUCH_HOLD),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
+    break_touch_hold: Bucket = bucket(
+        sprites=create_touch_hold_bucket_sprites(TouchHoldKind.BREAK_TOUCH_HOLD),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
     standard_slide: Bucket = bucket(
         sprites=create_slide_bucket_sprites(SlideKind.NORMAL_SLIDE, SlideKind.EACH_SLIDE),
     )
@@ -252,6 +307,8 @@ def init_buckets():
     Buckets.break_hold.window = NOTE_WINDOW.bucket_window
     Buckets.standard_touch.window = TOUCH_WINDOW.bucket_window
     Buckets.break_touch.window = TOUCH_WINDOW.bucket_window
+    Buckets.standard_touch_hold.window = TOUCH_WINDOW.bucket_window
+    Buckets.break_touch_hold.window = TOUCH_WINDOW.bucket_window
     Buckets.standard_slide.window = SLIDE_BUCKET_WINDOW
     Buckets.break_slide.window = SLIDE_BUCKET_WINDOW
 
@@ -295,6 +352,18 @@ def get_touch_bucket(kind: TouchKind) -> Bucket:
             result @= Buckets.standard_touch
         case TouchKind.BREAK_TOUCH:
             result @= Buckets.break_touch
+        case _:
+            assert_never(kind)
+    return result
+
+
+def get_touch_hold_bucket(kind: TouchHoldKind) -> Bucket:
+    result = Bucket(-1)
+    match kind:
+        case TouchHoldKind.NORM_TOUCH_HOLD | TouchHoldKind.EACH_TOUCH_HOLD:
+            result @= Buckets.standard_touch_hold
+        case TouchHoldKind.BREAK_TOUCH_HOLD:
+            result @= Buckets.break_touch_hold
         case _:
             assert_never(kind)
     return result
@@ -443,6 +512,9 @@ def touch_interval(frames: float):
 
 def hold_interval(start: float, end: float):
     return Interval(start + 6 / 60, end - 12 / 60)
+
+def touch_hold_interval(start: float, end: float):
+    return Interval(start + 15 / 60, end - 12 / 60)
 
 NOTE_WINDOW = ArcadeWindow(
     critical_perfect = note_interval(1),

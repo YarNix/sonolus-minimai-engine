@@ -30,8 +30,8 @@ Text after the last comma is placed but doesn't move time forward.
 | `5h[2:1]` | Hold. `5h` without a length is a zero-length hold. Combines with `b` and `x`. |
 | `B1`, `D4`, `E8` | Touch. `C`, `C1`, `C2` are all the center. |
 | `Cb` | Break touch. |
-| `Cf` | Touch with a firework. Parsed; no effect yet. |
-| `Ch[4:3]` | Touch hold. Parsed but not placed yet. |
+| `Cf` | Touch with a firework. |
+| `Ch[4:3]` | Touch hold. `Ch` without a length is a zero-length touch hold. Combines with `b` and `f`. |
 
 ### Together
 
