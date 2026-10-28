@@ -30,6 +30,9 @@ SLIDE_BUCKET_WINDOW = JudgmentWindow(
 NOTE_BUCKET_SIZE = 2
 NOTE_BUCKET_STEP = 2
 
+HOLD_BUCKET_BODY = 2
+HOLD_BUCKET_GAP = 1
+
 # Touch icon with the fans at their spawn distance, scaled to about the note icon size.
 TOUCH_BUCKET_SCALE = 1 / (TOUCH_DISTANCE_START + TOUCH_FAN_BASE_SIZE.y / 2)
 TOUCH_BUCKET_STEP = 2.4
@@ -115,22 +118,25 @@ def get_hold_bucket_outlines(kind: HoldKind) -> tuple[Sprite, Sprite, Sprite] | 
 
 
 def create_hold_bucket_sprites(*kinds: HoldKind) -> list[_BucketSprite]:
-    """One short hold per kind, left to right; EX kinds get their outline on top, as in game."""
+    """One hold per kind lying on its side; EX kinds get their outline on top, as in game."""
     out_sprites: list[_BucketSprite] = []
-    x_offset = (len(kinds) - 1) * NOTE_BUCKET_STEP / 2
-    w = NOTE_BUCKET_SIZE * 122 / 180
+    # Sizes from the hold sprites (note size = 180 px): 122 px wide, 60 px caps.
+    thickness = NOTE_BUCKET_SIZE * 122 / 180
     cap = NOTE_BUCKET_SIZE * 60 / 180
-    body = NOTE_BUCKET_SIZE * 60 / 180
-    cap_y = (body + cap) / 2
+    body = HOLD_BUCKET_BODY
+    hold_step = body + 2 * cap + HOLD_BUCKET_GAP
+    x_offset = (len(kinds) - 1) * hold_step / 2
+    cap_x = (body + cap) / 2
     for i, kind in enumerate(kinds):
-        x = NOTE_BUCKET_STEP * i - x_offset
+        x = hold_step * i - x_offset
         for pieces in (get_hold_bucket_sprites(kind), get_hold_bucket_outlines(kind)):
             if pieces is None:
                 continue
             head, body_sprite, tail = pieces
-            out_sprites.append(bucket_sprite(sprite=body_sprite, x=x, y=0, w=w, h=body))
-            out_sprites.append(bucket_sprite(sprite=tail, x=x, y=-cap_y, w=w, h=cap))
-            out_sprites.append(bucket_sprite(sprite=head, x=x, y=cap_y, w=w, h=cap))
+            # Turned a quarter counterclockwise: the head (top) ends up on the left.
+            out_sprites.append(bucket_sprite(sprite=body_sprite, x=x, y=0, w=thickness, h=body, rotation=90))
+            out_sprites.append(bucket_sprite(sprite=tail, x=x + cap_x, y=0, w=thickness, h=cap, rotation=90))
+            out_sprites.append(bucket_sprite(sprite=head, x=x - cap_x, y=0, w=thickness, h=cap, rotation=90))
     return out_sprites
 
 
