@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import IntEnum, auto
 from typing import cast
 
 from sonolus.script.archetype import StandardImport, entity_data, entity_memory, imported
@@ -29,6 +28,7 @@ class BaseTouchHold(TouchBaseInput):
 
     head_judgment: buckets.ArcadeJudgment = entity_memory()
     head_error: float = entity_memory()
+    held_at_head: bool = entity_memory()
 
     hold_input_interval: Interval = entity_data()
 
@@ -69,13 +69,13 @@ class BaseTouchHold(TouchBaseInput):
     def update_sequential(self):
         if self.despawn:
             return
-        if (
-            self.is_scored
-            and not self.is_head_judged
-            and time() in self.input_interval
-            and self.captured_touch_id == 0
-        ):
-            BaseInputMemory.active_touch_inputs.append(self.ref().with_archetype(TouchBaseInput))
+        if self.is_scored and not self.is_head_judged and time() in self.input_interval:
+            if self.captured_touch_id == 0:
+                BaseInputMemory.active_touch_inputs.append(self.ref().with_archetype(TouchBaseInput))
+            if (self.hold_input_interval.length <= 0
+                and self.target_time + input_offset() <= time()
+                and InputState.sensor_touch_down[self.sensor - 1]):
+                self.held_at_head = True
         # Releases are read here: touch() isn't called in frames without touches.
         # No body check when the touch hold is 27 frames or shorter (empty or zero-length interval).
         if self.hold_input_interval.length > 0 and time() in self.hold_input_interval:
@@ -137,6 +137,9 @@ class BaseTouchHold(TouchBaseInput):
             held = self.hold_input_interval.length
             percent = clamp((held - self.release_time) / held, 0, 1)
             final = buckets.hold_end_judge(self.head_judgment, percent)
+        elif self.head_judgment == buckets.ArcadeJudgment.MISS and self.held_at_head:
+            # Judged like a longer hold held all the way, so a missed head still gives a Good.
+            final = buckets.hold_end_judge(self.head_judgment, 1)
 
         self.result.judgment = buckets.arcade_judgement_to_normal(final)
         self.result.accuracy = self.head_error
