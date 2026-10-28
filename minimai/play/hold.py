@@ -86,7 +86,7 @@ class BaseHold(ButtonBaseInput):
         ):
             BaseInputMemory.active_tap_inputs.append(self.ref().with_archetype(ButtonBaseInput))
         # Releases are read here: touch() isn't called in frames without touches.
-        if not self.hold_input_interval.is_empty and time() in self.hold_input_interval:
+        if self.hold_input_interval.length > 0 and time() in self.hold_input_interval:
             self.check_body(self.is_pressed())
 
     def is_pressed(self) -> bool:
@@ -154,7 +154,7 @@ class BaseHold(ButtonBaseInput):
 
     def finish(self):
         final = self.head_judgment
-        if not self.hold_input_interval.is_empty:
+        if self.hold_input_interval.length > 0:
             if self.press_state == HoldPressState.RELEASED or (
                 self.press_state == HoldPressState.NONE
                 and self.head_judgment == buckets.ArcadeJudgment.MISS
