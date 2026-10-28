@@ -31,14 +31,11 @@ class HoldKind(IntEnum):
     BREAK_HOLD = auto()
     EX_BREAK_HOLD = auto()
 
-
-class HoldDrawState(IntEnum):
-    # Not pressed yet (or never counted): the plain sprite.
-    NORMAL = auto()
-    # Held during the body: the "on" sprite.
-    ON = auto()
-    # Released during the body: the grey "off" sprite.
-    OFF = auto()
+class HoldState(IntEnum):
+    DEFAULT = 0 # In the approach state neither held or released
+    PRESSED = auto()
+    RELEASED = auto()
+    RELEASED_GRACE = auto()
 
 
 def is_ex_hold(kind: HoldKind) -> bool:
@@ -55,7 +52,7 @@ def draw_hold(
     start_time: float,
     target_time: float,
     end_time: float,
-    state: HoldDrawState,
+    state: HoldState,
 ):
     progress = unlerp(start_time, target_time, time())
     if progress < 0:
@@ -92,11 +89,11 @@ def _draw_active_body_set(sprites: ActiveBodySpriteSet, layout: HoldLayout, targ
     sprites.head.draw(layout.head, get_z(LAYER_NOTE, target_time, LAYER_OFFSET_HEAD).tuple)
 
 
-def _body_draw(kind: HoldKind, state: HoldDrawState, layout: HoldLayout, target_time: float):
-    if state == HoldDrawState.OFF:
+def _body_draw(kind: HoldKind, state: HoldState, layout: HoldLayout, target_time: float):
+    if state == HoldState.RELEASED or state == HoldState.RELEASED_GRACE:
         _draw_body_set(ActiveSkin.hold_note_off, layout, target_time)
         return
-    is_on = state == HoldDrawState.ON
+    is_on = state == HoldState.PRESSED
     match kind:
         case HoldKind.NORM_HOLD | HoldKind.EX_HOLD:
             if is_on:
