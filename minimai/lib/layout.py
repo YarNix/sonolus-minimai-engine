@@ -12,7 +12,6 @@ from sonolus.script.interval import Interval, lerp, lerp_clamped, unlerp, clamp,
 from sonolus.script.debug import assert_true, debug_log
 
 from minimai.lib.game import Button, Sensor, SensorGroup, sensor_offset, sensor_to_group
-from minimai.lib.level_config import LevelConfig
 from minimai.lib.options import Options
 
 @level_data
@@ -20,29 +19,48 @@ class Layout:
     field_w: float
     field_h: float
     ring_center: Vec2
-    # Distance from center to where the judgment/ring reside
-    ring_distance: float
-    button_distance: float
+    # Judgment ring radius in screen units: ring units (0 = center, 1 = judgment ring) to screen.
+    ring_radius: float
 
- # Base distance from center to the judgment ring in the texture
-JUDGEMENT_DISTANCE = 0.9725
-BUTTON_DISTANCE = 1.1
 
-DISTANCE_SCALING = 1.225
-DISTANCE_END = 4.8
-DISTANCE_TRAVEL = DISTANCE_END - DISTANCE_SCALING
-TOUCH_DISTANCE_START = 0.12
-TOUCH_DISTANCE_END = 0.0468
+# The skin art is drawn for a judgment ring this many pixels in radius.
+SKIN_RING_RADIUS_PX = 480
 
-NOTE_SCALE_RATE = 0.265
-NOTE_BASE_SIZE = 0.3828
-LINE_BASE_SIZE = 1.095
-TOUCH_DOT_BASE_SIZE = 0.076
-TOUCH_FAN_BASE_SIZE = Vec2(112, 82) / 112 * 0.2514
-TOUCH_HOLD_BORDER_BASE_SIZE = Vec2(211, 210) / 112 * 0.2514
-SLIDE_PATH_BASE_SIZE = Vec2(70, 94) / 480
-SLIDE_UNIT = 4.8
-WIFI_SLIDE_PATH_BASE_SIZES = Array(*(size / 480 for size in (
+
+def from_skin_px(value: int | float | Vec2):
+    """Skin (texture) pixels to ring units."""
+    return value / SKIN_RING_RADIUS_PX
+
+
+# All layout constants are in ring units (0 = center, 1 = judgment ring).
+
+# The ring sprite (1024 px) has its judgment ring 498 px from the center.
+RING_SPRITE_SIZE = 1024 / 498
+# Where the button hitboxes start, just outside the ring.
+BUTTON_DISTANCE = 1.131105
+
+# Notes appear at the spawn distance, scale in, then travel to the ring.
+NOTE_SPAWN_DISTANCE = from_skin_px(122.5)
+# Scale grown per ring unit travelled (0.265 per 100 skin px).
+NOTE_SCALE_RATE = 0.265 / from_skin_px(100)
+NOTE_SIZE = from_skin_px(180)
+LINE_SIZE = from_skin_px(1080)
+
+HOLD_WIDTH = from_skin_px(122)
+HOLD_CAP_LENGTH = from_skin_px(58)
+HOLD_BODY_MIN_LENGTH = from_skin_px(24)
+HOLD_END_POINT_SIZE = from_skin_px(64)
+
+TOUCH_POINT_SIZE = from_skin_px(32)
+TOUCH_JUST_BORDER_SIZE = from_skin_px(128)
+TOUCH_FAN_SIZE = from_skin_px(Vec2(112, 82))
+# Fan center from the point: the offset, plus the travel at the start of the approach.
+TOUCH_FAN_OFFSET = from_skin_px(22.6)
+TOUCH_FAN_TRAVEL = from_skin_px(40)
+TOUCH_HOLD_BORDER_SIZE = from_skin_px(Vec2(211, 210))
+
+SLIDE_PATH_SIZE = from_skin_px(Vec2(70, 94))
+WIFI_SLIDE_PATH_SIZES = Array(*(from_skin_px(size) for size in (
     Vec2(111, 68),
     Vec2(160, 90),
     Vec2(204, 110),
@@ -56,15 +74,13 @@ WIFI_SLIDE_PATH_BASE_SIZES = Array(*(size / 480 for size in (
     Vec2(653, 313),
 )))
 
-TRAVEL_DISTANCE_PROGRESS = DISTANCE_SCALING / DISTANCE_END
-NOTE_END_SCALING_PROGRESS = 1 / (DISTANCE_TRAVEL * NOTE_SCALE_RATE + 1)
+NOTE_END_SCALING_PROGRESS = 1 / ((1 - NOTE_SPAWN_DISTANCE) * NOTE_SCALE_RATE + 1)
 TOUCH_END_SCALING_PROGGRESS = 0.2
 
 def init_layout():
     Layout.field_w = screen().w
     Layout.field_h = screen().h
-    Layout.ring_distance = JUDGEMENT_DISTANCE * Options.ring_size
-    Layout.button_distance = BUTTON_DISTANCE * Options.ring_size
+    Layout.ring_radius = Options.ring_size
     # Change this when it's time to add orientation
     Layout.ring_center = Vec2(0, Options.ring_offset)
 
@@ -99,61 +115,68 @@ def get_sensor_angle_horizontal(sensor: Sensor):
 def _get_button_pos(button: Vec2, distance: float) -> Vec2:
     return Vec2.unit(get_button_angle_horizontal(button)) * distance
 
-def get_pos_from_center(angle: float, distance: float) -> Vec2:
-    return Layout.ring_center + Vec2.unit(angle) * distance
+def layout_ring_pos(angle: float, distance: float) -> Vec2:
+    """Screen position at ``angle`` and ``distance`` (ring units) from the ring center."""
+    return Layout.ring_center + Vec2.unit(angle) * (distance * Layout.ring_radius)
 
-def get_sensor_group_dist_from_center(group: SensorGroup):
+def layout_ring_point(position: Vec2) -> Vec2:
+    """Screen position of a point in ring units (relative to the ring center)."""
+    return Layout.ring_center + position * Layout.ring_radius
+
+def layout_px_size(size: float | Vec2, scale: float = 1.0):
+    """A size in ring units to screen units, times an option scale."""
+    return size * (Layout.ring_radius * scale)
+
+def get_sensor_distance(group: SensorGroup) -> float:
+    """Distance of a sensor group from the ring center, in ring units."""
     match group:
         case SensorGroup.A:
-            return 4 / DISTANCE_END * Layout.ring_distance
+            return 0.833333
         case SensorGroup.B:
-            return 2.2 / DISTANCE_END * Layout.ring_distance
+            return 0.458333
         case SensorGroup.C:
             return 0.0
         case SensorGroup.D:
-            return 4.1 / DISTANCE_END * Layout.ring_distance
+            return 0.854167
         case SensorGroup.E:
-            return 3.1 / DISTANCE_END * Layout.ring_distance
+            return 0.645833
         case _:
             assert_never(group)
+            return 0.0
 
 def get_sensor_pos_from_center(sensor: Sensor):
-    group = sensor_to_group(sensor)
-    distance = get_sensor_group_dist_from_center(group)
-    angle = get_sensor_angle_horizontal(sensor)
-    return get_pos_from_center(angle, distance)
+    return layout_ring_pos(get_sensor_angle_horizontal(sensor), get_sensor_distance(sensor_to_group(sensor)))
 
 def get_dist_from_center(pos: Vec2):
     return (pos - Layout.ring_center).magnitude
 
 def get_quad_from_center(button: Button, dist: float, size: Vec2) -> Quad:
-    center = get_pos_from_center(get_button_angle_horizontal(button), dist)
+    """A quad on the button's lane, ``dist`` ring units out, ``size`` in screen units."""
+    center = layout_ring_pos(get_button_angle_horizontal(button), dist)
     return Rect.from_center(center, size).as_quad().rotate_centered(get_button_angle_vertical(button))
 
 def layout_ring():
-    return Rect.from_center(
-        Layout.ring_center, 
-        Vec2(Layout.field_h * Options.ring_size, Layout.field_h * Options.ring_size)
-    ).as_quad()
+    size = layout_px_size(RING_SPRITE_SIZE)
+    return Rect.from_center(Layout.ring_center, Vec2(size, size)).as_quad()
 
 def layout_note(progress: float, button: Button):
-    note_size = NOTE_BASE_SIZE * Layout.ring_distance * Options.note_scale
-    pos = TRAVEL_DISTANCE_PROGRESS
+    note_size = layout_px_size(NOTE_SIZE, Options.note_scale)
+    pos = NOTE_SPAWN_DISTANCE
     if progress <= NOTE_END_SCALING_PROGRESS:
         note_size = note_size * clamp(unlerp(0, NOTE_END_SCALING_PROGRESS, progress), 1e-4, 1)
     else:
         pos = remap(NOTE_END_SCALING_PROGRESS, 1, pos, 1, progress)
-    center = get_pos_from_center(get_button_angle_horizontal(button), pos * Layout.ring_distance)
+    center = layout_ring_pos(get_button_angle_horizontal(button), pos)
     dimensions = Vec2(note_size, note_size)
     layout = Rect.from_center(center, dimensions).as_quad()
     return layout
 
 def layout_line(progress: float):
-    line_size = Layout.field_h * Options.ring_size * LINE_BASE_SIZE
+    line_size = layout_px_size(LINE_SIZE)
     if progress <= NOTE_END_SCALING_PROGRESS:
-        line_size = line_size * TRAVEL_DISTANCE_PROGRESS
+        line_size = line_size * NOTE_SPAWN_DISTANCE
     else:
-        line_size = line_size * remap(NOTE_END_SCALING_PROGRESS, 1, TRAVEL_DISTANCE_PROGRESS, 1, progress)
+        line_size = line_size * remap(NOTE_END_SCALING_PROGRESS, 1, NOTE_SPAWN_DISTANCE, 1, progress)
     dimensions = Vec2(line_size, line_size)
     layout = Rect.from_center(Layout.ring_center, dimensions).as_quad()
     return layout
@@ -172,32 +195,31 @@ class HoldLayout(Record):
 
 
 def layout_hold(head_progress: float, tail_progress: float, button: Button) -> HoldLayout:
-    note_size = NOTE_BASE_SIZE * Layout.ring_distance * Options.note_scale
-    head_pos = TRAVEL_DISTANCE_PROGRESS
-    tail_pos = TRAVEL_DISTANCE_PROGRESS
+    # Ring units along the lane; the note scale multiplies the sprite sizes only.
+    scale = Options.note_scale
+    appear = 1.0
+    head_pos = NOTE_SPAWN_DISTANCE
+    tail_pos = NOTE_SPAWN_DISTANCE
     tail_visible = False
     if head_progress <= NOTE_END_SCALING_PROGRESS:
-        note_size = note_size * clamp(unlerp(0, NOTE_END_SCALING_PROGRESS, head_progress), 1e-4, 1)
+        appear = clamp(unlerp(0, NOTE_END_SCALING_PROGRESS, head_progress), 1e-4, 1)
     else:
-        head_pos = min(remap(NOTE_END_SCALING_PROGRESS, 1, TRAVEL_DISTANCE_PROGRESS, 1, head_progress), 1)
+        head_pos = min(remap(NOTE_END_SCALING_PROGRESS, 1, NOTE_SPAWN_DISTANCE, 1, head_progress), 1)
         if tail_progress > NOTE_END_SCALING_PROGRESS:
             tail_visible = True
-            tail_pos = remap(NOTE_END_SCALING_PROGRESS, 1, TRAVEL_DISTANCE_PROGRESS, 1, tail_progress)
-            tail_pos = clamp(tail_pos, TRAVEL_DISTANCE_PROGRESS, head_pos)
+            tail_pos = remap(NOTE_END_SCALING_PROGRESS, 1, NOTE_SPAWN_DISTANCE, 1, tail_progress)
+            tail_pos = clamp(tail_pos, NOTE_SPAWN_DISTANCE, head_pos)
 
-    head_dist = head_pos * Layout.ring_distance
-    tail_dist = tail_pos * Layout.ring_distance
-    # Scale hold sprite base on the proportions to the note size
-    width = note_size * 122 / 180
-    cap = note_size * 58 / 180
-    body = note_size * 24 / 180
-    end_point_size = note_size * 64 / 180
+    width = layout_px_size(HOLD_WIDTH, scale * appear)
+    cap = HOLD_CAP_LENGTH * scale * appear
+    body = HOLD_BODY_MIN_LENGTH * scale * appear
+    end_point_size = layout_px_size(HOLD_END_POINT_SIZE, scale * appear)
 
     return HoldLayout(
-        head=get_quad_from_center(button, head_dist + body / 2 + cap / 2, Vec2(width, cap)),
-        body=get_quad_from_center(button, (head_dist + tail_dist) / 2, Vec2(width, head_dist - tail_dist + body)),
-        tail=get_quad_from_center(button, tail_dist - body / 2 - cap / 2, Vec2(width, cap)),
-        end_point=get_quad_from_center(button, tail_dist, Vec2(end_point_size, end_point_size)),
+        head=get_quad_from_center(button, head_pos + body / 2 + cap / 2, Vec2(width, layout_px_size(cap))),
+        body=get_quad_from_center(button, (head_pos + tail_pos) / 2, Vec2(width, layout_px_size(head_pos - tail_pos + body))),
+        tail=get_quad_from_center(button, tail_pos - body / 2 - cap / 2, Vec2(width, layout_px_size(cap))),
+        end_point=get_quad_from_center(button, tail_pos, Vec2(end_point_size, end_point_size)),
         tail_visible=tail_visible,
     )
 
@@ -222,18 +244,18 @@ class TouchLayoutGroup(Record):
 def layout_touch(progress: float, sensor: Sensor):
     pos = get_sensor_pos_from_center(sensor)
 
-    dot_size = TOUCH_DOT_BASE_SIZE * Layout.ring_distance * Options.touch_scale
+    dot_size = layout_px_size(TOUCH_POINT_SIZE, Options.touch_scale)
     dot_rect = Rect.from_center(pos, Vec2(dot_size, dot_size))
 
     dist_progress = unlerp_clamped(0.4, 0, 0.42 - e ** (4.3 * progress - 5.15))
-    fan_dist = lerp(TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, dist_progress) * Layout.ring_distance * Options.touch_scale
-    fan_size = TOUCH_FAN_BASE_SIZE * Layout.ring_distance * Options.touch_scale
+    fan_dist = layout_px_size(TOUCH_FAN_OFFSET + TOUCH_FAN_TRAVEL * (1 - dist_progress), Options.touch_scale)
+    fan_size = layout_px_size(TOUCH_FAN_SIZE, Options.touch_scale)
     fan_rect = Rect.from_center(pos + Vec2(0, -fan_dist), fan_size)
 
     return TouchLayoutGroup(
         dot=dot_rect.as_quad(),
         bottom_fan=fan_rect.as_quad(),
-        border=dot_rect.scale_centered(Vec2(4, 4)).as_quad(),
+        border=Rect.from_center(pos, layout_px_size(Vec2.one() * TOUCH_JUST_BORDER_SIZE, Options.touch_scale)).as_quad(),
     )
 
 class TouchHoldLayoutGroup(Record):
@@ -247,16 +269,16 @@ class TouchHoldLayoutGroup(Record):
 def layout_touch_hold(progress: float, sensor: Sensor):
     pos = get_sensor_pos_from_center(sensor)
 
-    dot_size = TOUCH_DOT_BASE_SIZE * Layout.ring_distance * Options.touch_scale
+    dot_size = layout_px_size(TOUCH_POINT_SIZE, Options.touch_scale)
     dot_rect = Rect.from_center(pos, Vec2(dot_size, dot_size))
 
     # Same approach as a touch.
     dist_progress = unlerp_clamped(0.4, 0, 0.42 - e ** (4.3 * progress - 5.15))
-    fan_dist = lerp(TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, dist_progress) * Layout.ring_distance * Options.touch_scale
-    fan_size = TOUCH_FAN_BASE_SIZE * Layout.ring_distance * Options.touch_scale
+    fan_dist = layout_px_size(TOUCH_FAN_OFFSET + TOUCH_FAN_TRAVEL * (1 - dist_progress), Options.touch_scale)
+    fan_size = layout_px_size(TOUCH_FAN_SIZE, Options.touch_scale)
     fan_rect = Rect.from_center(pos + Vec2(0, -fan_dist), fan_size)
 
-    border_size = TOUCH_HOLD_BORDER_BASE_SIZE * Layout.ring_distance * Options.touch_scale
+    border_size = layout_px_size(TOUCH_HOLD_BORDER_SIZE, Options.touch_scale)
 
     return TouchHoldLayoutGroup(
         dot=dot_rect.as_quad(),
@@ -350,8 +372,8 @@ class TouchHoldBorderLayout(Record):
         """Adds a piece given in border pixels of the top-right side (y up), turned clockwise to
         ``side`` and placed on the sensor."""
         center = get_sensor_pos_from_center(sensor)
-        # World size of one border sprite pixel.
-        scale = TOUCH_HOLD_BORDER_BASE_SIZE.x / 211 * Layout.ring_distance * Options.touch_scale
+        # Screen size of one border sprite pixel.
+        scale = layout_px_size(from_skin_px(1), Options.touch_scale)
         angle = -side * pi / 2
         self.pieces.append(TouchHoldBorderPiece(
             side=side,
@@ -413,7 +435,7 @@ def build_circle_track_points(sample_count: int) -> SlideTrackPointArray:
         points.append(point)
     return points
 
-# Slide building functions use "slide unit" for position
+# Slide building functions take positions in skin pixels (judgment ring at 480 px)
 def build_line_track_points(
     start: Vec2,
     stop: Vec2,
@@ -432,7 +454,7 @@ def build_line_track_points(
         progress = unlerp_clamped(0, sample_count - 1, i)
         if progress_exponent != 1.0:
             progress = progress ** progress_exponent
-        mid = (start + (stop - start) * progress) / SLIDE_UNIT
+        mid = from_skin_px(start + (stop - start) * progress)
         point = SlidePoint(position=mid, rotation=rotation)
         points.append(point)
     return points
@@ -453,7 +475,7 @@ def build_arc_track_points(
     for i in range(sample_count):
         angle = phase + i * step
         point = SlidePoint(
-            position=(center + Vec2.unit(angle) * radius) / SLIDE_UNIT,
+            position=from_skin_px(center + Vec2.unit(angle) * radius),
             rotation=angle - pi / 2 + rotation_offset
         )
         points.append(point)
@@ -471,137 +493,137 @@ SLIDE_TRACK_POINTS = Array(
     build_circle_track_points(47),
     build_circle_track_points(55),
     # Straight
-    build_line_track_points(Vec2(2.019, 3.996), Vec2(4.201, -1.272), 13),
-    build_line_track_points(Vec2(1.837, 3.965), Vec2(1.837, -4.027), 18),
-    build_line_track_points(Vec2(1.657, 4.000), Vec2(-1.583, -3.823), 19),
+    build_line_track_points(Vec2(201.9, 399.6), Vec2(420.1, -127.2), 13),
+    build_line_track_points(Vec2(183.7, 396.5), Vec2(183.7, -402.7), 18),
+    build_line_track_points(Vec2(165.7, 400), Vec2(-158.3, -382.3), 19),
     # Center
     connect_tracks(
-        build_line_track_points(Vec2(1.657, 4.012), Vec2(0.037,  0.096), 10, fixed_rotation=True, rotation=67.5 * pi / 180),
-        build_line_track_points(Vec2(0.113, 0.268), Vec2(1.733,  4.184), 10)
+        build_line_track_points(Vec2(165.7, 401.2), Vec2(3.7, 9.6), 10, fixed_rotation=True, rotation=67.5 * pi / 180),
+        build_line_track_points(Vec2(11.3, 26.8), Vec2(173.3, 418.4), 10)
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.657, 4.012), Vec2(0.037, 0.096), 10, fixed_rotation=True, rotation=67.5 * pi / 180),
-        build_line_track_points(Vec2(0.317, 0.124), Vec2(3.816, 1.602), 9)
+        build_line_track_points(Vec2(165.7, 401.2), Vec2(3.7, 9.6), 10, fixed_rotation=True, rotation=67.5 * pi / 180),
+        build_line_track_points(Vec2(31.7, 12.4), Vec2(381.6, 160.2), 9)
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.657, 4.012), Vec2(0.037, 0.096), 10, fixed_rotation=True, rotation=67.5 * pi / 180),
-        build_line_track_points(Vec2(0.344, -0.165), Vec2(3.863, -1.593), 9)
+        build_line_track_points(Vec2(165.7, 401.2), Vec2(3.7, 9.6), 10, fixed_rotation=True, rotation=67.5 * pi / 180),
+        build_line_track_points(Vec2(34.4, -16.5), Vec2(386.3, -159.3), 9)
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.657, 4.012), Vec2(0.037, 0.096), 10, fixed_rotation=True, rotation=67.5 * pi / 180),
-        build_line_track_points(Vec2(0.191, -0.380), Vec2(1.670, -3.879), 9)
+        build_line_track_points(Vec2(165.7, 401.2), Vec2(3.7, 9.6), 10, fixed_rotation=True, rotation=67.5 * pi / 180),
+        build_line_track_points(Vec2(19.1, -38), Vec2(167, -387.9), 9)
     ),
     # Inner loop
     connect_tracks(
-        build_line_track_points(Vec2(1.503, 4.102), Vec2(-1.170, 1.445), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
-        build_arc_track_points(Vec2(0.0, 0.0), 1.85, 16, 143.564, 14.591),
-        build_line_track_points(Vec2(1.848, 0.550), Vec2(1.839, 3.847), 8)
+        build_line_track_points(Vec2(150.3, 410.2), Vec2(-117, 144.5), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
+        build_arc_track_points(Vec2(0, 0), 185, 16, 143.564, 14.591),
+        build_line_track_points(Vec2(184.8, 55), Vec2(183.9, 384.7), 8)
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.501, 4.101), Vec2(-1.185, 1.430), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
-        build_arc_track_points(Vec2(0.0, 0.0), 1.85, 13, 144.289, 14.664),
-        build_line_track_points(Vec2(1.762, -0.852), Vec2(4.098, 1.498), 8)
+        build_line_track_points(Vec2(150.1, 410.1), Vec2(-118.5, 143), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
+        build_arc_track_points(Vec2(0, 0), 185, 13, 144.289, 14.664),
+        build_line_track_points(Vec2(176.2, -85.2), Vec2(409.8, 149.8), 8)
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.502, 4.102), Vec2(-1.177, 1.438), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
-        build_arc_track_points(Vec2(0.0, 0.0), 1.85, 10, 143.916, 14.625),
-        build_line_track_points(Vec2(0.651, -1.848), Vec2(3.957, -1.838), 8)
+        build_line_track_points(Vec2(150.2, 410.2), Vec2(-117.7, 143.8), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
+        build_arc_track_points(Vec2(0, 0), 185, 10, 143.916, 14.625),
+        build_line_track_points(Vec2(65.1, -184.8), Vec2(395.7, -183.8), 8)
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.503, 4.103), Vec2(-1.169, 1.446), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
-        build_arc_track_points(Vec2(0.0, 0.0), 1.85, 6, 143.534, 14.586),
-        build_line_track_points(Vec2(-1.169, -1.446), Vec2(1.503, -4.103), 9)
+        build_line_track_points(Vec2(150.3, 410.3), Vec2(-116.9, 144.6), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
+        build_arc_track_points(Vec2(0, 0), 185, 6, 143.534, 14.586),
+        build_line_track_points(Vec2(-116.9, -144.6), Vec2(150.3, -410.3), 9)
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.504, 4.104), Vec2(-1.158, 1.458), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
-        build_arc_track_points(Vec2(0.0, 0.0), 1.85, 4, 142.964, 14.520),
-        build_line_track_points(Vec2(-1.848, -0.680), Vec2(-1.838, -3.964), 8)
+        build_line_track_points(Vec2(150.4, 410.4), Vec2(-115.8, 145.8), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
+        build_arc_track_points(Vec2(0, 0), 185, 4, 142.964, 14.520),
+        build_line_track_points(Vec2(-184.8, -68), Vec2(-183.8, -396.4), 8)
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.499, 4.099), Vec2(-1.204, 1.411), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
-        build_arc_track_points(Vec2(0.0, 0.0), 1.85, 25, 145.216, 14.757),
-        build_line_track_points(Vec2(-1.744, 0.870), Vec2(-4.095, -1.495), 8, rotation_offset=2 * pi)
+        build_line_track_points(Vec2(149.9, 409.9), Vec2(-120.4, 141.1), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
+        build_arc_track_points(Vec2(0, 0), 185, 25, 145.216, 14.757),
+        build_line_track_points(Vec2(-174.4, 87), Vec2(-409.5, -149.5), 8, rotation_offset=2 * pi)
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.525, 4.125), Vec2(-1.282, 1.334), 10, fixed_rotation=True, rotation=45.2 * pi / 180),
-        build_arc_track_points(Vec2(0.0, 0.0), 1.85, 21, 148.932, 14.875),
-        build_line_track_points(Vec2(-0.334, 1.849), Vec2(-3.853, 1.839), 9),
+        build_line_track_points(Vec2(152.5, 412.5), Vec2(-128.2, 133.4), 10, fixed_rotation=True, rotation=45.2 * pi / 180),
+        build_arc_track_points(Vec2(0, 0), 185, 21, 148.932, 14.875),
+        build_line_track_points(Vec2(-33.4, 184.9), Vec2(-385.3, 183.9), 9),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.501, 4.101), Vec2(-1.183, 1.433), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
-        build_arc_track_points(Vec2(0.0, 0.0), 1.85, 19, 144.173, 14.653),
-        build_line_track_points(Vec2(0.906, 1.708), Vec2(-1.443, 4.043), 8),
+        build_line_track_points(Vec2(150.1, 410.1), Vec2(-118.3, 143.3), 9, fixed_rotation=True, rotation=45.2 * pi / 180),
+        build_arc_track_points(Vec2(0, 0), 185, 19, 144.173, 14.653),
+        build_line_track_points(Vec2(90.6, 170.8), Vec2(-144.3, 404.3), 8),
     ),
     # Outer loop
     connect_tracks(
-        build_line_track_points(Vec2(1.637, 4.003), Vec2(0.230, 1.010), 8),
-        build_arc_track_points(Vec2(2.2, -0.03), 2.23, 21, 164.156, 12.057, -4.0),
-        build_line_track_points(Vec2(3.511, 1.960), Vec2(2.192, 3.906), 6),
+        build_line_track_points(Vec2(163.7, 400.3), Vec2(23, 101), 8),
+        build_arc_track_points(Vec2(220, -3), 223, 21, 164.156, 12.057, -4.0),
+        build_line_track_points(Vec2(351.1, 196), Vec2(219.2, 390.6), 6),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.637, 4.003), Vec2(0.230, 1.010), 8),
-        build_arc_track_points(Vec2(2.2, -0.03), 2.23, 18, 164.135, 12.055, -4.0),
-        build_line_track_points(Vec2(4.439, 0.807), Vec2(4.440, 1.272), 2),
+        build_line_track_points(Vec2(163.7, 400.3), Vec2(23, 101), 8),
+        build_arc_track_points(Vec2(220, -3), 223, 18, 164.135, 12.055, -4.0),
+        build_line_track_points(Vec2(443.9, 80.7), Vec2(444, 127.2), 2),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.633, 4.019), Vec2(0.230, 1.030), 8),
-        build_arc_track_points(Vec2(2.2, -0.03), 2.23, 11, 163.772, 12.074, -4.0),
-        build_line_track_points(Vec2(3.216, -2.094), Vec2(4.146, -1.894), 3),
+        build_line_track_points(Vec2(163.3, 401.9), Vec2(23, 103), 8),
+        build_arc_track_points(Vec2(220, -3), 223, 11, 163.772, 12.074, -4.0),
+        build_line_track_points(Vec2(321.6, -209.4), Vec2(414.6, -189.4), 3),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.639, 4.007), Vec2(0.244, 1.011), 8),
-        build_arc_track_points(Vec2(2.2, -0.03), 2.23, 35, 163.948, 12.095, -4.0),
-        build_line_track_points(Vec2(0.566, -1.765), Vec2(1.578, -3.900), 6, rotation_offset=2 * pi),
+        build_line_track_points(Vec2(163.9, 400.7), Vec2(24.4, 101.1), 8),
+        build_arc_track_points(Vec2(220, -3), 223, 35, 163.948, 12.095, -4.0),
+        build_line_track_points(Vec2(56.6, -176.5), Vec2(157.8, -390), 6, rotation_offset=2 * pi),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.631, 4.005), Vec2(0.213, 1.042), 8),
-        build_arc_track_points(Vec2(2.2, -0.03), 2.23, 31, 163.747, 12.071, -4.0),
-        build_line_track_points(Vec2(-0.150, 0.071), Vec2(-1.633, -3.908), 10, rotation_offset=2 * pi),
+        build_line_track_points(Vec2(163.1, 400.5), Vec2(21.3, 104.2), 8),
+        build_arc_track_points(Vec2(220, -3), 223, 31, 163.747, 12.071, -4.0),
+        build_line_track_points(Vec2(-15, 7.1), Vec2(-163.3, -390.8), 10, rotation_offset=2 * pi),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.642, 3.996), Vec2(0.223, 1.033), 8),
-        build_arc_track_points(Vec2(2.2, -0.03), 2.23, 28, 163.555, 12.113, -4.0),
-        build_line_track_points(Vec2(0.364, 1.385), Vec2(-3.937, -1.506), 12, rotation_offset=2 * pi),
+        build_line_track_points(Vec2(164.2, 399.6), Vec2(22.3, 103.3), 8),
+        build_arc_track_points(Vec2(220, -3), 223, 28, 163.555, 12.113, -4.0),
+        build_line_track_points(Vec2(36.4, 138.5), Vec2(-393.7, -150.6), 12, rotation_offset=2 * pi),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.642, 3.996), Vec2(0.223, 1.033), 8),
-        build_arc_track_points(Vec2(2.2, -0.03), 2.23, 25, 163.502, 12.109, -4.0),
-        build_line_track_points(Vec2(1.577, 2.173), Vec2(-4.070, 1.865), 13, rotation_offset=2 * pi),
+        build_line_track_points(Vec2(164.2, 399.6), Vec2(22.3, 103.3), 8),
+        build_arc_track_points(Vec2(220, -3), 223, 25, 163.502, 12.109, -4.0),
+        build_line_track_points(Vec2(157.7, 217.3), Vec2(-407, 186.5), 13, rotation_offset=2 * pi),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.630, 4.004), Vec2(0.223, 1.033), 8),
-        build_arc_track_points(Vec2(2.2, -0.03), 2.23, 23, 163.444, 12.121, -4.0),
-        build_line_track_points(Vec2(2.540, 2.272), Vec2(-1.278, 4.155), 10),
+        build_line_track_points(Vec2(163, 400.4), Vec2(22.3, 103.3), 8),
+        build_arc_track_points(Vec2(220, -3), 223, 23, 163.444, 12.121, -4.0),
+        build_line_track_points(Vec2(254, 227.2), Vec2(-127.8, 415.5), 10),
     ),
     # Refect
     connect_tracks(
-        build_line_track_points(Vec2(1.398, 4.253), Vec2(-4.309, 1.889), 14),
-        build_line_track_points(Vec2(-4.149, 1.845), Vec2(3.869, 1.845), 18),
+        build_line_track_points(Vec2(139.8, 425.3), Vec2(-430.9, 188.9), 14),
+        build_line_track_points(Vec2(-414.9, 184.5), Vec2(386.9, 184.5), 18),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.398, 4.253), Vec2(-4.309, 1.889), 14),
-        build_line_track_points(Vec2(-4.162, 1.736), Vec2(4.097, -1.681), 20),
+        build_line_track_points(Vec2(139.8, 425.3), Vec2(-430.9, 188.9), 14),
+        build_line_track_points(Vec2(-416.2, 173.6), Vec2(409.7, -168.1), 20),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.398, 4.253), Vec2(-4.309, 1.889), 14),
-        build_line_track_points(Vec2(-4.255, 1.650), Vec2(1.438, -4.022), 18),
+        build_line_track_points(Vec2(139.8, 425.3), Vec2(-430.9, 188.9), 14),
+        build_line_track_points(Vec2(-425.5, 165), Vec2(143.8, -402.2), 18),
     ),
     connect_tracks(
-        build_line_track_points(Vec2(1.398, 4.253), Vec2(-4.309, 1.889), 14),
-        build_line_track_points(Vec2(-4.307, 1.609), Vec2(-1.989, -4.079), 14),
+        build_line_track_points(Vec2(139.8, 425.3), Vec2(-430.9, 188.9), 14),
+        build_line_track_points(Vec2(-430.7, 160.9), Vec2(-198.9, -407.9), 14),
     ),
     # Zigzag
     connect_tracks(
-        build_line_track_points(Vec2(1.508, 4.102), Vec2(-1.642, 0.955), 11),
-        build_line_track_points(Vec2(-1.423, 0.587), Vec2(1.636, -0.666), 8),
-        build_line_track_points(Vec2(1.660, -0.933), Vec2(-1.676, -4.266), 11),
+        build_line_track_points(Vec2(150.8, 410.2), Vec2(-164.2, 95.5), 11),
+        build_line_track_points(Vec2(-142.3, 58.7), Vec2(163.6, -66.6), 8),
+        build_line_track_points(Vec2(166, -93.3), Vec2(-167.6, -426.6), 11),
     ),
     # Wifi path
-    build_line_track_points(Vec2(1.578, 3.894), Vec2(-1.225, -2.868), 11, fixed_rotation=True, rotation=0.0, progress_exponent=1.164),
+    build_line_track_points(Vec2(157.8, 389.4), Vec2(-122.5, -286.8), 11, fixed_rotation=True, rotation=0.0, progress_exponent=1.164),
     # Wifi stars paths
-    build_line_track_points(_get_button_pos(1, SLIDE_UNIT), _get_button_pos(6, SLIDE_UNIT), 11, fixed_rotation=True, rotation=0.0),
-    build_line_track_points(_get_button_pos(1, SLIDE_UNIT), _get_button_pos(5, SLIDE_UNIT), 11, fixed_rotation=True, rotation=0.0),
-    build_line_track_points(_get_button_pos(1, SLIDE_UNIT), _get_button_pos(4, SLIDE_UNIT), 11, fixed_rotation=True, rotation=0.0),
+    build_line_track_points(_get_button_pos(1, SKIN_RING_RADIUS_PX), _get_button_pos(6, SKIN_RING_RADIUS_PX), 11, fixed_rotation=True, rotation=0.0),
+    build_line_track_points(_get_button_pos(1, SKIN_RING_RADIUS_PX), _get_button_pos(5, SKIN_RING_RADIUS_PX), 11, fixed_rotation=True, rotation=0.0),
+    build_line_track_points(_get_button_pos(1, SKIN_RING_RADIUS_PX), _get_button_pos(4, SKIN_RING_RADIUS_PX), 11, fixed_rotation=True, rotation=0.0),
 )
 
 def build_slide_star_points(track_points: SlideTrackPointArray, end_button: Button) -> SlideTrackPointArray:
@@ -650,8 +672,8 @@ def slide_point_transform(point: SlidePoint, button: Button, is_mirrored: bool) 
 
 def layout_slide_path(index: int, track_points: SlideTrackPointArray, button: Button, is_mirrored: bool):
     point = slide_point_transform(track_points[index], button, is_mirrored)
-    center = Layout.ring_center + point.position * Layout.ring_distance
-    size = SLIDE_PATH_BASE_SIZE * Options.slide_scale * Layout.ring_distance
+    center = layout_ring_point(point.position)
+    size = layout_px_size(SLIDE_PATH_SIZE, Options.slide_scale)
     layout = Rect.from_center(center, size).as_quad().rotate_centered(point.rotation)
     return layout
 
@@ -667,8 +689,8 @@ def layout_wifi_slide_path(
     if is_mirrored:
         position.x = -position.x
         angle_offset -= pi / 4
-    center = Layout.ring_center + position.rotate(angle_offset) * Layout.ring_distance
-    size = WIFI_SLIDE_PATH_BASE_SIZES[index] * Options.slide_scale * Layout.ring_distance
+    center = layout_ring_point(position.rotate(angle_offset))
+    size = layout_px_size(WIFI_SLIDE_PATH_SIZES[index], Options.slide_scale)
     layout = Rect.from_center(center, size).as_quad()
     if not is_mirrored:
         layout @= layout.scale_centered(Vec2(-1, 1))
@@ -699,8 +721,8 @@ def layout_slide_head(
         )
         point.rotation = lerp(point_a.rotation, point_b.rotation, fraction)
         
-    center = Layout.ring_center + point.position * Layout.ring_distance
-    note_size = NOTE_BASE_SIZE * Layout.ring_distance * Options.note_scale
+    center = layout_ring_point(point.position)
+    note_size = layout_px_size(NOTE_SIZE, Options.note_scale)
     layout = Rect.from_center(center, Vec2(note_size, note_size)).as_quad()
     if rotate_head:
         layout @= layout.rotate_centered(point.rotation)

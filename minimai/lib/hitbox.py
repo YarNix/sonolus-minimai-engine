@@ -11,7 +11,10 @@ from sonolus.script.interval import Interval
 from sonolus.script.debug import assert_true, debug_log
 
 from minimai.lib.game import Button, Sensor, SensorGroup, get_button_iterator, sensor_offset, sensor_to_group
-from minimai.lib.layout import Layout, get_button_angle_horizontal, get_dist_from_center, get_pos_from_center, get_sensor_angle_horizontal, get_sensor_group_dist_from_center
+from minimai.lib.layout import (
+    BUTTON_DISTANCE, Layout, get_button_angle_horizontal, get_dist_from_center, get_sensor_angle_horizontal,
+    get_sensor_distance, layout_px_size, layout_ring_pos,
+)
 from minimai.lib.options import Options
 
 class HitBoxLike(Protocol):
@@ -40,10 +43,10 @@ class CircTrapHitBox(Record):
             # we'll offset the distance by 1e-3
             start_dist = max(self.distance.start, 1e-3)
             yield Quad(
-                bl=get_pos_from_center(start_angle, start_dist),
-                tl=get_pos_from_center(end_angle, start_dist),
-                tr=get_pos_from_center(end_angle, self.distance.end),
-                br=get_pos_from_center(start_angle, self.distance.end),
+                bl=self.center + Vec2.unit(start_angle) * start_dist,
+                tl=self.center + Vec2.unit(end_angle) * start_dist,
+                tr=self.center + Vec2.unit(end_angle) * self.distance.end,
+                br=self.center + Vec2.unit(start_angle) * self.distance.end,
             )
 
 def expand_quad(quad: Quad, radius: float):
@@ -140,38 +143,41 @@ class Hitboxes:
                 assert_never(group)
         return quads
 
+# Screen units (the finger, not the ring).
 BASE_TOUCH_RADIUS = 0.06
+# Button hitbox depth, as a fraction of the button distance.
 BUTTON_HITBOX_SIZE = 0.35
 
+# Sensor hitbox distances and sizes are in ring units (0 = center, 1 = judgment ring).
 GROUP_A_ANGLE_WIDTH = 14 / 180 * pi
-GROUP_A_BOT_L_DIST = 0.11
-GROUP_A_BOT_R_DIST = 0.2
-GROUP_A_TOP_DIST = 0.295
+GROUP_A_BOT_L_DIST = 0.113111
+GROUP_A_BOT_R_DIST = 0.205656
+GROUP_A_TOP_DIST = 0.303342
 
 GROUP_B_TOP_ANGLE = 10 / 180 * pi
 GROUP_B_MID_ANGLE = 22 / 180 * pi
 GROUP_B_BOT_ANGLE = 22 / 180 * pi
-GROUP_B_TOP_DIST = 0.16
-GROUP_B_MID_DIST = 0.01
-GROUP_B_BOT_DIST = 0.13
+GROUP_B_TOP_DIST = 0.164524
+GROUP_B_MID_DIST = 0.010283
+GROUP_B_BOT_DIST = 0.133676
 
-GROUP_C_HITBOX_SIZE = 0.225
+GROUP_C_HITBOX_SIZE = 0.231362
 
 GROUP_D_ANGLE_WIDTH = 8.5 / 180 * pi
-GROUP_D_BOT_L_DIST = 0.13
-GROUP_D_BOT_R_DIST = 0.03
-GROUP_D_TOP_DIST = 0.27
+GROUP_D_BOT_L_DIST = 0.133676
+GROUP_D_BOT_R_DIST = 0.030848
+GROUP_D_TOP_DIST = 0.277635
 
-GROUP_E_HITBOX_SIZE = 0.21
+GROUP_E_HITBOX_SIZE = 0.215938
 
 def init_hitboxes():
     Hitboxes.touch_radius = Options.input_radius_scale * BASE_TOUCH_RADIUS
 
     for i, b in get_button_iterator():
         center_angle = get_button_angle_horizontal(b)
-        start_distance = Layout.button_distance
+        start_distance = layout_px_size(BUTTON_DISTANCE)
         angle = Options.button_angle * pi / 180
-        button_size = BUTTON_HITBOX_SIZE * Layout.button_distance * Options.button_size
+        button_size = layout_px_size(BUTTON_HITBOX_SIZE * BUTTON_DISTANCE, Options.button_size)
         Hitboxes.button[i] = CircTrapHitBox(
             center=Layout.ring_center,
             distance=Interval(start_distance, start_distance + button_size),
@@ -179,46 +185,46 @@ def init_hitboxes():
         )
 
     for i in range(8):
-        dist = get_sensor_group_dist_from_center(SensorGroup.A)
+        dist = get_sensor_distance(SensorGroup.A)
         angle = get_sensor_angle_horizontal(Sensor.A1 + i)
         l_angle = angle + GROUP_A_ANGLE_WIDTH
         r_angle = angle - GROUP_A_ANGLE_WIDTH
-        bl_dist = dist - GROUP_A_BOT_L_DIST * Options.ring_size
-        br_dist = dist - GROUP_A_BOT_R_DIST * Options.ring_size
-        t_dist = dist + GROUP_A_TOP_DIST * Options.ring_size
+        bl_dist = dist - GROUP_A_BOT_L_DIST
+        br_dist = dist - GROUP_A_BOT_R_DIST
+        t_dist = dist + GROUP_A_TOP_DIST
         Hitboxes.group_a[i].quads[0] = Quad(
-            bl=get_pos_from_center(l_angle, bl_dist),
-            tl=get_pos_from_center(l_angle, t_dist),
-            tr=get_pos_from_center(angle, t_dist),
-            br=get_pos_from_center(angle, br_dist)
+            bl=layout_ring_pos(l_angle, bl_dist),
+            tl=layout_ring_pos(l_angle, t_dist),
+            tr=layout_ring_pos(angle, t_dist),
+            br=layout_ring_pos(angle, br_dist)
         )
         Hitboxes.group_a[i].quads[1] = Quad(
-            br=get_pos_from_center(r_angle, bl_dist),
-            tr=get_pos_from_center(r_angle, t_dist),
-            tl=get_pos_from_center(angle, t_dist),
-            bl=get_pos_from_center(angle, br_dist)
+            br=layout_ring_pos(r_angle, bl_dist),
+            tr=layout_ring_pos(r_angle, t_dist),
+            tl=layout_ring_pos(angle, t_dist),
+            bl=layout_ring_pos(angle, br_dist)
         )
 
     for i in range(8):
-        dist = get_sensor_group_dist_from_center(SensorGroup.B)
+        dist = get_sensor_distance(SensorGroup.B)
         angle = get_sensor_angle_horizontal(Sensor.B1 + i)
-        mid_dist = dist + GROUP_B_MID_DIST * Options.ring_size
-        top_dist = dist + GROUP_B_TOP_DIST * Options.ring_size
-        bot_dist = dist - GROUP_B_BOT_DIST * Options.ring_size
+        mid_dist = dist + GROUP_B_MID_DIST
+        top_dist = dist + GROUP_B_TOP_DIST
+        bot_dist = dist - GROUP_B_BOT_DIST
         Hitboxes.group_b[i].quads[0] = Quad(
-            bl=get_pos_from_center(angle + GROUP_B_MID_ANGLE, mid_dist),
-            tl=get_pos_from_center(angle + GROUP_B_TOP_ANGLE, top_dist),
-            tr=get_pos_from_center(angle - GROUP_B_TOP_ANGLE, top_dist),
-            br=get_pos_from_center(angle - GROUP_B_MID_ANGLE, mid_dist)
+            bl=layout_ring_pos(angle + GROUP_B_MID_ANGLE, mid_dist),
+            tl=layout_ring_pos(angle + GROUP_B_TOP_ANGLE, top_dist),
+            tr=layout_ring_pos(angle - GROUP_B_TOP_ANGLE, top_dist),
+            br=layout_ring_pos(angle - GROUP_B_MID_ANGLE, mid_dist)
         )
         Hitboxes.group_b[i].quads[1] = Quad(
-            br=get_pos_from_center(angle + GROUP_B_MID_ANGLE, mid_dist),
-            tr=get_pos_from_center(angle + GROUP_B_BOT_ANGLE, bot_dist),
-            tl=get_pos_from_center(angle - GROUP_B_BOT_ANGLE, bot_dist),
-            bl=get_pos_from_center(angle - GROUP_B_MID_ANGLE, mid_dist)
+            br=layout_ring_pos(angle + GROUP_B_MID_ANGLE, mid_dist),
+            tr=layout_ring_pos(angle + GROUP_B_BOT_ANGLE, bot_dist),
+            tl=layout_ring_pos(angle - GROUP_B_BOT_ANGLE, bot_dist),
+            bl=layout_ring_pos(angle - GROUP_B_MID_ANGLE, mid_dist)
         )
 
-    center_size = GROUP_C_HITBOX_SIZE * Options.ring_size
+    center_size = layout_px_size(GROUP_C_HITBOX_SIZE)
     Hitboxes.group_c = CircTrapHitBox(
         center=Layout.ring_center,
         distance=Interval(0, center_size),
@@ -226,31 +232,31 @@ def init_hitboxes():
     )
 
     for i in range(8):
-        dist = get_sensor_group_dist_from_center(SensorGroup.D)
+        dist = get_sensor_distance(SensorGroup.D)
         angle = get_sensor_angle_horizontal(Sensor.D1 + i)
         l_angle = angle + GROUP_D_ANGLE_WIDTH
         r_angle = angle - GROUP_D_ANGLE_WIDTH
-        bl_dist = dist - GROUP_D_BOT_L_DIST * Options.ring_size
-        br_dist = dist - GROUP_D_BOT_R_DIST * Options.ring_size
-        t_dist = dist + GROUP_D_TOP_DIST * Options.ring_size
+        bl_dist = dist - GROUP_D_BOT_L_DIST
+        br_dist = dist - GROUP_D_BOT_R_DIST
+        t_dist = dist + GROUP_D_TOP_DIST
         Hitboxes.group_d[i].quads[0] = Quad(
-            bl=get_pos_from_center(l_angle, bl_dist),
-            tl=get_pos_from_center(l_angle, t_dist),
-            tr=get_pos_from_center(angle, t_dist),
-            br=get_pos_from_center(angle, br_dist)
+            bl=layout_ring_pos(l_angle, bl_dist),
+            tl=layout_ring_pos(l_angle, t_dist),
+            tr=layout_ring_pos(angle, t_dist),
+            br=layout_ring_pos(angle, br_dist)
         )
         Hitboxes.group_d[i].quads[1] = Quad(
-            br=get_pos_from_center(r_angle, bl_dist),
-            tr=get_pos_from_center(r_angle, t_dist),
-            tl=get_pos_from_center(angle, t_dist),
-            bl=get_pos_from_center(angle, br_dist)
+            br=layout_ring_pos(r_angle, bl_dist),
+            tr=layout_ring_pos(r_angle, t_dist),
+            tl=layout_ring_pos(angle, t_dist),
+            bl=layout_ring_pos(angle, br_dist)
         )
 
     for i in range(8):
-        dist = get_sensor_group_dist_from_center(SensorGroup.E)
+        dist = get_sensor_distance(SensorGroup.E)
         angle = get_sensor_angle_horizontal(Sensor.E1 + i)
-        center = get_pos_from_center(angle, dist)
-        size = GROUP_E_HITBOX_SIZE * Options.ring_size
+        center = layout_ring_pos(angle, dist)
+        size = layout_px_size(GROUP_E_HITBOX_SIZE)
         rotate = ((i + 1) % 2) * pi / 4
         quad = Rect.from_center(center, Vec2(size, size)).as_quad().rotate_centered(rotate)
         Hitboxes.group_e[i] = NQuadHitBox(

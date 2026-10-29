@@ -10,7 +10,10 @@ from sonolus.script.text import StandardText
 from sonolus.script.vec import Vec2
 
 from minimai.lib.hold import HoldKind
-from minimai.lib.layout import SLIDE_PATH_BASE_SIZE, TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, TOUCH_DOT_BASE_SIZE, TOUCH_FAN_BASE_SIZE, TOUCH_HOLD_BORDER_BASE_SIZE
+from minimai.lib.layout import (
+    HOLD_CAP_LENGTH, HOLD_WIDTH, NOTE_SIZE, SLIDE_PATH_SIZE, TOUCH_FAN_OFFSET, TOUCH_FAN_SIZE, TOUCH_FAN_TRAVEL,
+    TOUCH_HOLD_BORDER_SIZE, TOUCH_POINT_SIZE,
+)
 from minimai.lib.note import NoteKind
 from minimai.lib.skin import BaseSkin
 from minimai.lib.slide import SlideKind
@@ -29,17 +32,19 @@ SLIDE_BUCKET_WINDOW = JudgmentWindow(
 
 NOTE_BUCKET_SIZE = 2
 NOTE_BUCKET_STEP = 2
+# Bucket units per ring unit for notes and holds: a note is NOTE_BUCKET_SIZE across.
+NOTE_BUCKET_SCALE = NOTE_BUCKET_SIZE / NOTE_SIZE
 
 HOLD_BUCKET_BODY = 2
 HOLD_BUCKET_GAP = 1
 
 # Touch icon with the fans at their spawn distance, scaled to about the note icon size.
-TOUCH_BUCKET_SCALE = 1 / (TOUCH_DISTANCE_START + TOUCH_FAN_BASE_SIZE.y / 2)
+TOUCH_BUCKET_SCALE = 1 / (TOUCH_FAN_OFFSET + TOUCH_FAN_TRAVEL + TOUCH_FAN_SIZE.y / 2)
 TOUCH_BUCKET_STEP = 2.4
 
 SLIDE_BUCKET_BAR_COUNT = 5
 SLIDE_BUCKET_BAR_H = 2
-SLIDE_BUCKET_BAR_W = SLIDE_BUCKET_BAR_H * SLIDE_PATH_BASE_SIZE.x / SLIDE_PATH_BASE_SIZE.y
+SLIDE_BUCKET_BAR_W = SLIDE_BUCKET_BAR_H * SLIDE_PATH_SIZE.x / SLIDE_PATH_SIZE.y
 SLIDE_BUCKET_BAR_STEP = 1
 SLIDE_BUCKET_GROUP_GAP = 1
 
@@ -120,9 +125,8 @@ def get_hold_bucket_outlines(kind: HoldKind) -> tuple[Sprite, Sprite, Sprite] | 
 def create_hold_bucket_sprites(*kinds: HoldKind) -> list[_BucketSprite]:
     """One hold per kind lying on its side; EX kinds get their outline on top, as in game."""
     out_sprites: list[_BucketSprite] = []
-    # Sizes from the hold sprites (note size = 180 px): 122 px wide, 60 px caps.
-    thickness = NOTE_BUCKET_SIZE * 122 / 180
-    cap = NOTE_BUCKET_SIZE * 60 / 180
+    thickness = HOLD_WIDTH * NOTE_BUCKET_SCALE
+    cap = HOLD_CAP_LENGTH * NOTE_BUCKET_SCALE
     body = HOLD_BUCKET_BODY
     hold_step = body + 2 * cap + HOLD_BUCKET_GAP
     x_offset = (len(kinds) - 1) * hold_step / 2
@@ -156,9 +160,9 @@ def create_touch_bucket_sprites(*kinds: TouchKind) -> list[_BucketSprite]:
     """One touch per kind, left to right: four fans pointing at the point, drawn in game order."""
     out_sprites: list[_BucketSprite] = []
     x_offset = (len(kinds) - 1) * TOUCH_BUCKET_STEP / 2
-    dot_size = TOUCH_DOT_BASE_SIZE * TOUCH_BUCKET_SCALE
-    fan_size = TOUCH_FAN_BASE_SIZE * TOUCH_BUCKET_SCALE
-    fan_distance = lerp(TOUCH_DISTANCE_START, TOUCH_DISTANCE_END, 0.5) * TOUCH_BUCKET_SCALE
+    dot_size = TOUCH_POINT_SIZE * TOUCH_BUCKET_SCALE
+    fan_size = TOUCH_FAN_SIZE * TOUCH_BUCKET_SCALE
+    fan_distance = (TOUCH_FAN_OFFSET + TOUCH_FAN_TRAVEL / 2) * TOUCH_BUCKET_SCALE
     for i, kind in enumerate(kinds):
         x = TOUCH_BUCKET_STEP * i - x_offset
         point, fan = get_touch_bucket_sprites(kind)
@@ -192,10 +196,10 @@ def create_touch_hold_bucket_sprites(*kinds: TouchHoldKind) -> list[_BucketSprit
     four fans at the diagonals (drawn in game order) and the point."""
     out_sprites: list[_BucketSprite] = []
     x_offset = (len(kinds) - 1) * TOUCH_BUCKET_STEP / 2
-    dot_size = TOUCH_DOT_BASE_SIZE * TOUCH_BUCKET_SCALE
-    fan_size = TOUCH_FAN_BASE_SIZE * TOUCH_BUCKET_SCALE
-    border_size = TOUCH_HOLD_BORDER_BASE_SIZE * TOUCH_BUCKET_SCALE
-    fan_distance = TOUCH_DISTANCE_END * TOUCH_BUCKET_SCALE
+    dot_size = TOUCH_POINT_SIZE * TOUCH_BUCKET_SCALE
+    fan_size = TOUCH_FAN_SIZE * TOUCH_BUCKET_SCALE
+    border_size = TOUCH_HOLD_BORDER_SIZE * TOUCH_BUCKET_SCALE
+    fan_distance = TOUCH_FAN_OFFSET * TOUCH_BUCKET_SCALE
     for i, kind in enumerate(kinds):
         x = TOUCH_BUCKET_STEP * i - x_offset
         out_sprites.append(bucket_sprite(sprite=BaseSkin.touch_hold_border_on, x=x, y=0, w=border_size.x, h=border_size.y))

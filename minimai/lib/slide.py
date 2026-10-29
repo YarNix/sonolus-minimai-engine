@@ -15,6 +15,7 @@ from minimai.lib.layer import ZIndexes, get_z, LAYER_SLIDE_NOTE, LAYER_SLIDE_PAT
 from minimai.lib.layout import (
     SLIDE_TRACK_POINTS,
     build_slide_star_points,
+    from_skin_px,
     get_slide_path_alpha,
     layout_slide_head,
     layout_slide_path,
@@ -568,6 +569,6 @@ def _wifi_slide_path_draw(
 def get_slide_appear_duration(speed: float):
     assert_true(speed != 0, "Speed 0 is not supported!")
     fade_speed = max(abs(LevelConfig.noteSpeed * speed), 0.01)
-    fade_time = 3.926913 / fade_speed
+    fade_time = from_skin_px(392.6913) / fade_speed
     fade_time += Options.slide_fade_offset / 1000
     return fade_time

@@ -51,10 +51,11 @@ class Options:
         step=0.1,
         unit=StandardText.PERCENTAGE_UNIT,
     )
+    # Judgment ring radius, as a fraction of half the screen height.
     ring_size: float = slider_option(
         name="Ring Size",
         scope="Maimai",
-        default=0.9,
+        default=0.875,
         min=0.1,
         max=1.2,
         step=0.01,
