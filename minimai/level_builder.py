@@ -13,7 +13,7 @@ from minimai.lib.note import NoteKind
 from minimai.lib.slide import SlideKind, SlideTrackKind, get_slide_end_button, get_slide_kind_variant
 from minimai.lib.touch import TouchKind
 from minimai.lib.touch_hold import TouchHoldKind
-from minimai.play import hold, note, slide, touch, touch_hold
+from minimai.play import each_line, hold, note, slide, touch, touch_hold, base_input
 from minimai import simai
 from minimai.simai import SimaiChart, SimaiGroup, SimaiHold, SimaiSegment, SimaiSlideNote, SimaiState, SimaiTap, SimaiTouch
 
@@ -22,6 +22,67 @@ HOLD_ARCHETYPES = {arch.key: arch for arch in hold.HOLD_ARCHETYPES}
 TOUCH_ARCHETYPES = {arch.key: arch for arch in touch.TOUCH_ARCHETYPES}
 TOUCH_HOLD_ARCHETYPES = {arch.key: arch for arch in touch_hold.TOUCH_HOLD_ARCHETYPES}
 SLIDE_ARCHETYPES = {arch.key: arch for arch in slide.SLIDE_ARCHETYPES if arch.is_scored}
+
+def _build_sensor_neighbors() -> dict[Sensor, tuple[Sensor, ...]]:
+    def at(group: str, index: int) -> Sensor:
+        button = (index - 1) % 8 + 1
+        return Sensor[f"{group}{button}"]
+
+    neighbors: dict[Sensor, tuple[Sensor, ...]] = {Sensor.C: tuple(at("B", i) for i in range(1, 9))}
+    for i in range(1, 9):
+        neighbors[at("A", i)] = (at("D", i), at("D", i + 1), at("E", i), at("E", i + 1), at("B", i))
+        neighbors[at("D", i)] = (at("A", i), at("A", i - 1), at("E", i))
+        neighbors[at("E", i)] = (at("D", i), at("A", i), at("A", i - 1), at("B", i), at("B", i - 1))
+        neighbors[at("B", i)] = (at("E", i), at("E", i + 1), at("B", i - 1), at("B", i + 1), at("A", i), Sensor.C)
+    return neighbors
+
+# A map of Sensor to its nearby neighbour, for touch groups.
+SENSOR_NEIGHBORS = _build_sensor_neighbors()
+
+
+def group_touches(members: Sequence[base_input.TouchBaseInput]):
+    """Touches (of one time) in groups of neighbouring sensors, in chart order."""
+    sensors: list[Sensor] = []
+    for member in members:
+        if member.sensor not in sensors:
+            sensors.append(member.sensor)
+    groups: list[list[base_input.TouchBaseInput]] = []
+    while sensors:
+        group_sensors = [sensors[0]]
+        for current in group_sensors:
+            for sensor in sensors:
+                if sensor not in group_sensors and sensor in SENSOR_NEIGHBORS[current]:
+                    group_sensors.append(sensor)
+        sensors = [sensor for sensor in sensors if sensor not in group_sensors]
+        groups.append([member for member in members if member.sensor in group_sensors])
+    return groups
+
+
+def build_each_lines(notes: Sequence[base_input.ButtonBaseInput]) -> list[base_input.ButtonBaseInput]:
+    """EachLines between neighbouring notes of one beat, skipping pairs on the same button."""
+    return [
+        each_line.EachLine(left_ref=left.ref(), right_ref=right.ref())
+        for left, right in zip(notes, notes[1:])
+        if left.button != right.button
+    ]
+
+
+def resolve_touch_groups(touches: Sequence[base_input.TouchBaseInput]):
+    """Set the touch group (and the body group of touch holds) on the touches of one beat."""
+    for group in group_touches(touches):
+        if len(group) > 2:
+            leader = group[0].ref()
+            for member in group:
+                member.group_leader = leader
+                member.group_size = len(group)
+
+        holds = [member for member in group if isinstance(member, touch_hold.BaseTouchHold)]
+        if len(holds) > 2:
+            leader = holds[0].ref()
+            for member in holds:
+                member.body_group_leader = leader
+                member.body_group_size = len(holds)
+
 
 DEFAULT_BPM = simai.DEFAULT_BPM
 DEFAULT_DIVISION = simai.DEFAULT_DIVISION
@@ -502,9 +563,27 @@ class LevelBuilder:
 
     def get_level(self) -> Iterable[PlayArchetype]:
         self.resolve_seconds()
+        # Resolve groups
+        button_groups, touch_groups = self.group_by_beat()
+        each_lines: list[PlayArchetype] = []
+        for notes in button_groups:
+            each_lines.extend(build_each_lines(notes))
+        for touches in touch_groups:
+            resolve_touch_groups(touches)
         if not any(isinstance(e, BpmChange) for e in self.entities):
-            return [BpmChange(beat=0, bpm=DEFAULT_BPM), *self.entities]
-        return list(self.entities)
+            return [BpmChange(beat=0, bpm=DEFAULT_BPM), *self.entities, *each_lines]
+        return [*self.entities, *each_lines]
+
+    def group_by_beat(self) -> tuple[list[list[PlayArchetype]], list[list[PlayArchetype]]]:
+        """The taps / holds / star heads, and the touches / touch holds, of each beat, in chart order."""
+        buttons: dict[float, list[PlayArchetype]] = {}
+        touches: dict[float, list[PlayArchetype]] = {}
+        for entity in self.entities:
+            if isinstance(entity, (note.BaseNote, hold.BaseHold)):
+                buttons.setdefault(entity.beat, []).append(entity)
+            elif isinstance(entity, (touch.BaseTouch, touch_hold.BaseTouchHold)):
+                touches.setdefault(entity.beat, []).append(entity)
+        return list(buttons.values()), list(touches.values())
 
     def get_tempo_map(self) -> TempoMap:
         return TempoMap((e.beat, e.bpm) for e in self.entities if isinstance(e, BpmChange))

@@ -115,6 +115,8 @@ Comprised of many archetypes according to the following naming scheme:
 * **#BEAT (float)**
 * **sensor (Sensor)**
 * **speed (float)**: Note speed multiplier. Defaults to 1.
+* **group (ref?[TouchNote | TouchHoldNote])**: The touch group leader, see [Touch groups](#touch-groups).
+* **groupSize (int)**: Members in the touch group. Defaults to 0.
 
 ## *TouchHoldNote
 
@@ -130,6 +132,29 @@ Note: Each and break only change the centre point (and break scores as a break).
 * **sensor (Sensor)**
 * **holdDuration (float)**: Beats from the head to the end. 0 is a touch hold that ends with its head. Defaults to 0.
 * **speed (float)**: Note speed multiplier. Defaults to 1.
+* **group (ref?[TouchNote | TouchHoldNote])**, **groupSize (int)**: The touch group, as for touch notes.
+* **holdGroup (ref?[TouchHoldNote])**: The body group leader, see [Touch groups](#touch-groups).
+* **holdGroupSize (int)**: Members in the body group. Defaults to 0.
+
+## Touch groups
+
+[Transient]
+
+Touches and touch holds at the same beat whose sensors are next to each other (chained: A1, then the sensors next to A1, and so on) form a touch group. Each member's **group** refers to the group's first member (that member refers to itself), and **groupSize** is the number of members. Groups of one are left out.
+
+* **Head:** once more than half of the group is hit (misses don't count), every member still waiting is judged like the hit that took the group past half, with the same timing error.
+* **Body:** the touch holds of a touch group form its body group (**holdGroup** / **holdGroupSize**, same convention). While more than half of them are held, every member's body counts as held.
+
+## EachLine
+
+[Transient]
+
+The arc between two taps, holds or star heads hit together. The notes at one beat are joined in chart order: the first to the second, the second to the third, and so on, skipping pairs on the same button. The arc runs the shorter way round (at most 4 buttons), moves with the notes (a tap if there is one, otherwise the hold head) and disappears with the first of the two notes.
+
+### Fields
+
+* **left (ref[Note | HoldNote])**: The first note.
+* **right (ref[Note | HoldNote])**: The second note.
 
 ## Slides
 

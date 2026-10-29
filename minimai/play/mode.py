@@ -6,6 +6,7 @@ from minimai.play.bpm_change import BpmChange
 from minimai.play.note import NOTE_ARCHETYPES
 from minimai.play.hold import HOLD_ARCHETYPES
 from minimai.play.ring import Ring
+from minimai.play.each_line import EachLine
 from minimai.play.touch import TOUCH_ARCHETYPES
 from minimai.play.touch_hold import TOUCH_HOLD_ARCHETYPES
 from minimai.play.slide import SLIDE_ARCHETYPES
@@ -26,6 +27,7 @@ play_mode = PlayMode(
         *TOUCH_ARCHETYPES,
         *TOUCH_HOLD_ARCHETYPES,
         *SLIDE_ARCHETYPES,
+        EachLine,
     ],
     skin=BaseSkin,
     effects=Effects,

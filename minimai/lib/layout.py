@@ -45,6 +45,7 @@ NOTE_SPAWN_DISTANCE = from_skin_px(122.5)
 NOTE_SCALE_RATE = 0.265 / from_skin_px(100)
 NOTE_SIZE = from_skin_px(180)
 LINE_SIZE = from_skin_px(1080)
+EACH_LINE_SIZE = from_skin_px(980)
 
 HOLD_WIDTH = from_skin_px(122)
 HOLD_CAP_LENGTH = from_skin_px(58)
@@ -180,6 +181,17 @@ def layout_line(progress: float):
     dimensions = Vec2(line_size, line_size)
     layout = Rect.from_center(Layout.ring_center, dimensions).as_quad()
     return layout
+
+def layout_each_line(progress: float, start_button: Button):
+    """The each line arc, scaled like the tap line, turned so its arc starts at ``start_button``
+    (the sprites start at button 1 and run clockwise)."""
+    line_size = layout_px_size(EACH_LINE_SIZE)
+    if progress <= NOTE_END_SCALING_PROGRESS:
+        line_size = line_size * NOTE_SPAWN_DISTANCE
+    else:
+        line_size = line_size * remap(NOTE_END_SCALING_PROGRESS, 1, NOTE_SPAWN_DISTANCE, 1, progress)
+    layout = Rect.from_center(Layout.ring_center, Vec2(line_size, line_size)).as_quad()
+    return layout.rotate_centered(-(start_button - 1) * pi / 4)
 
 def get_line_alpha(progress: float):
     return unlerp_clamped(0, NOTE_END_SCALING_PROGRESS, progress)

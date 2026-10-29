@@ -321,6 +321,22 @@ def test_simai():
     return builder.get_level()
 
 
+def test_each():
+    builder = LevelBuilder()
+    builder.parse_line(
+        "(120){2},,"
+        # Each lines: 1 to 4 buttons apart both ways round, a chain of three, same button (no line).
+        "1/2,1/3,1/4,1/5,1/6,8/2,1/3/5,1/1,"
+        # Tap + hold, hold + hold, star heads, break / EX members.
+        "1/5h[4:1],,1h[4:1]/4h[4:1],,1-5[4:1]/3,,1b/3x,,"
+        # Touch groups: B1 B2 C together, E1 alone, A3 with D4 and E4.
+        "B1/B2/C/E5,,A3/D4/E4,,"
+        # Touch hold body group: C B1 B2 held together, with a touch in the head group.
+        "Ch[2:1]/B1h[2:1]/B2h[2:1]/B3,,,,"
+        "E"
+    )
+    return builder.get_level()
+
 ## Levels from simai chart folders in resources/levels (see: resources/levels/README.md)
 LEVELS_DIR = Path(__file__).parent.parent / "resources" / "levels"
 # Converted audio, kept between builds
@@ -462,5 +478,6 @@ levels = [
     build_level("test-slide-tracks", "Test Slide Tracks", level_entities=test_slide_tracks()),
     build_level("test-connected-slide", "Test Connected Slide", level_entities=test_connected_slide()),
     build_level("test-simai", "Test Simai", level_entities=test_simai()),
+    build_level("test-each", "Test Each", level_entities=test_each()),
     *build_resource_levels(),
 ]

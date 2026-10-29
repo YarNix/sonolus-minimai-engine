@@ -22,7 +22,6 @@ class BaseHold(ButtonBaseInput):
     hold_duration: float = imported(name="holdDuration", default=0)
 
     kind: HoldKind = entity_data()
-    start_time: float = entity_data()
     end_time: float = entity_data()
 
     head_judgment: buckets.ArcadeJudgment = entity_memory()
@@ -49,6 +48,7 @@ class BaseHold(ButtonBaseInput):
         self.target_time = beat_to_time(self.beat)
         self.end_time = beat_to_time(self.beat + max(self.hold_duration, 0))
         self.start_time = self.target_time - get_tap_appear_duration(self.speed)
+        self.is_hold = True
 
         self.input_interval = self.judgment_window.good + self.target_time + input_offset()
         self.unadjusted_input_interval = self.judgment_window.good + self.target_time

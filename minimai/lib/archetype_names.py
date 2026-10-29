@@ -6,6 +6,7 @@ INITIALIZATION = "Initialization"
 SLIDE_MANAGER = "SlideManager"
 INPUT_MANAGER = "_InputManager"
 RING = "Ring"
+EACH_LINE = "EachLine"
 
 NORMAL_TAP_NOTE = "NormalTapNote"
 EX_TAP_NOTE = "ExTapNote"

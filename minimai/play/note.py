@@ -47,7 +47,6 @@ class BaseNote(ButtonBaseInput):
     import_rotate_speed: float = imported(name="rotateSpeed", default=0)
 
     kind: NoteKind = entity_data()
-    start_time: float = entity_data()
 
     rotate_speed: float = entity_memory()
     slide_rotate_speed: float = shared_memory()

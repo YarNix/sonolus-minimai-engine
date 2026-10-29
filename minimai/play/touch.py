@@ -65,6 +65,10 @@ class BaseTouch(TouchBaseInput):
             return
         if time() > self.input_interval.end:
             self.handle_miss()
+            return
+        if self.is_scored and self.is_group_judged:
+            self.set_result(self.group_result, self.group_result_error)
+            return
         draw_touch(self.kind, self.sensor, self.start_time, self.target_time)
 
     def touch(self):
@@ -85,10 +89,15 @@ class BaseTouch(TouchBaseInput):
 
     def judge(self, actual_time: float):
         judgment = self.judgment_window.judge(actual_time, self.target_time)
+        error = self.judgment_window.good.clamp(actual_time - self.target_time)
+        self.register_group_hit(judgment, error)
+        self.set_result(judgment, error)
+
+    def set_result(self, judgment: buckets.ArcadeJudgment, error: float):
         self.result.judgment = buckets.arcade_judgement_to_normal(judgment)
-        self.result.accuracy = self.judgment_window.good.clamp(actual_time - self.target_time)
+        self.result.accuracy = error
         if self.result.bucket.id != -1:
-            self.result.bucket_value = self.result.accuracy * buckets.WINDOW_SCALE
+            self.result.bucket_value = error * buckets.WINDOW_SCALE
         self.despawn = True
 
     def handle_touch(self):

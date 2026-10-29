@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from sonolus.script.archetype import StandardImport, entity_data, entity_memory, imported
+from sonolus.script.archetype import EntityRef, StandardImport, entity_data, entity_memory, imported, shared_memory
 from sonolus.script.bucket import Bucket
 from sonolus.script.interval import Interval, clamp
 from sonolus.script.runtime import delta_time, input_offset, time, touches
@@ -21,6 +21,10 @@ class BaseTouchHold(TouchBaseInput):
     speed: float = imported(default=1)
     # Beats from the head to the end. 0 = the touch hold ends with its head.
     hold_duration: float = imported(name="holdDuration", default=0)
+    # Body group: the touch holds of the touch group. While more than half of them are held,
+    # every member's body counts as held. Same leader convention as the touch group.
+    body_group_leader: EntityRef[BaseTouchHold] = imported(name="holdGroup")
+    body_group_size: int = imported(name="holdGroupSize", default=0)
 
     kind: TouchHoldKind = entity_data()
     start_time: float = entity_data()
@@ -35,6 +39,12 @@ class BaseTouchHold(TouchBaseInput):
     release_time: float = entity_memory()
     pending_release: float = entity_memory()
     hold_state: HoldState = entity_memory()
+    pressed: bool = entity_memory()
+
+    # Body group state, kept on the leader: how many members were held in the frame at
+    # ``body_group_time``.
+    body_group_time: float = shared_memory()
+    body_group_held: int = shared_memory()
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -76,10 +86,22 @@ class BaseTouchHold(TouchBaseInput):
                 and self.target_time + input_offset() <= time()
                 and InputState.sensor_touch_down[self.sensor - 1]):
                 self.held_at_head = True
-        # Releases are read here: touch() isn't called in frames without touches.
-        # No body check when the touch hold is 27 frames or shorter (empty or zero-length interval).
-        if self.hold_input_interval.length > 0 and time() in self.hold_input_interval:
-            self.check_body(InputState.sensor_touch_down[self.sensor - 1])
+        # Releases are read every frame: touch() isn't called in frames without touches.
+        self.pressed = InputState.sensor_touch_down[self.sensor - 1]
+        if self.pressed and self.body_group_leader.index > 0:
+            leader = self.body_group_leader.get()
+            if leader.body_group_time != time():
+                leader.body_group_time = time()
+                leader.body_group_held = 0
+            leader.body_group_held += 1
+
+    @property
+    def is_body_group_held(self) -> bool:
+        result = False
+        if self.body_group_leader.index > 0:
+            leader = self.body_group_leader.get()
+            result = leader.body_group_time == time() and leader.body_group_held * 2 > self.body_group_size
+        return result
 
     def check_body(self, pressed: bool):
         if pressed:
@@ -110,6 +132,7 @@ class BaseTouchHold(TouchBaseInput):
         self.head_judgment = self.judgment_window.judge(captured_touch.time, self.target_time)
         self.head_error = self.judgment_window.good.clamp(captured_touch.time - self.target_time)
         self.hold_state = HoldState.PRESSED
+        self.register_group_hit(self.head_judgment, self.head_error)
 
     def update_parallel(self):
         if self.despawn:
@@ -117,9 +140,17 @@ class BaseTouchHold(TouchBaseInput):
         if not self.is_scored and time() >= self.end_time:
             self.despawn = True
             return
-        if self.is_scored and not self.is_head_judged and time() > self.input_interval.end:
-            self.head_judgment = buckets.ArcadeJudgment.MISS
-            self.head_error = self.judgment_window.good.end
+        if self.is_scored and not self.is_head_judged:
+            if time() > self.input_interval.end:
+                self.head_judgment = buckets.ArcadeJudgment.MISS
+                self.head_error = self.judgment_window.good.end
+            elif self.is_group_judged:
+                self.head_judgment = self.group_result
+                self.head_error = self.group_result_error
+                self.hold_state = HoldState.PRESSED
+        # No body check when the touch hold is 27 frames or shorter (empty or zero-length interval).
+        if self.hold_input_interval.length > 0 and time() in self.hold_input_interval:
+            self.check_body(self.pressed or self.is_body_group_held)
         if self.is_scored and self.is_head_judged and time() >= self.end_time + input_offset():
             self.finish()
             return
