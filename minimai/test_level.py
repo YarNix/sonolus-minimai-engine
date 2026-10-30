@@ -11,7 +11,7 @@ from sonolus.script.metadata import Tag
 from sonolus.build.collection import Asset
 from sonolus.script.archetype import PlayArchetype
 
-from minimai.lib.game import get_button_iterator, get_sensor_iterator
+from minimai.lib.game import button_shift, get_button_iterator, get_sensor_iterator
 from minimai.lib.hold import HoldKind
 from minimai.lib.game import Sensor
 from minimai.lib.touch import TouchKind
@@ -211,7 +211,7 @@ def test_slide():
     # Headless, unmirrored and mirrored, per track group
     for index, track in enumerate(group_tracks):
         kind = SLIDE_KIND_CYCLE[index % 3]
-        button = index * 3 % 8 + 1
+        button = button_shift(1, index * 3)
         for mirrored in (False, True):
             builder.add_slide_headless(kind, track, mirrored, button, 2)
             builder.same_line()
@@ -219,7 +219,7 @@ def test_slide():
 
     # With a star head, per track group
     for index, track in enumerate(group_tracks):
-        builder.add_slide(SLIDE_KIND_CYCLE[index % 3], track, False, index * 3 % 8 + 1, 2)
+        builder.add_slide(SLIDE_KIND_CYCLE[index % 3], track, False, button_shift(1, index * 3), 2)
         builder.same_line()
         builder.advance(3)
 

@@ -41,6 +41,12 @@ class Options:
         step=1,
         unit=StandardText.MILLISECOND_UNIT
     )
+    mirror: int = select_option(
+        name=StandardText.MIRROR,
+        scope="Maimai",
+        default=0,
+        values=["OFF", "⇔", "⇅", "↻", "⇙", "⇘"],
+    )
     input_radius_scale: float = slider_option(
         name="Input radius",
         scope="Maimai",

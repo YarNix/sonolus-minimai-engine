@@ -29,6 +29,8 @@ from minimai.lib.input_state import InputState
 from minimai.lib.game import (
     Button,
     Sensor,
+    button_mirror,
+    button_shift,
     sensor_mirror,
     sensor_shift,
 )
@@ -435,8 +437,8 @@ def get_slide_end_button(track: SlideTrackKind, start_button: Button, is_mirrore
             assert_never(track)
             end_button = 5
     if is_mirrored:
-        end_button = ((-end_button + 1) % 8) + 1
-    end_button = (end_button + start_button - 2) % 8 + 1
+        end_button = button_mirror(end_button, Sensor.A1)
+    end_button = button_shift(end_button, start_button - 1)
     return end_button
 
 def get_star_note_kind(kind: SlideKind) -> NoteKind:

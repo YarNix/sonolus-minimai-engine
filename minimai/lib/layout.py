@@ -11,7 +11,7 @@ from sonolus.script.record import Record
 from sonolus.script.interval import Interval, lerp, lerp_clamped, unlerp, clamp, remap, unlerp_clamped
 from sonolus.script.debug import assert_true, debug_log
 
-from minimai.lib.game import Button, Sensor, SensorGroup, sensor_offset, sensor_to_group
+from minimai.lib.game import Button, MirrorMode, Sensor, SensorGroup, sensor_offset, sensor_to_group
 from minimai.lib.options import Options
 
 @level_data
@@ -156,6 +156,30 @@ def get_quad_from_center(button: Button, dist: float, size: Vec2) -> Quad:
     """A quad on the button's lane, ``dist`` ring units out, ``size`` in screen units."""
     center = layout_ring_pos(get_button_angle_horizontal(button), dist)
     return Rect.from_center(center, size).as_quad().rotate_centered(get_button_angle_vertical(button))
+
+def apply_quad_mirror_option(quad: Quad) -> Quad:
+    """``quad`` under the mirror option, about the ring center (unchanged when it's OFF)."""
+    # The option as a 2x2 matrix: a reflection across the axis at angle t is
+    # (cos 2t, sin 2t; sin 2t, -cos 2t), the 180 degree rotation is -1.
+    mode = Options.mirror
+    xx, xy, yx, yy = 1.0, 0.0, 0.0, 1.0
+    if mode == MirrorMode.ROTATE_180:
+        xx, yy = -1.0, -1.0
+    elif mode != MirrorMode.OFF:
+        axis = 0.0
+        if mode == MirrorMode.LEFT_RIGHT:
+            axis = pi / 2
+        elif mode == MirrorMode.DIAGONAL_LEFT:
+            axis = 3 * pi / 4
+        elif mode == MirrorMode.DIAGONAL_RIGHT:
+            axis = pi / 4
+        xx, xy, yx, yy = cos(2 * axis), sin(2 * axis), sin(2 * axis), -cos(2 * axis)
+
+    def transform(point: Vec2) -> Vec2:
+        offset = point - Layout.ring_center
+        return Layout.ring_center + Vec2(xx * offset.x + xy * offset.y, yx * offset.x + yy * offset.y)
+
+    return Quad(bl=transform(quad.bl), tl=transform(quad.tl), tr=transform(quad.tr), br=transform(quad.br))
 
 def layout_ring():
     size = layout_px_size(RING_SPRITE_SIZE)

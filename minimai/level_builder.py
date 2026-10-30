@@ -7,7 +7,7 @@ from typing import Iterable
 from sonolus.script.archetype import PlayArchetype
 from sonolus.script.level import BpmChange
 
-from minimai.lib.game import Button, Sensor
+from minimai.lib.game import Button, Sensor, button_mirror, button_shift
 from minimai.lib.hold import HoldKind
 from minimai.lib.note import NoteKind
 from minimai.lib.slide import SlideKind, SlideTrackKind, get_slide_end_button, get_slide_kind_variant
@@ -25,8 +25,7 @@ SLIDE_ARCHETYPES = {arch.key: arch for arch in slide.SLIDE_ARCHETYPES if arch.is
 
 def _build_sensor_neighbors() -> dict[Sensor, tuple[Sensor, ...]]:
     def at(group: str, index: int) -> Sensor:
-        button = (index - 1) % 8 + 1
-        return Sensor[f"{group}{button}"]
+        return Sensor[f"{group}{button_shift(1, index - 1)}"]
 
     neighbors: dict[Sensor, tuple[Sensor, ...]] = {Sensor.C: tuple(at("B", i) for i in range(1, 9))}
     for i in range(1, 9):
@@ -159,12 +158,9 @@ class SlideTrackArg:
     slide_seconds: float | None = None
 
 
-def mirror_key(key: int) -> int:
-    return (-key + 1) % 8 + 1
-
-
 def relative_button(start: int, end: int) -> int:
-    return (end - start) % 8 + 1
+    """``end`` as seen from ``start`` (start = 1)."""
+    return button_shift(end, 1 - start)
 
 
 def get_simai_track(shape: str, start: int, end: int, turn: int | None = None) -> tuple[SlideTrackKind, bool]:
@@ -178,27 +174,27 @@ def get_simai_track(shape: str, start: int, end: int, turn: int | None = None) -
         case "-":
             if rel < 3 or rel > 7:
                 raise ValueError(f"Invalid '-' slide {start}-{end}")
-            return pick("LINE", rel, False) if rel <= 5 else pick("LINE", mirror_key(rel), True)
+            return pick("LINE", rel, False) if rel <= 5 else pick("LINE", button_mirror(rel, Sensor.A1), True)
         case ">":
-            return pick("CIRCLE", rel, False) if start in UPPER_HALF else pick("CIRCLE", mirror_key(rel), True)
+            return pick("CIRCLE", rel, False) if start in UPPER_HALF else pick("CIRCLE", button_mirror(rel, Sensor.A1), True)
         case "<":
-            return pick("CIRCLE", rel, False) if start not in UPPER_HALF else pick("CIRCLE", mirror_key(rel), True)
+            return pick("CIRCLE", rel, False) if start not in UPPER_HALF else pick("CIRCLE", button_mirror(rel, Sensor.A1), True)
         case "^":
             if rel in (1, 5):
                 raise ValueError(f"Invalid '^' slide {start}^{end}")
-            return pick("CIRCLE", rel, False) if rel < 5 else pick("CIRCLE", mirror_key(rel), True)
+            return pick("CIRCLE", rel, False) if rel < 5 else pick("CIRCLE", button_mirror(rel, Sensor.A1), True)
         case "v":
             if rel == 5:
                 raise ValueError(f"Invalid 'v' slide {start}v{end}")
-            return pick("CENTER", rel, False) if rel < 5 else pick("CENTER", mirror_key(rel), True)
+            return pick("CENTER", rel, False) if rel < 5 else pick("CENTER", button_mirror(rel, Sensor.A1), True)
         case "pp":
             return pick("LOOP_OUT", rel, False)
         case "qq":
-            return pick("LOOP_OUT", mirror_key(rel), True)
+            return pick("LOOP_OUT", button_mirror(rel, Sensor.A1), True)
         case "p":
             return pick("LOOP_IN", rel, False)
         case "q":
-            return pick("LOOP_IN", mirror_key(rel), True)
+            return pick("LOOP_IN", button_mirror(rel, Sensor.A1), True)
         case "s" | "z":
             if rel != 5:
                 raise ValueError(f"Invalid '{shape}' slide {start}{shape}{end}")
@@ -212,7 +208,7 @@ def get_simai_track(shape: str, start: int, end: int, turn: int | None = None) -
             if turn_rel == 7 and 2 <= rel <= 5:
                 return pick("REFLECT", rel, False)
             if turn_rel == 3 and rel >= 5:
-                return pick("REFLECT", mirror_key(rel), True)
+                return pick("REFLECT", button_mirror(rel, Sensor.A1), True)
             raise ValueError(f"Invalid 'V' slide {start}V{turn}{end}")
     raise ValueError(f"Unknown slide shape {shape!r}")
 

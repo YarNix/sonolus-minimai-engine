@@ -21,7 +21,7 @@ from sonolus.script.timing import beat_to_time
 from sonolus.script.bucket import Bucket, Judgment
 # from sonolus.script.debug import notify, debug_log
 
-from minimai.lib.game import Button
+from minimai.lib.game import Button, apply_button_mirror_option
 from minimai.lib.note import (
     NoteKind,
     get_tap_appear_duration,
@@ -61,7 +61,7 @@ class BaseNote(ButtonBaseInput):
         self.kind = cast(NoteKind, self.key)
         self.result.bucket = buckets.get_note_bucket(self.kind)
 
-        # TODO: Handle mirror options
+        self.button = apply_button_mirror_option(self.button)
 
         self.target_time = beat_to_time(self.beat)
         appear_time = get_tap_appear_duration(self.speed)

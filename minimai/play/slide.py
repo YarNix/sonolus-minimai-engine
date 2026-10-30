@@ -20,7 +20,7 @@ from sonolus.script.timing import beat_to_time
 
 from minimai.typing import override_archetype
 from minimai.lib import archetype_names, buckets
-from minimai.lib.game import Button
+from minimai.lib.game import Button, apply_button_mirror_option, is_mirror_option_reflection
 from minimai.lib.layout import SLIDE_TRACK_POINTS
 from minimai.lib.slide import (
     SLIDE_JUDGMENT_CONST,
@@ -151,6 +151,10 @@ class BaseSlide(PlayArchetype):
         return time() >= self.start_time
 
     def preprocess(self):
+        # A reflected slide is the same track from the mirrored button, reflected the other way.
+        self.start_button = apply_button_mirror_option(self.start_button)
+        if is_mirror_option_reflection():
+            self.is_mirrored = not self.is_mirrored
         self.kind = self.resolve_kind()
         if self.is_scored:
             self.result.bucket = buckets.get_slide_bucket(self.kind)

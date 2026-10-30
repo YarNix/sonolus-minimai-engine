@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from minimai.lib.game import button_shift
+
 DEFAULT_BPM = 120
 DEFAULT_DIVISION = 4
 PSEUDO_EACH_SECONDS = 0.001
@@ -19,7 +21,7 @@ WIFI_BRANCH_CHAR = "~"
 
 def get_wifi_ends(start: int) -> tuple[int, int]:
     """(L, R) end buttons of a Wi-Fi; the center ends at start + 4."""
-    return (start + 4) % 8 + 1, (start + 2) % 8 + 1
+    return button_shift(start, 5), button_shift(start, 3)
 
 
 ## Chart data

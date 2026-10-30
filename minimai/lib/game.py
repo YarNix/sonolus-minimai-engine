@@ -1,6 +1,8 @@
 from enum import IntEnum, auto
 from typing import assert_never, cast
 
+from minimai.lib.options import Options
+
 Button = int
 
 class Sensor(IntEnum):
@@ -149,6 +151,83 @@ def sensor_mirror(source: Sensor, baseline: Sensor) -> Sensor:
 
     mirrored_offset = (2 * baseline_offset - source_offset + phase_offset) % 8
     return sensor_shift(source, mirrored_offset - source_offset)
+
+
+def button_shift(button: Button, offset: int) -> Button:
+    """``button`` moved ``offset`` buttons clockwise (negative: counterclockwise), wrapping in 1..8."""
+    return (button - 1 + offset) % 8 + 1
+
+
+def button_mirror(source: Button, baseline: Sensor) -> Button:
+    """Reflect button ``source`` across the center-crossing axis of ``baseline``."""
+    baseline_group = sensor_to_group(baseline)
+    if baseline_group == SensorGroup.C or baseline_group == SensorGroup.N:
+        return source
+    # The axis passes through the baseline: buttons sit on the A / B axes, half a step from D / E.
+    phase_offset = 0
+    if baseline_group in (SensorGroup.D, SensorGroup.E):
+        phase_offset = -1
+    return button_shift(1, 2 * sensor_offset(baseline) - (source - 1) + phase_offset)
+
+
+class MirrorMode(IntEnum):
+    """The chart mirror option. Reflections are across an axis between buttons, through two D
+    sensors; ROTATE_180 is left-right and up-down together."""
+    OFF = 0
+    LEFT_RIGHT = auto()
+    UP_DOWN = auto()
+    ROTATE_180 = auto()
+    DIAGONAL_LEFT = auto()
+    DIAGONAL_RIGHT = auto()
+
+
+def get_mirror_axis(mode: MirrorMode) -> Sensor:
+    """The D sensor the reflection axis of ``mode`` passes through (N0 for OFF / ROTATE_180)."""
+    result = Sensor.N0
+    match mode:
+        case MirrorMode.LEFT_RIGHT:
+            result = Sensor.D1
+        case MirrorMode.DIAGONAL_RIGHT:
+            result = Sensor.D2
+        case MirrorMode.UP_DOWN:
+            result = Sensor.D3
+        case MirrorMode.DIAGONAL_LEFT:
+            result = Sensor.D4
+        case _:
+            result = Sensor.N0
+    return result
+
+
+def is_mirror_reflection(mode: MirrorMode) -> bool:
+    """Whether ``mode`` reflects the chart (reversing slide shapes); OFF and ROTATE_180 don't."""
+    return mode != MirrorMode.OFF and mode != MirrorMode.ROTATE_180
+
+
+def apply_button_mirror_option(button: Button) -> Button:
+    """``button`` under the mirror option (unchanged when it's OFF)."""
+    mode = Options.mirror
+    result = button
+    if mode == MirrorMode.ROTATE_180:
+        result = button_shift(button, 4)
+    elif mode != MirrorMode.OFF:
+        result = button_mirror(button, get_mirror_axis(mode))
+    return result
+
+
+def apply_sensor_mirror_option(sensor: Sensor) -> Sensor:
+    """``sensor`` under the mirror option (unchanged when it's OFF)."""
+    mode = Options.mirror
+    result = sensor
+    if mode == MirrorMode.ROTATE_180:
+        result = sensor_shift(sensor, 4)
+    elif mode != MirrorMode.OFF:
+        result = sensor_mirror(sensor, get_mirror_axis(mode))
+    return result
+
+
+def is_mirror_option_reflection() -> bool:
+    """Whether the mirror option reflects the chart (slides flip their mirrored flag)."""
+    return is_mirror_reflection(Options.mirror)
 
 
 def get_button_range():

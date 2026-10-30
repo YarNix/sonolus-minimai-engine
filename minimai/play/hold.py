@@ -9,6 +9,7 @@ from sonolus.script.runtime import delta_time, input_offset, time, touches
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
+from minimai.lib.game import apply_button_mirror_option
 from minimai.lib.hold import HoldState, HoldKind, draw_hold, is_ex_hold
 from minimai.lib.input_state import InputState
 from minimai.lib.note import get_tap_appear_duration
@@ -44,6 +45,7 @@ class BaseHold(ButtonBaseInput):
     def preprocess(self):
         self.kind = cast(HoldKind, self.key)
         self.result.bucket = buckets.get_hold_bucket(self.kind)
+        self.button = apply_button_mirror_option(self.button)
 
         self.target_time = beat_to_time(self.beat)
         self.end_time = beat_to_time(self.beat + max(self.hold_duration, 0))

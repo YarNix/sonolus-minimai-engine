@@ -21,7 +21,7 @@ from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration
-from minimai.lib.game import Sensor
+from minimai.lib.game import Sensor, apply_sensor_mirror_option
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
 from minimai.play.overlap_manager import register_touch_overlap
 
@@ -42,7 +42,7 @@ class BaseTouch(TouchBaseInput):
         self.kind = cast(TouchKind, self.key)
         self.result.bucket = buckets.get_touch_bucket(self.kind)
 
-        # Handle mirror options
+        self.sensor = apply_sensor_mirror_option(self.sensor)
 
         self.target_time = beat_to_time(self.beat)
         appear_time = get_touch_appear_duration(self.speed)
