@@ -337,6 +337,18 @@ def test_each():
     )
     return builder.get_level()
 
+def test_touch_overlap():
+    builder = LevelBuilder()
+    builder.parse_line(
+        "(120){8},,,,,,,,"
+        # C: up to four visible at once (the "2" border in each / break colour, then the "3").
+        "C,C/E1,Cb,C,,,,,,,,,"
+        # B1: two at once (tie broken by chart order), a touch hold doesn't count.
+        "B1/B1,B1h[2:1],B1,,,,,,,,"
+        "E"
+    )
+    return builder.get_level()
+
 ## Levels from simai chart folders in resources/levels (see: resources/levels/README.md)
 LEVELS_DIR = Path(__file__).parent.parent / "resources" / "levels"
 # Converted audio, kept between builds
@@ -479,5 +491,6 @@ levels = [
     build_level("test-connected-slide", "Test Connected Slide", level_entities=test_connected_slide()),
     build_level("test-simai", "Test Simai", level_entities=test_simai()),
     build_level("test-each", "Test Each", level_entities=test_each()),
+    build_level("test-touch-overlap", "Test Touch Overlap", level_entities=test_touch_overlap()),
     *build_resource_levels(),
 ]

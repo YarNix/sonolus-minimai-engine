@@ -23,6 +23,7 @@ from minimai.lib import archetype_names, buckets
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration
 from minimai.lib.game import Sensor
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
+from minimai.play.overlap_manager import register_touch_overlap
 
 class BaseTouch(TouchBaseInput):
     beat: StandardImport.BEAT
@@ -53,6 +54,7 @@ class BaseTouch(TouchBaseInput):
     def update_sequential(self):
         if self.despawn:
             return
+        register_touch_overlap(self.sensor, self.start_time, self.index, self.kind)
         if self.is_scored and time() in self.input_interval: 
             # and self.captured_touch_id == 0:
             BaseInputMemory.active_touch_inputs.append(self.ref().with_archetype(TouchBaseInput))

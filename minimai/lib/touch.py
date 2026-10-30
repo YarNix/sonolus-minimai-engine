@@ -3,12 +3,15 @@ from typing import assert_never
 
 from sonolus.script.interval import unlerp
 from sonolus.script.runtime import time
-from sonolus.script.quad import Quad
+from sonolus.script.quad import Quad, Rect
+from sonolus.script.vec import Vec2
 
 from minimai.lib.game import Sensor
 from minimai.lib.options import Options
-from minimai.lib.layout import layout_touch, get_touch_fan_alpha
-from minimai.lib.layer import ZIndexes, get_z, LAYER_TOUCH
+from minimai.lib.layout import (
+    TOUCH_OVERLAP_BORDER_SIZE, get_sensor_pos_from_center, get_touch_fan_alpha, layout_px_size, layout_touch,
+)
+from minimai.lib.layer import ZIndexes, get_z, LAYER_TOUCH, LAYER_TOUCH_OVERLAP
 from minimai.lib.skin import ActiveSkin
 
 class TouchKind(IntEnum):
@@ -30,6 +33,20 @@ def draw_touch(kind: TouchKind, sensor: Sensor, start_time: float, target_time: 
     _fan_draw(kind, layout.top_fan, get_z(LAYER_TOUCH, target_time, 2), alpha)
     _fan_draw(kind, layout.right_fan, get_z(LAYER_TOUCH, target_time, 1), alpha)
     _fan_draw(kind, layout.left_fan, get_z(LAYER_TOUCH, target_time, 0), alpha)
+
+def draw_touch_overlap(kind: TouchKind, sensor: Sensor, count: int):
+    size = layout_px_size(TOUCH_OVERLAP_BORDER_SIZE, Options.touch_scale)
+    layout = Rect.from_center(get_sensor_pos_from_center(sensor), Vec2(size, size)).as_quad()
+    layer = get_z(LAYER_TOUCH_OVERLAP, 0, count).tuple
+    match kind:
+        case TouchKind.NORM_TOUCH:
+            ActiveSkin.normal_touch_overlap_border[count - 2].draw(layout, layer)
+        case TouchKind.EACH_TOUCH:
+            ActiveSkin.each_touch_overlap_border[count - 2].draw(layout, layer)
+        case TouchKind.BREAK_TOUCH:
+            ActiveSkin.break_touch_overlap_border[count - 2].draw(layout, layer)
+        case _:
+            assert_never(kind)
 
 def _point_draw(kind: TouchKind, layout: Quad, layer: ZIndexes, alpha: float = 1):
     match kind:

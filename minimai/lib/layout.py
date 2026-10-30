@@ -54,6 +54,7 @@ HOLD_END_POINT_SIZE = from_skin_px(64)
 
 TOUCH_POINT_SIZE = from_skin_px(32)
 TOUCH_JUST_BORDER_SIZE = from_skin_px(128)
+TOUCH_OVERLAP_BORDER_SIZE = from_skin_px(228)
 TOUCH_FAN_SIZE = from_skin_px(Vec2(112, 82))
 # Fan center from the point: the offset, plus the travel at the start of the approach.
 TOUCH_FAN_OFFSET = from_skin_px(22.6)

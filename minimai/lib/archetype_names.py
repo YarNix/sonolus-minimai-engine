@@ -3,8 +3,8 @@ from sonolus.script.archetype import StandardArchetypeName
 BPM_CHANGE = StandardArchetypeName.BPM_CHANGE
 
 INITIALIZATION = "Initialization"
-SLIDE_MANAGER = "SlideManager"
 INPUT_MANAGER = "_InputManager"
+OVERLAP_MANAGER = "_OverlapManager"
 RING = "Ring"
 EACH_LINE = "EachLine"
 

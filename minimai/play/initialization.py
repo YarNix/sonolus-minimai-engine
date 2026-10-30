@@ -11,6 +11,7 @@ from minimai.lib.particle import init_particles
 from minimai.lib.skin import init_skin
 from minimai.lib.ui import init_ui
 from minimai.play.input_manager import InputManager
+from minimai.play.overlap_manager import OverlapManager
 from minimai.play.ring import Ring
 
 
@@ -33,6 +34,7 @@ class Initialization(PlayArchetype):
 
     def initialize(self):
         InputManager.spawn()
+        OverlapManager.spawn()
         Ring.spawn()
 
     def spawn_order(self) -> float:
