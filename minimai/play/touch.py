@@ -20,10 +20,11 @@ from sonolus.script.containers import VarArray
 from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib import archetype_names, buckets
+from minimai.lib.effect import emit_firework_sfx, emit_touch_sfx, schedule_guide_sfx
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration
 from minimai.lib.game import Sensor, apply_sensor_mirror_option
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
-from minimai.play.overlap_manager import register_touch_overlap
+from minimai.play.activity_manager import register_touch_overlap, report_note_time
 
 class BaseTouch(TouchBaseInput):
     beat: StandardImport.BEAT
@@ -50,6 +51,11 @@ class BaseTouch(TouchBaseInput):
 
         self.input_interval = self.judgment_window.good + self.target_time + input_offset()
         self.unadjusted_input_interval = self.judgment_window.good + self.target_time
+
+        if self.is_scored:
+            report_note_time(self.target_time)
+            schedule_guide_sfx(self.target_time)
+            self.emit_hit_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
 
     def update_sequential(self):
         if self.despawn:
@@ -82,9 +88,6 @@ class BaseTouch(TouchBaseInput):
             return
         self.handle_touch()
 
-    def terminate(self):
-        pass
-
     @property
     def judgment_window(self):
         return buckets.TOUCH_WINDOW
@@ -100,7 +103,12 @@ class BaseTouch(TouchBaseInput):
         self.result.accuracy = error
         if self.result.bucket.id != -1:
             self.result.bucket_value = error * buckets.WINDOW_SCALE
+        self.emit_hit_sfx(judgment, time(), scheduled=False)
         self.despawn = True
+
+    def emit_hit_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+        emit_touch_sfx(self.kind == TouchKind.BREAK_TOUCH, judgment, at, scheduled)
+        emit_firework_sfx(self.firework, judgment, at, scheduled)
 
     def handle_touch(self):
         if time() > self.input_interval.end:

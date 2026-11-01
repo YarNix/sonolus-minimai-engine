@@ -4,7 +4,7 @@ BPM_CHANGE = StandardArchetypeName.BPM_CHANGE
 
 INITIALIZATION = "Initialization"
 INPUT_MANAGER = "_InputManager"
-OVERLAP_MANAGER = "_OverlapManager"
+ACTIVITY_MANAGER = "_ActivityManager"
 RING = "Ring"
 EACH_LINE = "EachLine"
 

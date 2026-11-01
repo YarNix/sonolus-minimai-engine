@@ -15,6 +15,7 @@ engine = Engine(
     title="Minimai",
     description="An engine to practice your washing machine skills",
     skin="deluxe",
+    effect="minimai-default",
     particle="pixel",
     background="black",
     data=EngineData(

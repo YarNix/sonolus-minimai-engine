@@ -50,6 +50,14 @@ def is_ex(kind: NoteKind):
     }
     return kind in ex_kinds
 
+def is_break(kind: NoteKind):
+    break_kinds = {
+        NoteKind.BREAK_TAP, NoteKind.EX_BREAK_TAP,
+        NoteKind.BREAK_STAR, NoteKind.EX_BREAK_STAR,
+        NoteKind.BREAK_DOUBLE_STAR, NoteKind.EX_BREAK_DOUBLE_STAR,
+    }
+    return kind in break_kinds
+
 def is_star(kind: NoteKind):
     star_kinds = {
         NoteKind.NORM_STAR, NoteKind.EX_STAR,

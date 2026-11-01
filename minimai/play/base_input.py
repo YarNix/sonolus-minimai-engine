@@ -12,6 +12,7 @@ from minimai.lib.game import Button, Sensor
 
 class ButtonBaseInput(PlayArchetype):
     button: Button = imported(default=1)
+    firework: bool = imported(default=False)
 
     target_time: float = entity_data()
     # When the note appears (each lines appear with it).
@@ -33,6 +34,7 @@ class ButtonBaseInput(PlayArchetype):
 
 class TouchBaseInput(PlayArchetype):
     sensor: Sensor = imported()
+    firework: bool = imported(default=False)
     # Touch group: the touches and touch holds at the same time on neighbouring sensors.
     # Every member refers to the same leader (the first member, itself included); 0 = no group.
     group_leader: EntityRef[TouchBaseInput] = imported(name="group")

@@ -10,9 +10,11 @@ from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.game import apply_button_mirror_option
-from minimai.lib.hold import HoldState, HoldKind, draw_hold, is_ex_hold
+from minimai.lib.effect import emit_firework_sfx, emit_hold_end_sfx, emit_tap_sfx, schedule_guide_sfx
+from minimai.lib.hold import HoldState, HoldKind, draw_hold, is_break_hold, is_ex_hold
 from minimai.lib.input_state import InputState
 from minimai.lib.note import get_tap_appear_duration
+from minimai.play.activity_manager import report_note_time
 from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
 
 
@@ -56,6 +58,14 @@ class BaseHold(ButtonBaseInput):
         self.unadjusted_input_interval = self.judgment_window.good + self.target_time
 
         self.hold_input_interval = buckets.hold_interval(self.target_time, self.end_time) + input_offset()
+
+        if self.is_scored:
+            report_note_time(self.target_time)
+            schedule_guide_sfx(self.target_time)
+            if self.end_time - self.target_time >= 1 / 60:
+                schedule_guide_sfx(self.end_time)
+            self.emit_head_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
+            self.emit_end_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.end_time, scheduled=True)
 
     def initialize(self):
         self.hold_state = HoldState.DEFAULT
@@ -124,6 +134,14 @@ class BaseHold(ButtonBaseInput):
             self.head_error = error
         self.head_bucket_value = error * buckets.WINDOW_SCALE
         self.hold_state = HoldState.PRESSED
+        self.emit_head_sfx(self.head_judgment, actual_time, scheduled=False)
+
+    def emit_head_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+        emit_tap_sfx(is_break_hold(self.kind), is_ex_hold(self.kind), judgment, at, scheduled)
+
+    def emit_end_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+        emit_hold_end_sfx(judgment, at, scheduled)
+        emit_firework_sfx(self.firework, judgment, at, scheduled)
 
     def update_parallel(self):
         if self.despawn:
@@ -161,6 +179,7 @@ class BaseHold(ButtonBaseInput):
             self.result.bucket = Bucket(-1)
         elif self.result.bucket.id != -1:
             self.result.bucket_value = self.head_bucket_value
+        self.emit_end_sfx(final, time(), scheduled=False)
         self.despawn = True
 
 

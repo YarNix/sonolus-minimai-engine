@@ -48,6 +48,9 @@ class SlideKind(IntEnum):
 def is_wifi_slide(kind: SlideKind):
     return kind in (SlideKind.WIFI_SLIDE, SlideKind.EACH_WIFI_SLIDE, SlideKind.BREAK_WIFI_SLIDE)
 
+def is_break_slide(kind: SlideKind):
+    return kind in (SlideKind.BREAK_SLIDE, SlideKind.BREAK_WIFI_SLIDE)
+
 class SlideTrackKind(IntEnum):
     NONE = 0
     # Edge (> < ^)

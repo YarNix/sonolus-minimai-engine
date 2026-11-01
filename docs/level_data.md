@@ -63,7 +63,7 @@ Handles common initialization logic for the engine. Must appear exactly once as 
 
 ### Fields
 
-None.
+* **countInBpm (float)**: Tempo of the count-in ticks before the first note (simai `&wholebpm`). 0 or less is no count-in. Defaults to 0.
 
 ## #BPM_CHANGE
 
@@ -89,6 +89,7 @@ A star note is usually the head of a slide (see **headNote** below). Double star
 * **speed (float)**: Note speed multiplier. Defaults to 1.
 * **rotateSpeed (float)**: Star spin in half-turns per second; positive is clockwise. Used only when **hasCustomRotation** is set; 0 means no spin. Defaults to 0.
 * **hasCustomRotation (bool)**: Whether **rotateSpeed** is used. Otherwise a star spins at the speed set by the slide that uses it as **headNote**, or at the fake-rotation speed (440°/s, simai `$$`) when no slide does. Taps never spin unless this is set. Defaults to false.
+* **firework (bool)**: Plays firework effects when hit. Defaults to false.
 
 ## *HoldNote
 
@@ -103,6 +104,7 @@ Comprised of many archetypes according to the following naming scheme:
 * **button (Button)**: Defaults to 1.
 * **holdDuration (float)**: Beats from the head to the end. 0 is a hold that ends with its head. Defaults to 0.
 * **speed (float)**: Note speed multiplier. Defaults to 1.
+* **firework (bool)**: Plays firework effects at the end, unless missed. Defaults to false.
 
 ## *TouchNote
 
@@ -117,6 +119,7 @@ Comprised of many archetypes according to the following naming scheme:
 * **speed (float)**: Note speed multiplier. Defaults to 1.
 * **group (ref?[TouchNote | TouchHoldNote])**: The touch group leader, see [Touch groups](#touch-groups).
 * **groupSize (int)**: Members in the touch group. Defaults to 0.
+* **firework (bool)**: Plays firework effects when hit. Defaults to false.
 
 ## *TouchHoldNote
 
@@ -135,6 +138,7 @@ Note: Each and break only change the centre point (and break scores as a break).
 * **group (ref?[TouchNote | TouchHoldNote])**, **groupSize (int)**: The touch group, as for touch notes.
 * **holdGroup (ref?[TouchHoldNote])**: The body group leader, see [Touch groups](#touch-groups).
 * **holdGroupSize (int)**: Members in the body group. Defaults to 0.
+* **firework (bool)**: Plays firework effects at the end, unless missed. Defaults to false.
 
 ## Touch groups
 
@@ -185,6 +189,7 @@ Writing the chain's total on the final slide and 0 on every conn slide is the us
 * **speed (float)**: Note speed multiplier for the fade-in. Defaults to 1.
 * **headNote (ref?[*Note])**: The star (or tap) note the slide starts from. Only meaningful on the chain head. The slide sets the star's spin speed from the chain's length and duration.
 * **prevSlide (ref?[Slide])**: The previous segment. Unset on the chain head.
+* **firework (bool)**: Plays firework effects when the star arrives, unless missed. Defaults to false. Does nothing on ConnSlides
 
 ConnSlideNote also has:
 
@@ -200,7 +205,7 @@ At least one of the three must be set.
 
 ## Planned
 
-* Fireworks: the level builder already accepts `firework` on every note, touch, hold and slide, but it isn't written to level data yet.
+* Fireworks: **firework** only plays a sound so far.
 
 [note_diagram]: img/note_rr_diagram.png
 [hold_diagram]: img/hold_rr_diagram.png

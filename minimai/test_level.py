@@ -374,6 +374,8 @@ def build_resource_levels(levels_dir: Path = LEVELS_DIR) -> Iterator[Level]:
         print("imageio-ffmpeg isn't installed (uv sync --extra levels): "
               "chart levels get no preview, and only mp3 tracks are used.")
     for folder in folders:
+        if folder.name.startswith("."):
+            continue
         yield from build_song_levels(folder, has_ffmpeg=has_ffmpeg)
 
 
@@ -425,13 +427,21 @@ def build_song_levels(folder: Path, *, has_ffmpeg: bool = True) -> Iterator[Leve
     if demo_seek is not None and has_ffmpeg:
         # 30 s from the demo point, fading out over the last 3 s.
         preview = convert_audio(track, ["-ss", f"{demo_seek}", "-t", "30", "-af", "afade=t=out:st=27:d=3"])
-    tags = [Tag(maidata[key].strip()) for key in ("genre", "wholebpm") if maidata.get(key, "").strip()]
+    tags = []
+    if "genre" in maidata:
+        tags.append(Tag(maidata["genre"].strip()))
+    if "wholebpm" in maidata:
+        wholebpm = get_float_or_None(maidata, "wholebpm")
+        if wholebpm is not None:
+            tags.append(Tag(f"BPM: {wholebpm}"))
+    else:
+        wholebpm = 0
 
     for chart in charts:
         builder = LevelBuilder()
         try:
             builder.parse_maidata(text, chart)
-            entities = [Initialization(), *builder.get_level()]
+            entities = [Initialization(count_in_bpm=wholebpm), *builder.get_level()]
         except Exception as error:
             raise ValueError(f"{maidata_path}: &inote_{chart}: {error}") from error
         # The chart starts &first seconds into the track.

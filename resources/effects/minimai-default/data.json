@@ -1,0 +1,64 @@
+{
+    "clips": [
+        {
+            "name": "#PERFECT",
+            "filename": "tap_perfect.wav"
+        },
+        {
+            "name": "#GREAT",
+            "filename": "tap_great.wav"
+        },
+        {
+            "name": "#GOOD",
+            "filename": "tap_good.wav"
+        },
+        {
+            "name": "#PERFECT_ALTERNATIVE",
+            "filename": "tap_ex.wav"
+        },
+        {
+            "name": "Mai Break Hit",
+            "filename": "break_tap.wav"
+        },
+        {
+            "name": "Mai Break Critical",
+            "filename": "break.wav"
+        },
+        {
+            "name": "Mai Touch Hit",
+            "filename": "touch.wav"
+        },
+        {
+            "name": "Mai Firework",
+            "filename": "touch_hanabi.wav"
+        },
+        {
+            "name": "Mai Touch Hold Start",
+            "filename": "touch_hold_start.wav"
+        },
+        {
+            "name": "Mai Touch Hold Sustain",
+            "filename": "touch_hold_sustain.wav"
+        },
+        {
+            "name": "Mai Slide",
+            "filename": "slide.wav"
+        },
+        {
+            "name": "Mai Break Slide",
+            "filename": "slide_break_start.wav"
+        },
+        {
+            "name": "Mai Break Slide End",
+            "filename": "slide_break_slide.wav"
+        },
+        {
+            "name": "Mai Guide",
+            "filename": "answer.wav"
+        },
+        {
+            "name": "Mai Count In",
+            "filename": "answer_clock.wav"
+        }
+    ]
+}

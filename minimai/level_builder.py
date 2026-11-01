@@ -623,6 +623,7 @@ class LevelBuilder:
             speed=speed,
             import_rotate_speed=rotation_speed or 0,
             has_custom_rotation=rotation_speed is not None,
+            firework=bool(firework),
         )
         self.entities.append(entity)
         return entity
@@ -649,6 +650,7 @@ class LevelBuilder:
             button=button,
             speed=speed,
             hold_duration=hold_time,
+            firework=bool(firework),
         )
         if hold_seconds is not None:
             self._pending_holds.append(_PendingHold(entity, beat, hold_seconds))
@@ -677,6 +679,7 @@ class LevelBuilder:
             sensor=sensor,
             speed=speed,
             hold_duration=hold_time,
+            firework=bool(firework),
         )
         if hold_seconds is not None:
             self._pending_holds.append(_PendingHold(entity, beat, hold_seconds))
@@ -693,7 +696,9 @@ class LevelBuilder:
         beat: float | None = None,
     ):
         self.ensure_bpm()
-        entity = TOUCH_ARCHETYPES[kind](beat=self.beat if beat is None else beat, sensor=sensor, speed=speed)
+        entity = TOUCH_ARCHETYPES[kind](
+            beat=self.beat if beat is None else beat, sensor=sensor, speed=speed, firework=bool(firework)
+        )
         self.entities.append(entity)
         return entity
 
@@ -760,11 +765,7 @@ class LevelBuilder:
             if not has_next and path_time < 0:
                 raise ValueError("Total slide time along a path can't be negative")
 
-            if has_next:
-                archetype = slide.ConnWifiSlide if is_wifi else slide.ConnSlide
-            else:
-                archetype = SLIDE_ARCHETYPES[SlideKind(get_slide_kind_variant(kind, is_wifi))]
-            entity = archetype(
+            entity_args = dict(
                 beat=beat,
                 track=arg.track,
                 start_button=start,
@@ -773,6 +774,13 @@ class LevelBuilder:
                 slide_duration=0 if use_seconds else slide_time,
                 speed=speed,
             )
+            if has_next:
+                # Connection parts don't take a firework; the final slides of the chain do.
+                archetype = slide.ConnWifiSlide if is_wifi else slide.ConnSlide
+                entity = archetype(**entity_args)
+            else:
+                archetype = SLIDE_ARCHETYPES[SlideKind(get_slide_kind_variant(kind, is_wifi))]
+                entity = archetype(**entity_args, firework=bool(firework))
             if pending is not None:
                 # Durations in beats (only the wait is in seconds): offset None keeps slide_duration.
                 pending.segments.append((entity, path_start if use_seconds else None, slide_time))

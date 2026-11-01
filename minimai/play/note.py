@@ -26,6 +26,7 @@ from minimai.lib.note import (
     NoteKind,
     get_tap_appear_duration,
     draw_note,
+    is_break,
     is_ex,
     is_star,
     get_note_angle,
@@ -33,6 +34,8 @@ from minimai.lib.note import (
 from minimai.lib.game import Sensor
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib import archetype_names, buckets
+from minimai.lib.effect import emit_firework_sfx, emit_tap_sfx, schedule_guide_sfx
+from minimai.play.activity_manager import report_note_time
 from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
 
 # Fake-rotate star (simai ``$$``): -440 deg/s, in half-turns per second.
@@ -72,7 +75,12 @@ class BaseNote(ButtonBaseInput):
 
         if not self.has_custom_rotation:
             self.import_rotate_speed = FAKE_ROTATION_SPEED if is_star(self.kind) else 0
-        
+
+        if self.is_scored:
+            report_note_time(self.target_time)
+            schedule_guide_sfx(self.target_time)
+            self.emit_hit_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
+
     def initialize(self):
         if not self.has_custom_rotation and self.slide_rotate_speed != 0:
             self.rotate_speed = self.slide_rotate_speed
@@ -105,28 +113,9 @@ class BaseNote(ButtonBaseInput):
             return
         self.handle_hit()
 
-    def terminate(self):
-        # if self.should_play_hit_effects:
-        #     # We do this here for parallelism, and to reduce compilation time.
-        #     play_note_hit_effects(
-        #         self.kind,
-        #         self.effect_kind,
-        #         self.visual_lane,
-        #         self.size,
-        #         self.direction,
-        #         self.result.judgment,
-        #         y_offset=self.visual_y_offset,
-        #         pivot_lane=self.visual_pivot_lane,
-        #         half_offset=self.visual_half_offset,
-        #         single_line=self.visual_single_line,
-        #         lane_particles=self.visual_lane_particles,
-        #         transform=self.visual_stage_transform().transform(),
-        #     )
-        # if self.is_scored:
-        #     self.result.haptic = get_note_haptic_feedback(self.kind, self.result.judgment)
-        # self.end_time = offset_adjusted_time()
-        # self.played_hit_effects = self.should_play_hit_effects
-        pass
+    def emit_hit_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+        emit_tap_sfx(is_break(self.kind), is_ex(self.kind), judgment, at, scheduled)
+        emit_firework_sfx(self.firework, judgment, at, scheduled)
 
     @property
     def judgment_window(self):
@@ -145,6 +134,7 @@ class BaseNote(ButtonBaseInput):
         self.result.accuracy = error
         if self.result.bucket.id != -1:
             self.result.bucket_value = bucket_val
+        self.emit_hit_sfx(judgment, actual_time, scheduled=False)
         self.despawn = True
 
     def handle_hit(self):

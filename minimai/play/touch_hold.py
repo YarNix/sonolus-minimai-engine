@@ -9,11 +9,14 @@ from sonolus.script.runtime import delta_time, input_offset, time, touches
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
+from minimai.lib.effect import emit_firework_sfx, emit_hold_end_sfx, is_hit, schedule_guide_sfx
+from minimai.lib.options import Options
 from minimai.lib.game import apply_sensor_mirror_option
 from minimai.lib.input_state import InputState
 from minimai.lib.hold import HoldState
 from minimai.lib.touch import get_touch_appear_duration
 from minimai.lib.touch_hold import TouchHoldKind, draw_touch_hold
+from minimai.play.activity_manager import register_touch_hold_riser, report_note_time
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
 
 
@@ -67,6 +70,14 @@ class BaseTouchHold(TouchBaseInput):
 
         self.hold_input_interval = buckets.touch_hold_interval(self.target_time, self.end_time) + input_offset()
 
+        if self.is_scored:
+            report_note_time(self.target_time)
+            schedule_guide_sfx(self.target_time)
+            if self.end_time - self.target_time >= 1 / 60:
+                schedule_guide_sfx(self.end_time)
+            # The head has no sound; the riser plays instead.
+            self.emit_end_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.end_time, scheduled=True)
+
     def initialize(self):
         self.hold_state = HoldState.DEFAULT
 
@@ -96,6 +107,19 @@ class BaseTouchHold(TouchBaseInput):
                 leader.body_group_time = time()
                 leader.body_group_held = 0
             leader.body_group_held += 1
+        if self.wants_riser:
+            register_touch_hold_riser()
+
+    @property
+    def wants_riser(self) -> bool:
+        """From a hit head to the end, or while pressed after a missed head. With auto SFX, the
+        whole body."""
+        result = False
+        if Options.auto_sfx:
+            result = self.target_time <= time() < self.end_time
+        elif self.is_scored:
+            result = is_hit(self.head_judgment) or (self.is_head_judged and self.pressed)
+        return result
 
     @property
     def is_body_group_held(self) -> bool:
@@ -180,7 +204,12 @@ class BaseTouchHold(TouchBaseInput):
             self.result.bucket = Bucket(-1)
         elif self.result.bucket.id != -1:
             self.result.bucket_value = self.head_error * buckets.WINDOW_SCALE
+        self.emit_end_sfx(final, time(), scheduled=False)
         self.despawn = True
+
+    def emit_end_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+        emit_hold_end_sfx(judgment, at, scheduled)
+        emit_firework_sfx(self.firework, judgment, at, scheduled)
 
 
 NormalTouchHoldNote = BaseTouchHold.derive(

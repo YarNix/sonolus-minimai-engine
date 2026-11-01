@@ -133,6 +133,56 @@ class Options:
         step=0.05,
         unit=StandardText.PERCENTAGE_UNIT,
     )
+    # Sounds per category;
+    guide_sound: bool = toggle_option(
+        name="Guide Sound",
+        description="A sound at every note timing, plus a count-in.",
+        scope="Maimai",
+        default=True,
+    )
+    tap_sound: bool = toggle_option(
+        name="Tap/Hold Sound",
+        scope="Maimai",
+        default=True,
+    )
+    tap_sound_judgment: int = select_option(
+        name="Tap/Hold Sound Judgment",
+        description="Which judgments make a Tap/Hold sound.",
+        scope="Maimai",
+        default=1,
+        values=["Good-Perfect", "Good-Critical Perfect", "Critical Perfect only", "Perfect only"],
+    )
+    break_sound: bool = toggle_option(
+        name="Break Sound",
+        scope="Maimai",
+        default=True,
+    )
+    ex_sound: bool = toggle_option(
+        name="EX Sound",
+        scope="Maimai",
+        default=True,
+    )
+    slide_sound: bool = toggle_option(
+        name="Slide Sound",
+        scope="Maimai",
+        default=True,
+    )
+    touch_sound: bool = toggle_option(
+        name="Touch Sound",
+        scope="Maimai",
+        default=True,
+    )
+    misc_sound: bool = toggle_option(
+        name="Miscellaneous Sound",
+        description="Fireworks.",
+        scope="Maimai",
+        default=True,
+    )
+    auto_sfx: bool = toggle_option(
+        name=StandardText.EFFECT_AUTO,
+        scope="Maimai",
+        default=False,
+    )
     show_input: bool = toggle_option(
         name="Show touch input.",
         description="Highlight hitbox when triggered by touches",
