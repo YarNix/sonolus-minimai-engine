@@ -2,7 +2,7 @@ from math import cos, degrees, radians, sin
 from enum import IntEnum, auto
 from typing import assert_never
 
-from sonolus.script.bucket import Bucket, Judgment, JudgmentWindow, bucket, bucket_sprite, buckets, _BucketSprite
+from sonolus.script.bucket import Bucket, BucketSprite, Judgment, JudgmentWindow, bucket, bucket_sprite, buckets
 from sonolus.script.interval import Interval, lerp
 from sonolus.script.record import Record
 from sonolus.script.sprite import Sprite
@@ -86,9 +86,9 @@ def get_note_bucket_outline(kind: NoteKind) -> Sprite | None:
     return outlines.get(kind)
 
 
-def create_note_bucket_sprites(*kinds: NoteKind) -> list[_BucketSprite]:
+def create_note_bucket_sprites(*kinds: NoteKind) -> list[BucketSprite]:
     """One note per kind, left to right; EX kinds get their outline on top, as in game."""
-    out_sprites: list[_BucketSprite] = []
+    out_sprites: list[BucketSprite] = []
     x_offset = (len(kinds) - 1) * NOTE_BUCKET_STEP / 2
     for i, kind in enumerate(kinds):
         x = NOTE_BUCKET_STEP * i - x_offset
@@ -122,9 +122,9 @@ def get_hold_bucket_outlines(kind: HoldKind) -> tuple[Sprite, Sprite, Sprite] | 
     return None
 
 
-def create_hold_bucket_sprites(*kinds: HoldKind) -> list[_BucketSprite]:
+def create_hold_bucket_sprites(*kinds: HoldKind) -> list[BucketSprite]:
     """One hold per kind lying on its side; EX kinds get their outline on top, as in game."""
-    out_sprites: list[_BucketSprite] = []
+    out_sprites: list[BucketSprite] = []
     thickness = HOLD_WIDTH * NOTE_BUCKET_SCALE
     cap = HOLD_CAP_LENGTH * NOTE_BUCKET_SCALE
     body = HOLD_BUCKET_BODY
@@ -156,9 +156,9 @@ def get_touch_bucket_sprites(kind: TouchKind) -> tuple[Sprite, Sprite]:
     raise ValueError(f"No bucket sprite for {kind!r}")
 
 
-def create_touch_bucket_sprites(*kinds: TouchKind) -> list[_BucketSprite]:
+def create_touch_bucket_sprites(*kinds: TouchKind) -> list[BucketSprite]:
     """One touch per kind, left to right: four fans pointing at the point, drawn in game order."""
-    out_sprites: list[_BucketSprite] = []
+    out_sprites: list[BucketSprite] = []
     x_offset = (len(kinds) - 1) * TOUCH_BUCKET_STEP / 2
     dot_size = TOUCH_POINT_SIZE * TOUCH_BUCKET_SCALE
     fan_size = TOUCH_FAN_SIZE * TOUCH_BUCKET_SCALE
@@ -191,10 +191,10 @@ def get_touch_hold_bucket_point(kind: TouchHoldKind) -> Sprite:
     raise ValueError(f"No bucket sprite for {kind!r}")
 
 
-def create_touch_hold_bucket_sprites(*kinds: TouchHoldKind) -> list[_BucketSprite]:
+def create_touch_hold_bucket_sprites(*kinds: TouchHoldKind) -> list[BucketSprite]:
     """One touch hold per kind, left to right, as it looks when it arrives: the full border, the
     four fans at the diagonals (drawn in game order) and the point."""
-    out_sprites: list[_BucketSprite] = []
+    out_sprites: list[BucketSprite] = []
     x_offset = (len(kinds) - 1) * TOUCH_BUCKET_STEP / 2
     dot_size = TOUCH_POINT_SIZE * TOUCH_BUCKET_SCALE
     fan_size = TOUCH_FAN_SIZE * TOUCH_BUCKET_SCALE
@@ -229,9 +229,9 @@ def get_slide_bucket_sprite(kind: SlideKind) -> Sprite:
     raise ValueError(f"No bucket sprite for {kind!r}")
 
 
-def create_slide_bucket_sprites(*kinds: SlideKind) -> list[_BucketSprite]:
+def create_slide_bucket_sprites(*kinds: SlideKind) -> list[BucketSprite]:
     """Five slide bars pointing left per kind, groups left to right."""
-    out_sprites: list[_BucketSprite] = []
+    out_sprites: list[BucketSprite] = []
     group_w = (SLIDE_BUCKET_BAR_COUNT - 1) * SLIDE_BUCKET_BAR_STEP + SLIDE_BUCKET_BAR_W
     group_step = group_w + SLIDE_BUCKET_GROUP_GAP
     x_offset = (len(kinds) - 1) * group_step / 2 + (SLIDE_BUCKET_BAR_COUNT - 1) * SLIDE_BUCKET_BAR_STEP / 2

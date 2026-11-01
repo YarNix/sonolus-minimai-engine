@@ -1,12 +1,18 @@
 from enum import IntEnum
 
-from sonolus.script.options import options, select_option, slider_option, toggle_option
+from sonolus.script.options import OptionCategory, options, select_option, slider_option, toggle_option
 from sonolus.script.text import StandardText
 
 @options
 class Options:
+    gameplay = OptionCategory(title=StandardText.GAMEPLAY)
+    graphics = OptionCategory(title=StandardText.GRAPHICS)
+    audio = OptionCategory(title=StandardText.AUDIO)
+    miscellaneous = OptionCategory(title=StandardText.MISCELLANEOUS)
+
     speed: float = slider_option(
         name=StandardText.SPEED,
+        category=gameplay,
         standard=True,
         advanced=True,
         default=1,
@@ -18,6 +24,7 @@ class Options:
     tap_speed: float = slider_option(
         name="Tap Speed",
         scope="Maimai",
+        category=gameplay,
         default=6,
         min=1,
         max=11,
@@ -26,6 +33,7 @@ class Options:
     touch_speed: float = slider_option(
         name="Touch Speed",
         scope="Maimai",
+        category=gameplay,
         default=6,
         min=1,
         max=11,
@@ -34,6 +42,7 @@ class Options:
     slide_fade_offset: float = slider_option(
         name="Slide Timing",
         scope="Maimai",
+        category=gameplay,
         description="Change the display timing of slide.",
         default=0,
         min=-1000,
@@ -44,12 +53,14 @@ class Options:
     mirror: int = select_option(
         name=StandardText.MIRROR,
         scope="Maimai",
+        category=gameplay,
         default=0,
         values=["OFF", "⇔", "⇅", "↻", "⇙", "⇘"],
     )
     input_radius_scale: float = slider_option(
         name="Input radius",
         scope="Maimai",
+        category=gameplay,
         description="How big the radius of your touches are. Bigger radius cover more sensors but also less accurate!",
         default=1,
         min=0,
@@ -61,6 +72,7 @@ class Options:
     ring_size: float = slider_option(
         name="Ring Size",
         scope="Maimai",
+        category=gameplay,
         default=0.875,
         min=0.1,
         max=1.2,
@@ -70,6 +82,7 @@ class Options:
     ring_offset: float = slider_option(
         name="Ring Y Offset",
         scope="Maimai",
+        category=gameplay,
         default=0,
         min=-1,
         max=1,
@@ -78,6 +91,7 @@ class Options:
     sensor_alpha: float = slider_option(
         name="Sensor Outline Alpha",
         scope="Maimai",
+        category=graphics,
         advanced=True,
         default=0,
         min=0,
@@ -88,6 +102,7 @@ class Options:
     button_size: float = slider_option(
         name="Button Size",
         scope="Maimai",
+        category=gameplay,
         description="The distance that the button hitbox extend from the ring edge.",
         default=0,
         min=0,
@@ -98,6 +113,7 @@ class Options:
         name="Button Angle",
         description="The width of the hitbox.",
         scope="Maimai",
+        category=gameplay,
         default=40,
         min=10,
         max=45,
@@ -107,6 +123,7 @@ class Options:
         name="Note Scale",
         description="Visually scale the size of tap and star notes",
         scope="Maimai",
+        category=graphics,
         default=1,
         min=0.1,
         max=3,
@@ -117,6 +134,7 @@ class Options:
         name="Touch Scale",
         description="Visually scale the size of touch notes",
         scope="Maimai",
+        category=graphics,
         default=1,
         min=0.1,
         max=3,
@@ -127,6 +145,7 @@ class Options:
         name="Slide Scale",
         description="Visually scale the size of slide paths",
         scope="Maimai",
+        category=graphics,
         default=1,
         min=0.1,
         max=3,
@@ -138,54 +157,64 @@ class Options:
         name="Guide Sound",
         description="A sound at every note timing, plus a count-in.",
         scope="Maimai",
+        category=audio,
         default=True,
     )
     tap_sound: bool = toggle_option(
         name="Tap/Hold Sound",
         scope="Maimai",
+        category=audio,
         default=True,
     )
     tap_sound_judgment: int = select_option(
         name="Tap/Hold Sound Judgment",
         description="Which judgments make a Tap/Hold sound.",
         scope="Maimai",
+        category=audio,
         default=1,
         values=["Good-Perfect", "Good-Critical Perfect", "Critical Perfect only", "Perfect only"],
     )
     break_sound: bool = toggle_option(
         name="Break Sound",
         scope="Maimai",
+        category=audio,
         default=True,
     )
     ex_sound: bool = toggle_option(
         name="EX Sound",
         scope="Maimai",
+        category=audio,
         default=True,
     )
     slide_sound: bool = toggle_option(
         name="Slide Sound",
         scope="Maimai",
+        category=audio,
         default=True,
     )
     touch_sound: bool = toggle_option(
         name="Touch Sound",
         scope="Maimai",
+        category=audio,
         default=True,
     )
     misc_sound: bool = toggle_option(
         name="Miscellaneous Sound",
         description="Fireworks.",
         scope="Maimai",
+        category=audio,
         default=True,
     )
     auto_sfx: bool = toggle_option(
         name=StandardText.EFFECT_AUTO,
         scope="Maimai",
+        category=audio,
         default=False,
     )
     show_input: bool = toggle_option(
         name="Show touch input.",
         description="Highlight hitbox when triggered by touches",
+        category=miscellaneous,
         scope="Maimai",
         advanced=True,
         default=False,
