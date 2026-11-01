@@ -347,8 +347,8 @@ class TouchHoldBorderLayout(Record):
     SIDE_DISTANCE = 66.5
     # Arc of the border on each corner
     CORNER_RADIUS = 34.25
-    # Half the thickness of the bar sprites (ring and glow).
-    BAR_HALF = 26
+    # Half the thickness of the ring.
+    RING_HALF = 13
     # Distance from the center to the corner arc centers.
     CORNER_DISTANCE = (SIDE_DISTANCE - CORNER_RADIUS) * sqrt(2)
 
@@ -380,10 +380,10 @@ class TouchHoldBorderLayout(Record):
                         hit = ray * (cls.SIDE_DISTANCE * sqrt(2) / (ray.x + ray.y))
                         length = clamp((hit - straight_from).dot(along), 0, length)
                     straight_to = straight_from + along * length
-                    normal = Vec2.unit(pi / 4) * cls.BAR_HALF
+                    normal = Vec2.unit(pi / 4) * cls.RING_HALF
                     layout.add_piece(
-                        sensor, side, straight_from - normal, straight_from + normal,
-                        straight_to + normal, straight_to - normal,
+                        sensor, side, straight_from + normal, straight_from - normal,
+                        straight_to - normal, straight_to + normal,
                     )
                 if phi > straight_end:
                     right_end = 0.0
@@ -427,7 +427,8 @@ class TouchHoldBorderLayout(Record):
         as up to ``CORNER_STEPS`` rectangles across the bar."""
         if start_angle - end_angle < 1e-4:
             return
-        meet = self.CORNER_RADIUS + self.BAR_HALF - 8
+        # Near the outer edge of the glow, which the skin transform puts at twice the ring's half thickness.
+        meet = self.CORNER_RADIUS + 2 * self.RING_HALF - 8
         step = pi / 4 / self.CORNER_STEPS
         count = ceil((start_angle - end_angle) / step - 1e-4)
         for i in range(count):
@@ -436,9 +437,9 @@ class TouchHoldBorderLayout(Record):
             mid = Vec2.unit((angle_from + angle_to) / 2)
             # Clockwise along the arc, half the width.
             across = mid.rotate(-pi / 2) * (meet * tan((angle_from - angle_to) / 2))
-            inner = corner_center + mid * (self.CORNER_RADIUS - self.BAR_HALF)
-            outer = corner_center + mid * (self.CORNER_RADIUS + self.BAR_HALF)
-            self.add_piece(sensor, side, inner - across, outer - across, outer + across, inner + across)
+            inner = corner_center + mid * (self.CORNER_RADIUS - self.RING_HALF)
+            outer = corner_center + mid * (self.CORNER_RADIUS + self.RING_HALF)
+            self.add_piece(sensor, side, outer - across, inner - across, inner + across, outer + across)
 
 def get_touch_fan_alpha(progress: float):
     return unlerp_clamped(0, TOUCH_END_SCALING_PROGGRESS, progress)
