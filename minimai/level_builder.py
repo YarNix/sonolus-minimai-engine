@@ -156,6 +156,8 @@ class SlideTrackArg:
     slide_time: float | None = None
     # Or seconds (fixed time, see LevelBuilder.emit_slides). A chain uses one or the other.
     slide_seconds: float | None = None
+    # A firework at the end of this final track; on a Wi-Fi, at every end after it.
+    firework: bool = False
 
 
 def relative_button(start: int, end: int) -> int:
@@ -217,7 +219,12 @@ def get_simai_track_args(segments: Sequence[SimaiSegment]) -> list[SlideTrackArg
     args = []
     for segment in segments:
         track, mirrored = get_simai_track(segment.shape, segment.start, segment.end, segment.turn)
-        arg = SlideTrackArg(track, mirrored, slide_seconds=segment.length.seconds if segment.length else None)
+        arg = SlideTrackArg(
+            track,
+            mirrored,
+            slide_seconds=segment.length.seconds if segment.length else None,
+            firework=segment.firework,
+        )
         if any(segment.branches):
             arg.sub_tracks = tuple(get_simai_track_args(b) if b else None for b in segment.branches)
         args.append(arg)
@@ -538,11 +545,15 @@ class LevelBuilder:
             elif isinstance(parsed, SimaiHold):
                 kind = get_hold_kind(ex=parsed.ex, each=each_head, brk=parsed.brk)
                 hold_seconds = parsed.length.seconds if parsed.length else None
-                self.emit_hold(kind, parsed.button, hold_seconds=hold_seconds, beat=group.beat)
+                self.emit_hold(
+                    kind, parsed.button, hold_seconds=hold_seconds, firework=parsed.firework or None, beat=group.beat
+                )
             elif isinstance(parsed, SimaiTap):
                 kind = get_note_kind(star=parsed.star, ex=parsed.ex, each=each_head, brk=parsed.brk)
                 rotation = None if parsed.star_rotate else (0 if parsed.star else None)
-                self.emit_note(kind, parsed.button, rotation_speed=rotation, beat=group.beat)
+                self.emit_note(
+                    kind, parsed.button, rotation_speed=rotation, firework=parsed.firework or None, beat=group.beat
+                )
             else:
                 double = slide_buttons.count(parsed.button) > 1
                 head_kind = get_note_kind(star=not parsed.tap_head, double=double, ex=parsed.ex, each=each_head, brk=parsed.brk)
@@ -554,6 +565,7 @@ class LevelBuilder:
                         wait_seconds=track.wait,
                         head_kind=head_kind,
                         headless=parsed.headless or track_index > 0,
+                        head_firework=(parsed.firework and track_index == 0) or None,
                         beat=group.beat,
                     )
 
@@ -717,13 +729,14 @@ class LevelBuilder:
         speed: float = 1,
         head_speed: float = 1,
         firework: bool | None = None,
+        head_firework: bool | None = None,
         beat: float | None = None,
     ):
         """Slide durations are in beats (``slide_time`` / ``total_slide_time``) or in seconds
         (``slide_seconds`` / ``total_slide_seconds``), not mixed within a chain. Seconds are a
         fixed time: they are resolved to beats in ``get_level`` on the final tempo map, so a BPM
         change during the slide doesn't change its duration. ``wait_seconds`` does the same for
-        the wait (either unit works with either duration unit)."""
+        the wait (either unit works with either duration unit). ``firework`` goes on every final slide, else per arg. """
         self.ensure_bpm()
         if not track_args:
             raise ValueError("A slide needs at least one track")
@@ -736,15 +749,22 @@ class LevelBuilder:
 
         head_note = None
         if not headless:
-            head_note = self.emit_note(head_kind or get_slide_head_kind(kind), button, speed=head_speed, beat=beat)
+            head_note = self.emit_note(
+                head_kind or get_slide_head_kind(kind), button, speed=head_speed, firework=head_firework, beat=beat
+            )
+        elif head_firework:
+            raise ValueError("A headless slide can't have a head firework")
 
-        def build(args: tuple[SlideTrackArg, ...], start: Button, prev, path_time: float):
+        def build(args: tuple[SlideTrackArg, ...], start: Button, prev, path_time: float, wifi_firework: bool):
             arg, rest = args[0], args[1:]
             is_wifi = arg.track == SlideTrackKind.FAN
             if arg.sub_tracks is not None and not is_wifi:
                 raise ValueError("Only Wi-Fi tracks can have sub tracks")
             sub_l, sub_r = (_as_chain(sub) for sub in (arg.sub_tracks or (None, None)))
             has_next = bool(rest or sub_l or sub_r)
+            if arg.firework and has_next and not is_wifi:
+                raise ValueError("Only a final track or a Wi-Fi can have a firework")
+            wifi_firework = wifi_firework or (is_wifi and arg.firework)
 
             if use_seconds:
                 if arg.slide_time is not None:
@@ -775,12 +795,11 @@ class LevelBuilder:
                 speed=speed,
             )
             if has_next:
-                # Connection parts don't take a firework; the final slides of the chain do.
                 archetype = slide.ConnWifiSlide if is_wifi else slide.ConnSlide
                 entity = archetype(**entity_args)
             else:
                 archetype = SLIDE_ARCHETYPES[SlideKind(get_slide_kind_variant(kind, is_wifi))]
-                entity = archetype(**entity_args, firework=bool(firework))
+                entity = archetype(**entity_args, firework=bool(firework) or arg.firework or wifi_firework)
             if pending is not None:
                 # Durations in beats (only the wait is in seconds): offset None keeps slide_duration.
                 pending.segments.append((entity, path_start if use_seconds else None, slide_time))
@@ -792,11 +811,15 @@ class LevelBuilder:
 
             center = SlideTrackKind.FAN_C if is_wifi else arg.track
             if rest:
-                entity.next_slide_ref = build(rest, get_slide_end_button(center, start, arg.mirrored), entity, path_time).ref()
+                entity.next_slide_ref = build(rest, get_slide_end_button(center, start, arg.mirrored), entity, path_time, wifi_firework).ref()
             if sub_l:
-                entity.next_slide_l_ref = build(sub_l, get_slide_end_button(SlideTrackKind.FAN_L, start, arg.mirrored), entity, path_time).ref()
+                entity.next_slide_l_ref = build(
+                    sub_l, get_slide_end_button(SlideTrackKind.FAN_L, start, arg.mirrored), entity, path_time, wifi_firework
+                ).ref()
             if sub_r:
-                entity.next_slide_r_ref = build(sub_r, get_slide_end_button(SlideTrackKind.FAN_R, start, arg.mirrored), entity, path_time).ref()
+                entity.next_slide_r_ref = build(
+                    sub_r, get_slide_end_button(SlideTrackKind.FAN_R, start, arg.mirrored), entity, path_time, wifi_firework
+                ).ref()
             return entity
 
-        build(tuple(track_args), button, None, 0.0)
+        build(tuple(track_args), button, None, 0.0, False)

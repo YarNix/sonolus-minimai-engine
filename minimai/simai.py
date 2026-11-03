@@ -14,7 +14,9 @@ SLIDE_SHAPES = ("pp", "qq", "-", "^", "<", ">", "v", "p", "q", "s", "z", "V", "w
 
 # Extensions, declared in maidata with ``&feat_ext=<name>[,<name>...]``.
 EXT_WIFI_MULTI_CHAIN = "wifi_multi_chain"
-ALL_EXTENSIONS = frozenset({EXT_WIFI_MULTI_CHAIN})
+# ``f`` on taps, holds and slides (simai has it on touches only).
+EXT_NOTE_FIREWORKS = "note_fireworks"
+ALL_EXTENSIONS = frozenset({EXT_WIFI_MULTI_CHAIN, EXT_NOTE_FIREWORKS})
 EXTENSIONS_KEY = "feat_ext"
 WIFI_BRANCH_CHAR = "~"
 
@@ -72,6 +74,8 @@ class SimaiSegment:
     end: int
     turn: int | None = None  # ``V`` only
     length: SimaiLength | None = None
+    # At a chain's last segment: a firework at its end. At a Wi-Fi: at every end after it.
+    firework: bool = False
     # Wi-Fi only: (L, R) chains continuing from its side ends. The center continues to the next segment.
     branches: tuple[list[SimaiSegment] | None, list[SimaiSegment] | None] = (None, None)
 
@@ -92,6 +96,7 @@ class SimaiTap:
     ex: bool = False
     star: bool = False
     star_rotate: bool = False
+    firework: bool = False
 
 
 @dataclass
@@ -99,6 +104,7 @@ class SimaiHold:
     button: int
     brk: bool = False
     ex: bool = False
+    firework: bool = False
     length: SimaiLength | None = None
 
 
@@ -116,6 +122,7 @@ class SimaiSlideNote:
     button: int
     brk: bool = False  # head only
     ex: bool = False  # head only
+    firework: bool = False  # head only
     tap_head: bool = False
     headless: bool = False
     slides: list[SimaiSlide] = field(default_factory=list)
@@ -270,7 +277,7 @@ def parse_note(token: str, state: SimaiState, extensions: frozenset[str] = ALL_E
             length=length,
         )
 
-    match = re.match(r"([1-8])([bx@?!$]*)", token)
+    match = re.match(r"([1-8])([bfx@?!$]*)", token)
     if match is None:
         raise ValueError(f"Invalid note {token!r}")
     button = int(match.group(1))
@@ -278,32 +285,48 @@ def parse_note(token: str, state: SimaiState, extensions: frozenset[str] = ALL_E
     rest = token[match.end():]
 
     if rest.startswith("h"):
-        hold = re.fullmatch(r"h([bx]*)(?:\[([^\]]*)\])?([bx]*)", rest)
+        hold = re.fullmatch(r"h([bfx]*)(?:\[([^\]]*)\])?([bfx]*)", rest)
         if hold is None:
             raise ValueError(f"Invalid hold {token!r}")
         flags += hold.group(1) + hold.group(3)
+        check_firework(flags, token, extensions)
         length = parse_length(hold.group(2), state) if hold.group(2) is not None else None
-        return SimaiHold(button, brk="b" in flags, ex="x" in flags, length=length)
-    if not rest or re.fullmatch(r"[bx$]*", rest):
+        return SimaiHold(button, brk="b" in flags, ex="x" in flags, firework="f" in flags, length=length)
+    if not rest or re.fullmatch(r"[bfx$]*", rest):
         flags += rest
+        check_firework(flags, token, extensions)
         dollars = flags.count("$")
-        return SimaiTap(button, brk="b" in flags, ex="x" in flags, star=dollars > 0, star_rotate=dollars > 1)
+        return SimaiTap(
+            button, brk="b" in flags, ex="x" in flags, star=dollars > 0, star_rotate=dollars > 1, firework="f" in flags
+        )
 
+    check_firework(flags, token, extensions)
+    headless = "?" in flags or "!" in flags
+    if headless and "f" in flags:
+        raise ValueError(f"A headless slide has no head for a firework: {token!r}")
     return SimaiSlideNote(
         button,
         brk="b" in flags,
         ex="x" in flags,
+        firework="f" in flags,
         tap_head="@" in flags,
-        headless="?" in flags or "!" in flags,
+        headless=headless,
         slides=[parse_slide(button, track_text, state, extensions) for track_text in rest.split("*")],
     )
+
+
+def check_firework(flags: str, text: str, extensions: frozenset[str]):
+    if "f" in flags and EXT_NOTE_FIREWORKS not in extensions:
+        raise ValueError(f"'f' needs the {EXT_NOTE_FIREWORKS} extension: {text!r}")
 
 
 ## Slides
 
 
-def parse_segments(start: int, text: str, state: SimaiState) -> tuple[list[SimaiSegment], bool]:
-    """Shapes, end buttons, optional ``[length]`` and ``b`` per segment; returns (segments, break)."""
+def parse_segments(
+    start: int, text: str, state: SimaiState, extensions: frozenset[str] = ALL_EXTENSIONS
+) -> tuple[list[SimaiSegment], bool]:
+    """Shapes, end buttons, optional ``[length]``, ``b`` and ``f`` per segment; returns (segments, break)."""
     segments: list[SimaiSegment] = []
     brk = False
     pos = 0
@@ -319,9 +342,13 @@ def parse_segments(start: int, text: str, state: SimaiState) -> tuple[list[Simai
         end = int(text[pos])
         pos += 1
         segment = SimaiSegment(shape, start, end, turn)
-        while pos < len(text) and text[pos] in "b[":
+        while pos < len(text) and text[pos] in "bf[":
             if text[pos] == "b":
                 brk = True
+                pos += 1
+            elif text[pos] == "f":
+                check_firework("f", text, extensions)
+                segment.firework = True
                 pos += 1
             else:
                 close = text.index("]", pos)
@@ -329,6 +356,9 @@ def parse_segments(start: int, text: str, state: SimaiState) -> tuple[list[Simai
                 pos = close + 1
         segments.append(segment)
         start = end
+    for segment in segments[:-1]:
+        if segment.firework and segment.shape != "w":
+            raise ValueError(f"'f' goes after a chain's last segment or a Wi-Fi: {text!r}")
     return segments, brk
 
 
@@ -337,7 +367,7 @@ def parse_slide(button: int, text: str, state: SimaiState, extensions: frozenset
     main_text, *slots = text.split(WIFI_BRANCH_CHAR)
     if slots and EXT_WIFI_MULTI_CHAIN not in extensions:
         raise ValueError(f"'{WIFI_BRANCH_CHAR}' needs the {EXT_WIFI_MULTI_CHAIN} extension: {text!r}")
-    main, brk = parse_segments(button, main_text, state)
+    main, brk = parse_segments(button, main_text, state, extensions)
     if not main:
         raise ValueError(f"Empty slide {text!r}")
 
@@ -353,7 +383,7 @@ def parse_slide(button: int, text: str, state: SimaiState, extensions: frozenset
                 stack.pop()
         if not stack:
             raise ValueError(f"No Wi-Fi left for branch '{WIFI_BRANCH_CHAR}{slot}' in {text!r}")
-        taken = stack[-1].take(slot, state)
+        taken = stack[-1].take(slot, state, extensions)
         if taken is not None:
             branch, branch_brk = taken
             brk = brk or branch_brk
@@ -374,7 +404,7 @@ class WifiSlots:
     def is_full(self) -> bool:
         return all(self.used)
 
-    def take(self, slot: str, state: SimaiState) -> tuple[list[SimaiSegment], bool] | None:
+    def take(self, slot: str, state: SimaiState, extensions: frozenset[str]) -> tuple[list[SimaiSegment], bool] | None:
         """``[side button](track)(end)...``; without a button, the first unused side (L, then R)."""
         ends = get_wifi_ends(self.segment.start)
         if slot and slot[0].isdigit():
@@ -387,7 +417,7 @@ class WifiSlots:
         self.used[side] = True
         if not slot:
             return None
-        branch, brk = parse_segments(ends[side], slot, state)
+        branch, brk = parse_segments(ends[side], slot, state, extensions)
         if all(s.length is None for s in branch):
             branch[-1].length = SimaiLength(self.remaining_seconds, None)
         branches = list(self.segment.branches)

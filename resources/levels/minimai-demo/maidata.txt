@@ -1,16 +1,21 @@
 &title=Minimai Demo
 &artist=Minimai
-&des=Every element, one beat apart, over a 160 BPM kick.
+&des=Every element over a 160 BPM kick, then each notes, touch groups, touch overlaps and a final chord, with fireworks.
 &first=0
 &wholebpm=160
 &genre=Demo
+&feat_ext=note_fireworks
 &demo_seek=0
 &lv_1=1
 &des_1=Minimai
 &inote_1=(160){4},,,,
-1,2,3,4,5,6,7,8,
-1h[8:1],2h[8:1],3h[8:1],4h[8:1],5h[8:1],6h[8:1],7h[8:1],8h[8:1],
-B1,B2,B3,B4,B5,B6,B7,B8,
-Ch[8:1],E1h[8:1],E2h[8:1],E3h[8:1],E4h[8:1],E5h[8:1],E6h[8:1],E7h[8:1],E8h[8:1],
-1-4[4:1],1-5[4:1],1-6[4:1],1>1[1:1],,,,,,
+1,2,3,4,5,6,7,8f,
+1h[8:1],2h[8:1],3h[8:1],4h[8:1],5h[8:1],6h[8:1],7h[8:1],8hf[8:1],
+B1,B2,B3,B4,B5,B6,B7,B8f,
+Ch[8:1],E1h[8:1],E2h[8:1],E3h[8:1],E4h[8:1],E5h[8:1],E6h[8:1],E7h[8:1],E8hf[8:1],
+1-4[4:1],1f-5[4:1],1-6[4:1]f,1w5[4:1]f,1>1[1:1]f,,,,,,
+1/5,2/6,3/7,4/8,1b/5b,2x/6x,3h[8:1]/7h[8:1],,
+B1/B2/C,,E3/E4/B3/B4/A3,,C/B1/B2/B3/B4/B5/B6/B7/B8,,,,
+{8}C,C,Cb,C,B5,B5,B5,B5,{4},,,
+A1/A2/A3/A4/A5/A6/A7/A8/B1/B2/B3/B4/B5/B6/B7/B8/D1/D2/D3/D4/D5/D6/D7/D8/E1/E2/E3/E4/E5/E6/E7/E8/Chf/1x/2xh/3bx/4bxh/5x/6xh/7bx/8bxh,,,,,
 E

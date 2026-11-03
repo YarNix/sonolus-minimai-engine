@@ -21,8 +21,9 @@ from sonolus.script.timing import beat_to_time
 from minimai.typing import override_archetype
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_break_slide_end_sfx, emit_firework_sfx, schedule_slide_sfx
+from minimai.lib.firework import spawn_firework
 from minimai.lib.game import Button, apply_button_mirror_option, is_mirror_option_reflection
-from minimai.lib.layout import SLIDE_TRACK_POINTS
+from minimai.lib.layout import SLIDE_TRACK_POINTS, layout_button_firework_center
 from minimai.lib.slide import (
     SLIDE_JUDGMENT_CONST,
     SLIDE_PATH_ALL_HIDDEN,
@@ -34,6 +35,7 @@ from minimai.lib.slide import (
     draw_slide,
     get_slide_appear_duration,
     get_slide_area_count,
+    get_slide_end_button,
     get_slide_kind_variant,
     is_break_slide,
 )
@@ -224,6 +226,10 @@ class BaseSlide(PlayArchetype):
             self.is_chain_final,
         )
 
+    def terminate(self):
+        if self.is_chain_final and self.is_judged:
+            self.spawn_end_firework()
+
     def update_final(self):
         """
         Update parallel for the final segment of the slide
@@ -353,7 +359,11 @@ class BaseSlide(PlayArchetype):
 
     def emit_arrive_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
         emit_firework_sfx(self.firework, judgment, at, scheduled)
-        pass
+
+    def spawn_end_firework(self):
+        # A Wi-Fi's track ends at its center.
+        end_button = get_slide_end_button(self.track, self.start_button, self.is_mirrored)
+        spawn_firework(self.firework, self.arcade_judgment, layout_button_firework_center(end_button))
 
     def handle_miss(self):
         if self.queue_remaining == 1:

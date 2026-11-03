@@ -30,7 +30,7 @@ Text after the last comma is placed but doesn't move time forward.
 | `5h[2:1]` | Hold. `5h` without a length is a zero-length hold. Combines with `b` and `x`. |
 | `B1`, `D4`, `E8` | Touch. `C`, `C1`, `C2` are all the center. |
 | `Cb` | Break touch. |
-| `Cf` | Touch with a firework. |
+| `Cf` | Touch with a firework. On other notes see [Fireworks](#fireworks-extension-note_fireworks). |
 | `Ch[4:3]` | Touch hold. `Ch` without a length is a zero-length touch hold. Combines with `b` and `f`. |
 
 ### Together
@@ -65,7 +65,7 @@ Used by holds and slides.
 ## Slides
 
 ```
-<start>[head options]<shape><end>[length][b]
+<start>[head options]<shape><end>[length][b][f]
 ```
 
 ### Shapes
@@ -157,20 +157,45 @@ Branches go to Wi-Fi through a stack:
 
 When two Wi-Fi on the stack share an end button (`~^1w5` above starts at 1 again), a side button picks the one on top. Skip the inner Wi-Fi's sides to reach the outer one.
 
-### Declaring the extension
-
-Extension must be declare in `maidata.txt` or `LevelBuilder.parse_maidata` will reject it
-
-```
-&title=Example
-&feat_ext=wifi_multi_chain
-&inote_5=(120){4}
-1w5-1[2:1]~^1,
-E
-```
-
-`&feat_ext` is a comma-separated list of extensions; `wifi_multi_chain` is the only one so far.
-
 ### Notes
 
 * A Wi-Fi with branches but no center continuation still has its center star, which holds back the branches, but the center isn't judged on its own. Only the slides at the end of each path are judged, one judgment per path.
+
+## Fireworks (extension `note_fireworks`)
+
+`f` adds a firework to taps, holds and slides, the way it does to touches. It goes where `b` goes.
+
+| Example | Firework |
+|---|---|
+| `1f`, `1$f` | Tap, star. |
+| `1hf[4:1]`, `1h[4:1]f` | Hold, when it ends. |
+| `1f-5[4:1]` | Slide head. |
+| `1-5[4:1]f` | Slide end, when the star arrives. |
+| `1-5[4:1]f*-3[4:1]` | Each `*` track has its own: only the `-5` end. |
+| `1-3-5[4:1]f` | A chain: after its last segment only. |
+
+Wi-Fi:
+
+* `f` right after a Wi-Fi's end (and length), before its center chain or the first `~`, puts a firework on every path's end after it. A Wi-Fi that is the last segment has one firework, at its center end.
+* Otherwise each path declares its own, after its last segment.
+
+| Example | Firework |
+|---|---|
+| `1w5[4:1]f` | The center end. |
+| `1w5f-1[2:1]~^1~^1` | Every path's end. |
+| `1w5-1[2:1]f~^1~^1` | The center path's end only. |
+| `1w5-1[2:1]~^1f~^1` | The left path's end only. |
+
+A headless slide with a head `f` (`1?f-5[4:1]`) is an error.
+
+## Extensions
+
+Extensions must be declared in `maidata.txt`, or `LevelBuilder.parse_maidata` rejects them. `&feat_ext` is a comma-separated list:
+
+```
+&title=Example
+&feat_ext=wifi_multi_chain,note_fireworks
+&inote_5=(120){4}
+1w5-1[2:1]~^1f,
+E
+```
