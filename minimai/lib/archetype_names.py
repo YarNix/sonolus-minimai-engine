@@ -7,6 +7,7 @@ INPUT_MANAGER = "_InputManager"
 ACTIVITY_MANAGER = "_ActivityManager"
 JUDGE_TEXT = "_JudgeText"
 FIREWORK = "_Firework"
+SLIDE_OK = "_SlideOK"
 RING = "Ring"
 EACH_LINE = "EachLine"
 

@@ -1,3 +1,4 @@
+from enum import IntEnum, auto
 from math import atan2, ceil, cos, floor, log, pi, sin, sqrt, tan, e
 from typing import assert_never
 
@@ -74,6 +75,112 @@ WIFI_SLIDE_PATH_SIZES = Array(*(from_skin_px(size) for size in (
     Vec2(519, 251),
     Vec2(571, 271),
     Vec2(653, 313),
+)))
+
+class SlideOkShape(IntEnum):
+    CURVE = 0
+    STRAIGHT = auto()
+    WIFI = auto()
+
+SLIDE_OK_SIZES = Array(*(from_skin_px(size) for size in (Vec2(410, 180), Vec2(428, 140), Vec2(668, 188))))
+# A straight slide OK that turns around also moves this far down its own (turned) sprite.
+SLIDE_OK_TURN_SHIFT = from_skin_px(27)
+
+class SlideOkPose(Record):
+    # Of the slide from button 1.
+    position: Vec2
+    rotation: float
+    shape: SlideOkShape
+    # A straight or Wi-Fi slide OK turns around on the right side, else on the left.
+    turn_on_right: bool
+
+def slide_ok_pose(x: float, y: float, degrees: float, shape: SlideOkShape, turn_on_right: bool) -> SlideOkPose:
+    return SlideOkPose(from_skin_px(Vec2(x, y)), degrees * pi / 180, shape, turn_on_right)
+
+# By track * 2 + is_mirrored, as the reference player places them: x, y (skin px), rotation (degrees).
+SLIDE_OK_POSES = Array(*(slide_ok_pose(*pose) for pose in (
+    (0, 0, 0, SlideOkShape.STRAIGHT, False),  # NONE
+    (0, 0, 0, SlideOkShape.STRAIGHT, False),  # NONE mirrored
+    (    4.4,   464.5,     0.00, SlideOkShape.CURVE, False),  # CIRCLE_1
+    (  325.3,   331.6,   -45.00, SlideOkShape.CURVE, True ),  # CIRCLE_1 mirrored
+    (  326.0,   326.0,   -45.00, SlideOkShape.CURVE, False),  # CIRCLE_2
+    (   -0.0,   461.0,     0.00, SlideOkShape.CURVE, True ),  # CIRCLE_2 mirrored
+    (  464.0,    -1.0,   -90.00, SlideOkShape.CURVE, False),  # CIRCLE_3
+    ( -328.8,   327.4,    45.00, SlideOkShape.CURVE, True ),  # CIRCLE_3 mirrored
+    (  325.0,  -330.0,  -135.00, SlideOkShape.CURVE, False),  # CIRCLE_4
+    ( -463.2,    -3.5,    90.00, SlideOkShape.CURVE, True ),  # CIRCLE_4 mirrored
+    (   -4.0,  -465.0,  -180.00, SlideOkShape.CURVE, False),  # CIRCLE_5
+    ( -326.0,  -331.6,   135.00, SlideOkShape.CURVE, True ),  # CIRCLE_5 mirrored
+    ( -331.0,  -324.0,   135.00, SlideOkShape.CURVE, False),  # CIRCLE_6
+    (    4.9,  -463.2,  -180.00, SlideOkShape.CURVE, True ),  # CIRCLE_6 mirrored
+    ( -462.0,     7.0,    90.00, SlideOkShape.CURVE, False),  # CIRCLE_7
+    (  331.6,  -321.7,  -135.00, SlideOkShape.CURVE, True ),  # CIRCLE_7 mirrored
+    ( -324.0,   329.0,    45.00, SlideOkShape.CURVE, False),  # CIRCLE_8
+    (  461.7,     3.5,   -90.00, SlideOkShape.CURVE, True ),  # CIRCLE_8 mirrored
+    (  345.0,    20.0,   -67.35, SlideOkShape.STRAIGHT, False),  # LINE_3
+    ( -239.8,   275.2,  -157.06, SlideOkShape.STRAIGHT, False),  # LINE_3 mirrored
+    (  170.0,  -243.0,   -90.00, SlideOkShape.STRAIGHT, False),  # LINE_4
+    ( -312.0,   -32.0,  -135.00, SlideOkShape.STRAIGHT, False),  # LINE_4 mirrored
+    ( -108.0,  -230.0,  -112.80, SlideOkShape.STRAIGHT, False),  # LINE_5
+    ( -108.0,  -230.0,  -112.80, SlideOkShape.STRAIGHT, False),  # LINE_5 mirrored
+    (  122.0,   263.0,    67.50, SlideOkShape.STRAIGHT, False),  # CENTER_1
+    (  122.0,   263.0,    67.50, SlideOkShape.STRAIGHT, False),  # CENTER_1 mirrored
+    (  237.0,    85.0,    23.03, SlideOkShape.STRAIGHT, False),  # CENTER_2
+    (  -84.0,   235.0,   113.21, SlideOkShape.STRAIGHT, False),  # CENTER_2 mirrored
+    (  231.0,  -115.0,   -21.37, SlideOkShape.STRAIGHT, False),  # CENTER_3
+    ( -230.0,   111.0,   158.53, SlideOkShape.STRAIGHT, False),  # CENTER_3 mirrored
+    (   92.0,  -245.0,   -67.28, SlideOkShape.STRAIGHT, False),  # CENTER_4
+    ( -244.0,   -92.0,  -155.87, SlideOkShape.STRAIGHT, False),  # CENTER_4 mirrored
+    (  197.5,   226.2,    90.00, SlideOkShape.STRAIGHT, False),  # LOOP_IN_1
+    (   20.3,   299.5,  -135.00, SlideOkShape.STRAIGHT, True ),  # LOOP_IN_1 mirrored
+    (  302.8,    25.2,    45.00, SlideOkShape.STRAIGHT, False),  # LOOP_IN_2
+    ( -196.3,   231.9,   -90.00, SlideOkShape.STRAIGHT, True ),  # LOOP_IN_2 mirrored
+    (  234.5,  -195.6,     0.00, SlideOkShape.STRAIGHT, False),  # LOOP_IN_3
+    ( -304.1,    27.5,   -45.00, SlideOkShape.STRAIGHT, True ),  # LOOP_IN_3 mirrored
+    (   29.7,  -306.5,   -45.00, SlideOkShape.STRAIGHT, False),  # LOOP_IN_4
+    ( -237.7,  -195.7,     0.00, SlideOkShape.STRAIGHT, True ),  # LOOP_IN_4 mirrored
+    ( -197.3,  -240.2,   -90.00, SlideOkShape.STRAIGHT, False),  # LOOP_IN_5
+    (  -30.4,  -309.4,    45.00, SlideOkShape.STRAIGHT, True ),  # LOOP_IN_5 mirrored
+    ( -292.1,   -14.7,  -135.00, SlideOkShape.STRAIGHT, False),  # LOOP_IN_6
+    (  196.2,  -217.0,    90.00, SlideOkShape.STRAIGHT, True ),  # LOOP_IN_6 mirrored
+    ( -221.9,   194.4,  -180.00, SlideOkShape.STRAIGHT, False),  # LOOP_IN_7
+    (  294.3,   -19.4,   135.00, SlideOkShape.STRAIGHT, True ),  # LOOP_IN_7 mirrored
+    (  -20.3,   298.3,   135.34, SlideOkShape.STRAIGHT, False),  # LOOP_IN_8
+    (  225.3,   196.6,   179.66, SlideOkShape.STRAIGHT, True ),  # LOOP_IN_8 mirrored
+    (  319.0,   262.0,   123.46, SlideOkShape.STRAIGHT, False),  # LOOP_OUT_1
+    (  -40.3,   410.8,  -168.46, SlideOkShape.STRAIGHT, True ),  # LOOP_OUT_1 mirrored
+    (  456.4,   -34.4,    89.33, SlideOkShape.STRAIGHT, False),  # LOOP_OUT_2
+    ( -347.0,   298.4,  -134.33, SlideOkShape.STRAIGHT, True ),  # LOOP_OUT_2 mirrored
+    (  259.0,  -231.0,    10.68, SlideOkShape.STRAIGHT, False),  # LOOP_OUT_3
+    ( -346.5,    19.8,   -55.68, SlideOkShape.STRAIGHT, True ),  # LOOP_OUT_3 mirrored
+    (   79.0,  -247.0,   -66.12, SlideOkShape.STRAIGHT, False),  # LOOP_OUT_4
+    ( -230.5,  -118.8,    21.12, SlideOkShape.STRAIGHT, True ),  # LOOP_OUT_4 mirrored
+    ( -121.0,  -236.0,  -110.11, SlideOkShape.STRAIGHT, False),  # LOOP_OUT_5
+    (  -81.3,  -252.4,    65.11, SlideOkShape.STRAIGHT, True ),  # LOOP_OUT_5 mirrored
+    ( -265.7,   -51.3,  -145.83, SlideOkShape.STRAIGHT, False),  # LOOP_OUT_6
+    (  151.6,  -224.2,   100.83, SlideOkShape.STRAIGHT, True ),  # LOOP_OUT_6 mirrored
+    ( -247.2,   205.5,  -177.35, SlideOkShape.STRAIGHT, False),  # LOOP_OUT_7
+    (  320.1,   -29.5,   132.35, SlideOkShape.STRAIGHT, True ),  # LOOP_OUT_7 mirrored
+    (   22.2,   354.7,   154.02, SlideOkShape.STRAIGHT, False),  # LOOP_OUT_8
+    (  235.1,   266.5,   160.98, SlideOkShape.STRAIGHT, True ),  # LOOP_OUT_8 mirrored
+    (  225.1,   172.9,     0.00, SlideOkShape.STRAIGHT, False),  # REFLECT_2
+    (  -36.9,   281.4,   -45.00, SlideOkShape.STRAIGHT, True ),  # REFLECT_2 mirrored
+    (  254.3,  -118.8,   -22.71, SlideOkShape.STRAIGHT, False),  # REFLECT_3
+    ( -263.8,    95.8,   -22.29, SlideOkShape.STRAIGHT, True ),  # REFLECT_3 mirrored
+    (   21.9,  -297.1,   -45.25, SlideOkShape.STRAIGHT, False),  # REFLECT_4
+    ( -225.5,  -194.6,     0.25, SlideOkShape.STRAIGHT, True ),  # REFLECT_4 mirrored
+    ( -271.1,  -261.2,   -68.29, SlideOkShape.STRAIGHT, False),  # REFLECT_5
+    (    7.0,  -376.4,    23.29, SlideOkShape.STRAIGHT, True ),  # REFLECT_5 mirrored
+    (  -61.0,  -303.0,  -134.39, SlideOkShape.STRAIGHT, False),  # ZIG_ZAG
+    ( -171.1,  -257.4,    89.39, SlideOkShape.STRAIGHT, True ),  # ZIG_ZAG mirrored
+    ( -161.0,  -387.0,   157.43, SlideOkShape.WIFI, False),  # FAN
+    ( -161.0,  -387.0,   157.43, SlideOkShape.WIFI, False),  # FAN mirrored
+    (0, 0, 0, SlideOkShape.STRAIGHT, False),  # FAN_L
+    (0, 0, 0, SlideOkShape.STRAIGHT, False),  # FAN_L mirrored
+    (0, 0, 0, SlideOkShape.STRAIGHT, False),  # FAN_C
+    (0, 0, 0, SlideOkShape.STRAIGHT, False),  # FAN_C mirrored
+    (0, 0, 0, SlideOkShape.STRAIGHT, False),  # FAN_R
+    (0, 0, 0, SlideOkShape.STRAIGHT, False),  # FAN_R mirrored
 )))
 
 # Effects
@@ -894,3 +1001,32 @@ def layout_touch_hold_judge_text(sensor: Sensor) -> JudgeTextLayout:
         BUTTON_JUDGE_TEXT_OFFSET,
         BUTTON_FAST_LATE_OFFSET,
     )
+
+
+class SlideOkLayout(Record):
+    quad: Quad
+    shape: SlideOkShape
+    is_right: bool
+
+def layout_slide_ok(track: int, start_button: Button, is_mirrored: bool, end_button: Button) -> SlideOkLayout:
+    index = track * 2
+    if is_mirrored:
+        index += 1
+    pose = SLIDE_OK_POSES[index]
+    shape = pose.shape
+    # Right: the curve runs clockwise, the Wi-Fi ends in the upper half, a straight one ends in the right half.
+    is_right = end_button <= 4
+    if shape == SlideOkShape.CURVE:
+        is_right = not is_mirrored
+    elif shape == SlideOkShape.WIFI:
+        is_right = end_button <= 2 or end_button >= 7
+    offset = get_button_angle_horizontal(start_button) - get_button_angle_horizontal(1)
+    position = pose.position.rotate(offset)
+    rotation = pose.rotation + offset
+    if shape != SlideOkShape.CURVE and is_right == pose.turn_on_right:
+        rotation += pi
+        if shape == SlideOkShape.STRAIGHT:
+            position += Vec2.unit(rotation - pi / 2) * SLIDE_OK_TURN_SHIFT
+    size = layout_px_size(SLIDE_OK_SIZES[shape])
+    quad = Rect.from_center(layout_ring_point(position), size).as_quad().rotate_centered(rotation)
+    return SlideOkLayout(quad=quad, shape=shape, is_right=is_right)

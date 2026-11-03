@@ -5,6 +5,7 @@ from minimai.play.input_manager import InputManager
 from minimai.play.activity_manager import ActivityManager
 from minimai.play.judge_text import JudgeText
 from minimai.play.firework import Firework
+from minimai.play.slide_ok import SlideOk
 from minimai.play.bpm_change import BpmChange
 from minimai.play.note import NOTE_ARCHETYPES
 from minimai.play.hold import HOLD_ARCHETYPES
@@ -34,6 +35,7 @@ play_mode = PlayMode(
         EachLine,
         JudgeText,
         Firework,
+        SlideOk,
     ],
     skin=BaseSkin,
     effects=Effects,

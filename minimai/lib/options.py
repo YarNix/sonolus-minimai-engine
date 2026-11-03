@@ -236,6 +236,14 @@ class Options:
         step=0.05,
         unit=StandardText.PERCENTAGE_UNIT,
     )
+    strict_slide_judgment: bool = toggle_option(
+        name="Strict Slide Judgment",
+        description='Divide Slide "Perfect" judgment into Critical and Fast/Late Perfect (affect break slide only)',
+        scope="Maimai",
+        category=gameplay,
+        standard=True,
+        default=False,
+    )
     sonolus_judgment: bool = toggle_option(
         name="Sonolus Judgment",
         description="Show Sonolus' judgment text instead of the judge text and fast/late at each note.",
@@ -287,6 +295,14 @@ class Options:
         min=0,
         max=1,
         step=0.05,
+    )
+    slide_ok_order: int = select_option(
+        name="Slide OK Order",
+        description="Which slide OK is on top where they overlap. A worse judgment is always on top.",
+        scope="Maimai",
+        category=graphics,
+        default=0,
+        values=["Earlier on Top", "Later on Top"],
     )
     hold_head_judge: bool = toggle_option(
         name="Hold Head Judge Text",

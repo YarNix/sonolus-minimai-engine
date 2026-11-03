@@ -71,7 +71,7 @@ class FastLateFilter(IntEnum):
 
 class FastLateStyle(IntEnum):
     """How fast/late shows (the Fast/Late Style option)."""
-    # Fast/late beside the judge text (in its place when the judge text doesn't show).
+    # Fast/late beside the judge text (in its place when the skin has no judge text sprite).
     WITH_JUDGMENT = 0
     # The judge text's fast/late version instead of both, when the skin has it.
     FAST_LATE_JUDGMENT = auto()
@@ -164,12 +164,12 @@ def spawn_judge_text(judgment: ArcadeJudgment, is_break: bool, error: float, slo
     ``error`` is the hit time minus the target time; a hit off by nothing has no fast/late."""
     if Options.sonolus_judgment or Options.judge_text_distance <= 0 or judgment == ArcadeJudgment.NONE:
         return
+    # The Judge Text filter hides fast/late too, whatever the style.
+    if not passes_filter(Options.judge_text, judgment):
+        return
     style = Options.fast_late_style
-    text = +EMPTY_SPRITE
-    shine = +EMPTY_SPRITE
-    if passes_filter(Options.judge_text, judgment):
-        text @= get_judge_text_sprite(judgment)
-        shine @= get_judge_text_shine(is_break, judgment)
+    text = +get_judge_text_sprite(judgment)
+    shine = +get_judge_text_shine(is_break, judgment)
     fast_late = +EMPTY_SPRITE
     if shows_fast_late(judgment, error):
         if error < 0:

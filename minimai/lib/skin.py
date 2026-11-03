@@ -164,6 +164,23 @@ class BaseSkin:
     firework_ball_pale: Sprite = sprite("Mai Firework Ball Pale")
     firework_sparkle: Sprite = sprite("Mai Firework Sparkle")
 
+    # By SlideOkState, then SlideOkGrade.
+    slide_oks: SpriteGroup = sprite_group(
+        f"Mai Slide OK {state} {grade}"
+        for state in ("Curve R", "Straight R", "Wifi Up", "Curve L", "Straight L", "Wifi Down")
+        for grade in (
+            "Critical Perfect",
+            "Just Perfect",
+            "Fast Perfect",
+            "Late Perfect",
+            "Fast Great",
+            "Late Great",
+            "Fast Good",
+            "Late Good",
+            "Too Late",
+        )
+    )
+
 class HoldActiveSpriteSet(Record):
     light: Sprite
     dark: Sprite
@@ -335,6 +352,8 @@ class ActiveSkin:
     firework_ball: Sprite
     firework_ball_pale: Sprite
     firework_sparkle: Sprite
+
+    slide_oks: SpriteGroup
 
 
 def init_skin():
@@ -525,3 +544,5 @@ def init_skin():
     ActiveSkin.firework_ball = BaseSkin.firework_ball
     ActiveSkin.firework_ball_pale = BaseSkin.firework_ball_pale
     ActiveSkin.firework_sparkle = BaseSkin.firework_sparkle
+
+    ActiveSkin.slide_oks = BaseSkin.slide_oks
