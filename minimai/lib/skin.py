@@ -143,6 +143,27 @@ class BaseSkin:
     ring: Sprite = sprite("Mai Ring")
     sensor_outline: Sprite = sprite("Mai Sensor Outline")
 
+    judge_critical_perfect: Sprite = sprite("Mai Judge Critical Perfect")
+    judge_perfect: Sprite = sprite("Mai Judge Perfect")
+    judge_great: Sprite = sprite("Mai Judge Great")
+    judge_good: Sprite = sprite("Mai Judge Good")
+    judge_miss: Sprite = sprite("Mai Judge Miss")
+    judge_critical_perfect_shine: Sprite = sprite("Mai Judge Critical Perfect Shine")
+    judge_perfect_shine: Sprite = sprite("Mai Judge Perfect Shine")
+    judge_fast: Sprite = sprite("Mai Judge Fast")
+    judge_late: Sprite = sprite("Mai Judge Late")
+    judge_perfect_fast: Sprite = sprite("Mai Judge Perfect Fast")
+    judge_perfect_late: Sprite = sprite("Mai Judge Perfect Late")
+    judge_great_fast: Sprite = sprite("Mai Judge Great Fast")
+    judge_great_late: Sprite = sprite("Mai Judge Great Late")
+    judge_good_fast: Sprite = sprite("Mai Judge Good Fast")
+    judge_good_late: Sprite = sprite("Mai Judge Good Late")
+
+    firework_rays: SpriteGroup = sprite_group(f"Mai Firework Ray {i}" for i in range(1, 13))
+    firework_ball: Sprite = sprite("Mai Firework Ball")
+    firework_ball_pale: Sprite = sprite("Mai Firework Ball Pale")
+    firework_sparkle: Sprite = sprite("Mai Firework Sparkle")
+
 class HoldActiveSpriteSet(Record):
     light: Sprite
     dark: Sprite
@@ -293,6 +314,27 @@ class ActiveSkin:
 
     ring: Sprite
     sensor_outline: Sprite
+
+    judge_critical_perfect: Sprite
+    judge_perfect: Sprite
+    judge_great: Sprite
+    judge_good: Sprite
+    judge_miss: Sprite
+    judge_critical_perfect_shine: Sprite
+    judge_perfect_shine: Sprite
+    judge_fast: Sprite
+    judge_late: Sprite
+    judge_perfect_fast: Sprite
+    judge_perfect_late: Sprite
+    judge_great_fast: Sprite
+    judge_great_late: Sprite
+    judge_good_fast: Sprite
+    judge_good_late: Sprite
+
+    firework_rays: SpriteGroup
+    firework_ball: Sprite
+    firework_ball_pale: Sprite
+    firework_sparkle: Sprite
 
 
 def init_skin():
@@ -462,3 +504,24 @@ def init_skin():
 
     ActiveSkin.ring = BaseSkin.ring
     ActiveSkin.sensor_outline = BaseSkin.sensor_outline
+
+    ActiveSkin.judge_critical_perfect = BaseSkin.judge_critical_perfect
+    ActiveSkin.judge_perfect = BaseSkin.judge_perfect
+    ActiveSkin.judge_great = BaseSkin.judge_great
+    ActiveSkin.judge_good = BaseSkin.judge_good
+    ActiveSkin.judge_miss = BaseSkin.judge_miss
+    ActiveSkin.judge_critical_perfect_shine = BaseSkin.judge_critical_perfect_shine
+    ActiveSkin.judge_perfect_shine = BaseSkin.judge_perfect_shine
+    ActiveSkin.judge_fast = BaseSkin.judge_fast
+    ActiveSkin.judge_late = BaseSkin.judge_late
+    ActiveSkin.judge_perfect_fast = BaseSkin.judge_perfect_fast
+    ActiveSkin.judge_perfect_late = BaseSkin.judge_perfect_late
+    ActiveSkin.judge_great_fast = BaseSkin.judge_great_fast
+    ActiveSkin.judge_great_late = BaseSkin.judge_great_late
+    ActiveSkin.judge_good_fast = BaseSkin.judge_good_fast
+    ActiveSkin.judge_good_late = BaseSkin.judge_good_late
+
+    ActiveSkin.firework_rays = BaseSkin.firework_rays
+    ActiveSkin.firework_ball = BaseSkin.firework_ball
+    ActiveSkin.firework_ball_pale = BaseSkin.firework_ball_pale
+    ActiveSkin.firework_sparkle = BaseSkin.firework_sparkle

@@ -5,14 +5,20 @@ from typing import cast
 from sonolus.script.archetype import StandardImport, entity_data, entity_memory, imported
 from sonolus.script.bucket import Bucket
 from sonolus.script.interval import Interval, clamp
+from sonolus.script.particle import ParticleHandle
 from sonolus.script.runtime import delta_time, input_offset, time, touches
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.game import apply_button_mirror_option
 from minimai.lib.effect import emit_firework_sfx, emit_hold_end_sfx, emit_tap_sfx, schedule_guide_sfx
+from minimai.lib.judge_text import button_slot, spawn_judge_text
+from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_hold_effect, layout_tap_effect
+from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
+from minimai.lib.firework import spawn_firework
 from minimai.lib.hold import HoldState, HoldKind, draw_hold, is_break_hold, is_ex_hold
 from minimai.lib.input_state import InputState
+from minimai.lib.options import Options
 from minimai.lib.note import get_tap_appear_duration
 from minimai.play.activity_manager import report_note_time
 from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
@@ -37,6 +43,10 @@ class BaseHold(ButtonBaseInput):
     release_time: float = entity_memory()
     pending_release: float = entity_memory()
     hold_state: HoldState = entity_memory()
+
+    judgment: buckets.ArcadeJudgment = entity_memory()
+    head_text_shown: bool = entity_memory()
+    glow: ParticleHandle = entity_memory()
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -92,6 +102,16 @@ class BaseHold(ButtonBaseInput):
         # Releases are read here: touch() isn't called in frames without touches.
         if self.hold_input_interval.length > 0 and time() in self.hold_input_interval:
             self.check_body(self.is_pressed())
+        if self.is_head_judged and not self.head_text_shown:
+            self.head_text_shown = True
+            if Options.hold_head_judge:
+                spawn_judge_text(
+                    self.head_judgment,
+                    is_break_hold(self.kind),
+                    self.head_error,
+                    button_slot(self.button),
+                    layout_button_judge_text(self.button),
+                )
 
     def is_pressed(self) -> bool:
         return InputState.button_down[self.button - 1] != 0 or InputState.sensor_touch_down[self.sensor - 1]
@@ -155,6 +175,7 @@ class BaseHold(ButtonBaseInput):
         if self.is_scored and self.is_head_judged and time() >= self.end_time + input_offset():
             self.finish()
             return
+        update_hold_glow(self.glow, self.is_glowing, self.head_judgment, layout_hold_effect(self.button))
         draw_hold(self.kind, self.button, self.start_time, self.target_time, self.end_time, self.hold_state)
 
     def finish(self):
@@ -180,7 +201,31 @@ class BaseHold(ButtonBaseInput):
         elif self.result.bucket.id != -1:
             self.result.bucket_value = self.head_bucket_value
         self.emit_end_sfx(final, time(), scheduled=False)
+        self.judgment = final
         self.despawn = True
+
+    @property
+    def is_glowing(self) -> bool:
+        """Held after the head is judged (the release grace included)."""
+        return self.is_scored and self.is_head_judged and (
+            self.hold_state == HoldState.PRESSED or self.hold_state == HoldState.RELEASED_GRACE
+        )
+
+    def terminate(self):
+        destroy_hold_glow(self.glow)
+        if self.is_scored and self.judgment != buckets.ArcadeJudgment.NONE:
+            self.play_end_effects()
+
+    def play_end_effects(self):
+        spawn_tap_effect(is_break_hold(self.kind), self.judgment, layout_tap_effect(self.button))
+        spawn_firework(self.firework, self.judgment, layout_button_firework_center(self.button))
+        spawn_judge_text(
+            self.judgment,
+            is_break_hold(self.kind),
+            self.head_error,
+            button_slot(self.button),
+            layout_button_judge_text(self.button),
+        )
 
 
 NormalHoldNote = BaseHold.derive(archetype_names.NORMAL_HOLD_NOTE, is_scored=True, key=HoldKind.NORM_HOLD)

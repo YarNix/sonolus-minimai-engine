@@ -13,3 +13,7 @@ dependencies = [
 levels = [
     "imageio-ffmpeg>=0.7.0",
 ]
+# Building packs
+tools = [
+    "pillow>=10.0.0",
+]

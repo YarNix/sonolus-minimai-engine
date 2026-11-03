@@ -76,6 +76,29 @@ WIFI_SLIDE_PATH_SIZES = Array(*(from_skin_px(size) for size in (
     Vec2(653, 313),
 )))
 
+# Effects
+TAP_EFFECT_SIZE = from_skin_px(400)
+TOUCH_EFFECT_SIZE = from_skin_px(200)
+HOLD_EFFECT_SIZE = from_skin_px(240)
+JUDGE_TEXT_SIZE = from_skin_px(Vec2(223, 82))
+FAST_LATE_SIZE = from_skin_px(Vec2(217, 76))
+# Judge text toward the ring center from a button's effect: this, times (2 - Judge Text Distance).
+BUTTON_JUDGE_TEXT_OFFSET = from_skin_px(100)
+# Fast/late, further in from the judge text.
+BUTTON_FAST_LATE_OFFSET = from_skin_px(66)
+# The same for a touch, from its sensor.
+TOUCH_JUDGE_TEXT_OFFSET = from_skin_px(66)
+TOUCH_FAST_LATE_OFFSET = from_skin_px(56)
+# Firework skin sprites. A ray: its width at the far end and its length from the firework's center.
+FIREWORK_RAY_SIZE = from_skin_px(Vec2(88, 552))
+FIREWORK_BALL_SIZE = from_skin_px(420)
+FIREWORK_PALE_BALL_SIZE = from_skin_px(480)
+FIREWORK_SPARKLE_SIZE = from_skin_px(56)
+# Sparkles, from the firework's center: one group on the ball's edge, one out to the rays' reach.
+FIREWORK_INNER_SPARKLE_DISTANCE = from_skin_px(197)
+FIREWORK_OUTER_SPARKLE_MIN_DISTANCE = from_skin_px(230)
+FIREWORK_OUTER_SPARKLE_MAX_DISTANCE = from_skin_px(500)
+
 NOTE_END_SCALING_PROGRESS = 1 / ((1 - NOTE_SPAWN_DISTANCE) * NOTE_SCALE_RATE + 1)
 TOUCH_END_SCALING_PROGGRESS = 0.2
 
@@ -766,3 +789,108 @@ def layout_slide_head(
         layout @= layout.rotate_centered(point.rotation)
     return layout
 
+
+
+def get_sensor_effect_angle(sensor: Sensor) -> float:
+    """Direction from the ring center through ``sensor``: effects there face it. Straight up for C."""
+    result = pi / 2
+    if sensor_to_group(sensor) != SensorGroup.C:
+        result = get_sensor_angle_horizontal(sensor)
+    return result
+
+def layout_effect_quad(angle: float, distance: float, size: Vec2) -> Quad:
+    """A ``size`` (screen units) quad ``distance`` ring units out at ``angle``, its top facing out."""
+    center = layout_ring_pos(angle, distance)
+    return Rect.from_center(center, size).as_quad().rotate_centered(angle - pi / 2)
+
+def layout_tap_effect(button: Button) -> Quad:
+    size = layout_px_size(TAP_EFFECT_SIZE, Options.effect_size)
+    return layout_effect_quad(get_button_angle_horizontal(button), 1, Vec2(size, size))
+
+def layout_hold_effect(button: Button) -> Quad:
+    size = layout_px_size(HOLD_EFFECT_SIZE, Options.effect_size)
+    return layout_effect_quad(get_button_angle_horizontal(button), 1, Vec2(size, size))
+
+def layout_touch_effect(sensor: Sensor) -> Quad:
+    size = layout_px_size(TOUCH_EFFECT_SIZE, Options.effect_size)
+    return layout_effect_quad(
+        get_sensor_effect_angle(sensor), get_sensor_distance(sensor_to_group(sensor)), Vec2(size, size)
+    )
+
+def layout_touch_hold_effect(sensor: Sensor) -> Quad:
+    """A touch hold ends with a tap effect on its sensor."""
+    size = layout_px_size(TAP_EFFECT_SIZE, Options.effect_size)
+    return layout_effect_quad(
+        get_sensor_effect_angle(sensor), get_sensor_distance(sensor_to_group(sensor)), Vec2(size, size)
+    )
+
+def layout_touch_hold_glow(sensor: Sensor) -> Quad:
+    size = layout_px_size(HOLD_EFFECT_SIZE, Options.effect_size)
+    return layout_effect_quad(
+        get_sensor_effect_angle(sensor), get_sensor_distance(sensor_to_group(sensor)), Vec2(size, size)
+    )
+
+def layout_button_firework_center(button: Button) -> Vec2:
+    return layout_ring_pos(get_button_angle_horizontal(button), 1)
+
+def layout_sensor_firework_center(sensor: Sensor) -> Vec2:
+    return get_sensor_pos_from_center(sensor)
+
+def layout_firework_ray(center: Vec2, angle: float, start: float, end: float) -> Quad:
+    """A ray out from ``center`` at ``angle``, from ``start`` to ``end`` of its length:
+    its sprite's bottom edge at the start (the center, until the ray draws away from it)."""
+    size = layout_px_size(FIREWORK_RAY_SIZE, Options.effect_size)
+    out = Vec2.unit(angle)
+    side = Vec2.unit(angle - pi / 2) * (size.x / 2)
+    base = center + out * (size.y * start)
+    tip = center + out * (size.y * end)
+    return Quad(bl=base - side, tl=tip - side, tr=tip + side, br=base + side)
+
+def layout_firework_ball(center: Vec2, size: float, scale: float) -> Quad:
+    side = layout_px_size(size, Options.effect_size * scale)
+    return Rect.from_center(center, Vec2(side, side)).as_quad()
+
+def layout_firework_sparkle(center: Vec2, angle: float, distance: float, scale: float) -> Quad:
+    side = layout_px_size(FIREWORK_SPARKLE_SIZE, Options.effect_size * scale)
+    position = center + Vec2.unit(angle) * layout_px_size(distance, Options.effect_size)
+    return Rect.from_center(position, Vec2(side, side)).as_quad()
+
+
+class JudgeTextLayout(Record):
+    text: Quad
+    # Fast/late below the judge text, and in its place when the judge text isn't shown.
+    fast_late: Quad
+    fast_late_alone: Quad
+
+def layout_judge_text_at(angle: float, distance: float, text_offset: float, fast_late_offset: float) -> JudgeTextLayout:
+    text_distance = distance - text_offset * (2 - Options.judge_text_distance)
+    text_size = layout_px_size(JUDGE_TEXT_SIZE)
+    fast_late_size = layout_px_size(FAST_LATE_SIZE)
+    return JudgeTextLayout(
+        text=layout_effect_quad(angle, text_distance, text_size),
+        fast_late=layout_effect_quad(angle, text_distance - fast_late_offset, fast_late_size),
+        fast_late_alone=layout_effect_quad(angle, text_distance, fast_late_size),
+    )
+
+def layout_button_judge_text(button: Button) -> JudgeTextLayout:
+    """Taps, stars and holds."""
+    return layout_judge_text_at(
+        get_button_angle_horizontal(button), 1, BUTTON_JUDGE_TEXT_OFFSET, BUTTON_FAST_LATE_OFFSET
+    )
+
+def layout_touch_judge_text(sensor: Sensor) -> JudgeTextLayout:
+    return layout_judge_text_at(
+        get_sensor_effect_angle(sensor),
+        get_sensor_distance(sensor_to_group(sensor)),
+        TOUCH_JUDGE_TEXT_OFFSET,
+        TOUCH_FAST_LATE_OFFSET,
+    )
+
+def layout_touch_hold_judge_text(sensor: Sensor) -> JudgeTextLayout:
+    """Placed like a button's, from the sensor."""
+    return layout_judge_text_at(
+        get_sensor_effect_angle(sensor),
+        get_sensor_distance(sensor_to_group(sensor)),
+        BUTTON_JUDGE_TEXT_OFFSET,
+        BUTTON_FAST_LATE_OFFSET,
+    )

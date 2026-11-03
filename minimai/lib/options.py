@@ -211,6 +211,90 @@ class Options:
         category=audio,
         default=False,
     )
+    note_effect: bool = toggle_option(
+        name=StandardText.NOTE_EFFECT,
+        category=graphics,
+        default=True,
+    )
+    effect_size: float = slider_option(
+        name=StandardText.NOTE_EFFECT_SIZE,
+        scope="Maimai",
+        category=graphics,
+        default=1,
+        min=0.1,
+        max=2,
+        step=0.05,
+        unit=StandardText.PERCENTAGE_UNIT,
+    )
+    effect_animation_speed: float = slider_option(
+        name="Effect Animation Speed",
+        scope="Maimai",
+        category=graphics,
+        default=1,
+        min=0.25,
+        max=4,
+        step=0.05,
+        unit=StandardText.PERCENTAGE_UNIT,
+    )
+    sonolus_judgment: bool = toggle_option(
+        name="Sonolus Judgment",
+        description="Show Sonolus' judgment text instead of the judge text and fast/late at each note.",
+        scope="Maimai",
+        category=gameplay,
+        default=False,
+    )
+    judge_text: int = select_option(
+        name="Judge Text",
+        description="Which judgments show their text at the note.",
+        scope="Maimai",
+        category=graphics,
+        default=0,
+        values=["All", "Below Critical Perfect", "Below Perfect", "Below Great", "Miss Only", "Off"],
+    )
+    critical_perfect_text: bool = toggle_option(
+        name="Show Critical Perfect Text",
+        description="Critical perfects show their own text instead of Perfect.",
+        scope="Maimai",
+        category=graphics,
+        default=False,
+    )
+    fast_late: int = select_option(
+        name="Fast/Late",
+        description="Which judgments show fast/late at the note.",
+        scope="Maimai",
+        category=graphics,
+        default=3,
+        values=["Below Critical Perfect", "Below Perfect", "Below Great", "Off"],
+    )
+    fast_late_style: int = select_option(
+        name="Fast/Late Style",
+        description=(
+            "With Judgment: fast/late beside the judge text.\n"
+            "Fast/Late Judgment: the judge text in its fast/late version.\n"
+            "Fast/Late Only: fast/late without the judge text."
+        ),
+        scope="Maimai",
+        category=graphics,
+        default=0,
+        values=["With Judgment", "Fast/Late Judgment", "Fast/Late Only"],
+    )
+    judge_text_distance: float = slider_option(
+        name="Judge Text Distance",
+        description="Lower moves the judge text toward the center; 0 hides it.",
+        scope="Maimai",
+        category=graphics,
+        default=1,
+        min=0,
+        max=1,
+        step=0.05,
+    )
+    hold_head_judge: bool = toggle_option(
+        name="Hold Head Judge Text",
+        description="Holds also show the judge text of their head.",
+        scope="Maimai",
+        category=graphics,
+        default=False,
+    )
     show_input: bool = toggle_option(
         name="Show touch input.",
         description="Highlight hitbox when triggered by touches",

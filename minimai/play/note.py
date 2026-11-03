@@ -35,6 +35,10 @@ from minimai.lib.game import Sensor
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_firework_sfx, emit_tap_sfx, schedule_guide_sfx
+from minimai.lib.judge_text import button_slot, spawn_judge_text
+from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_tap_effect
+from minimai.lib.particle import spawn_tap_effect
+from minimai.lib.firework import spawn_firework
 from minimai.play.activity_manager import report_note_time
 from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
 
@@ -53,6 +57,9 @@ class BaseNote(ButtonBaseInput):
 
     rotate_speed: float = entity_memory()
     slide_rotate_speed: float = shared_memory()
+
+    # The arcade grade (result.judgment has only four), for the hit effects in terminate.
+    judgment: buckets.ArcadeJudgment = entity_memory()
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -135,6 +142,7 @@ class BaseNote(ButtonBaseInput):
         if self.result.bucket.id != -1:
             self.result.bucket_value = bucket_val
         self.emit_hit_sfx(judgment, actual_time, scheduled=False)
+        self.judgment = judgment
         self.despawn = True
 
     def handle_hit(self):
@@ -149,7 +157,24 @@ class BaseNote(ButtonBaseInput):
         self.result.judgment = Judgment.MISS
         self.result.accuracy = self.judgment_window.good.end
         self.result.bucket = Bucket(-1)
+        self.judgment = buckets.ArcadeJudgment.MISS
         self.despawn = True
+
+    def terminate(self):
+        # Spawned here rather than at judgment, as Next Sekai does, so every way of despawning is covered.
+        if self.is_scored and self.judgment != buckets.ArcadeJudgment.NONE:
+            self.play_hit_effects()
+
+    def play_hit_effects(self):
+        spawn_tap_effect(is_break(self.kind), self.judgment, layout_tap_effect(self.button))
+        spawn_firework(self.firework, self.judgment, layout_button_firework_center(self.button))
+        spawn_judge_text(
+            self.judgment,
+            is_break(self.kind),
+            self.result.accuracy,
+            button_slot(self.button),
+            layout_button_judge_text(self.button),
+        )
 
 NormalTapNote = BaseNote.derive(archetype_names.NORMAL_TAP_NOTE, is_scored=True, key=NoteKind.NORM_TAP)
 ExTapNote = BaseNote.derive(archetype_names.EX_TAP_NOTE, is_scored=True, key=NoteKind.EX_TAP)

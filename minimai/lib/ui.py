@@ -70,6 +70,10 @@ def init_ui():
     box.l = -min_x_extent
     # show_ui = not Options.hide_ui
     show_ui = True
+    # Replaced by a counter of our own later (combo, achievement or DX score).
+    show_combo = False
+    # The judge text at each note shows instead, unless the option asks for Sonolus'.
+    show_judgment = Options.sonolus_judgment
 
     ui.menu.update(
         anchor=box.tr,
@@ -118,7 +122,7 @@ def init_ui():
         anchor=Vec2(Layout.field_w * 0.355, Layout.field_h * 0.0875),
         pivot=Vec2(0.5, 0.5),
         dimensions=Vec2(0, Layout.field_h * 0.14) * ui.combo_config.scale,
-        alpha=ui.combo_config.alpha * show_ui,
+        alpha=ui.combo_config.alpha * show_ui * show_combo,
         horizontal_align=HorizontalAlign.CENTER,
         background=False,
     )
@@ -126,7 +130,7 @@ def init_ui():
         anchor=Vec2(Layout.field_w * 0.355, Layout.field_h * 0.0875),
         pivot=Vec2(0.5, -2.25),
         dimensions=Vec2(0, Layout.field_h * 0.14 * 0.25) * ui.combo_config.scale,
-        alpha=ui.combo_config.alpha * show_ui,
+        alpha=ui.combo_config.alpha * show_ui * show_combo,
         horizontal_align=HorizontalAlign.CENTER,
         background=False,
     )
@@ -134,7 +138,7 @@ def init_ui():
         anchor=Vec2(0, Layout.field_h * -0.115),
         pivot=Vec2(0.5, 0.5),
         dimensions=Vec2(0, Layout.field_h * 0.0475) * ui.judgment_config.scale,
-        alpha=ui.judgment_config.alpha * show_ui,
+        alpha=ui.judgment_config.alpha * show_ui * show_judgment,
         horizontal_align=HorizontalAlign.CENTER,
         background=False,
     )

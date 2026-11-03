@@ -3,6 +3,8 @@ from sonolus.script.engine import PlayMode
 from minimai.play.initialization import Initialization
 from minimai.play.input_manager import InputManager
 from minimai.play.activity_manager import ActivityManager
+from minimai.play.judge_text import JudgeText
+from minimai.play.firework import Firework
 from minimai.play.bpm_change import BpmChange
 from minimai.play.note import NOTE_ARCHETYPES
 from minimai.play.hold import HOLD_ARCHETYPES
@@ -30,6 +32,8 @@ play_mode = PlayMode(
         *TOUCH_HOLD_ARCHETYPES,
         *SLIDE_ARCHETYPES,
         EachLine,
+        JudgeText,
+        Firework,
     ],
     skin=BaseSkin,
     effects=Effects,

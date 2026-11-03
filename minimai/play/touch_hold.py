@@ -5,11 +5,21 @@ from typing import cast
 from sonolus.script.archetype import EntityRef, StandardImport, entity_data, entity_memory, imported, shared_memory
 from sonolus.script.bucket import Bucket
 from sonolus.script.interval import Interval, clamp
+from sonolus.script.particle import ParticleHandle
 from sonolus.script.runtime import delta_time, input_offset, time, touches
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_firework_sfx, emit_hold_end_sfx, is_hit, schedule_guide_sfx
+from minimai.lib.judge_text import spawn_judge_text, touch_hold_slot
+from minimai.lib.layout import (
+    layout_sensor_firework_center,
+    layout_touch_hold_effect,
+    layout_touch_hold_glow,
+    layout_touch_hold_judge_text,
+)
+from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
+from minimai.lib.firework import spawn_firework
 from minimai.lib.options import Options
 from minimai.lib.game import apply_sensor_mirror_option
 from minimai.lib.input_state import InputState
@@ -44,6 +54,9 @@ class BaseTouchHold(TouchBaseInput):
     pending_release: float = entity_memory()
     hold_state: HoldState = entity_memory()
     pressed: bool = entity_memory()
+
+    judgment: buckets.ArcadeJudgment = entity_memory()
+    glow: ParticleHandle = entity_memory()
 
     # Body group state, kept on the leader: how many members were held in the frame at
     # ``body_group_time``.
@@ -180,6 +193,7 @@ class BaseTouchHold(TouchBaseInput):
         if self.is_scored and self.is_head_judged and time() >= self.end_time + input_offset():
             self.finish()
             return
+        update_hold_glow(self.glow, self.is_glowing, self.head_judgment, layout_touch_hold_glow(self.sensor))
         draw_touch_hold(self.kind, self.sensor, self.start_time, self.target_time, self.end_time, self.hold_state)
 
     def finish(self):
@@ -205,7 +219,27 @@ class BaseTouchHold(TouchBaseInput):
         elif self.result.bucket.id != -1:
             self.result.bucket_value = self.head_error * buckets.WINDOW_SCALE
         self.emit_end_sfx(final, time(), scheduled=False)
+        self.judgment = final
         self.despawn = True
+
+    @property
+    def is_glowing(self) -> bool:
+        return self.is_scored and self.is_head_judged and (
+            self.hold_state == HoldState.PRESSED or self.hold_state == HoldState.RELEASED_GRACE
+        )
+
+    def terminate(self):
+        destroy_hold_glow(self.glow)
+        if self.is_scored and self.judgment != buckets.ArcadeJudgment.NONE:
+            self.play_end_effects()
+
+    def play_end_effects(self):
+        is_break = self.kind == TouchHoldKind.BREAK_TOUCH_HOLD
+        spawn_tap_effect(is_break, self.judgment, layout_touch_hold_effect(self.sensor))
+        spawn_firework(self.firework, self.judgment, layout_sensor_firework_center(self.sensor))
+        spawn_judge_text(
+            self.judgment, is_break, self.head_error, touch_hold_slot(self.sensor), layout_touch_hold_judge_text(self.sensor)
+        )
 
     def emit_end_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
         emit_hold_end_sfx(judgment, at, scheduled)

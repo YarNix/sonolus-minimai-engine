@@ -5,6 +5,8 @@ BPM_CHANGE = StandardArchetypeName.BPM_CHANGE
 INITIALIZATION = "Initialization"
 INPUT_MANAGER = "_InputManager"
 ACTIVITY_MANAGER = "_ActivityManager"
+JUDGE_TEXT = "_JudgeText"
+FIREWORK = "_Firework"
 RING = "Ring"
 EACH_LINE = "EachLine"
 
