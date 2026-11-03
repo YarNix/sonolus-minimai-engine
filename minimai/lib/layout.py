@@ -197,6 +197,15 @@ BUTTON_FAST_LATE_OFFSET = from_skin_px(66)
 TOUCH_JUDGE_TEXT_OFFSET = from_skin_px(66)
 TOUCH_FAST_LATE_OFFSET = from_skin_px(56)
 # Firework skin sprites. A ray: its width at the far end and its length from the firework's center.
+# Touch feedback
+TOUCH_FEEDBACK_RADIUS = from_skin_px(85)
+TOUCH_FEEDBACK_CENTER_RADIUS = from_skin_px(22)
+TOUCH_FEEDBACK_PETAL_SIZE = from_skin_px(Vec2(12, 26))
+TOUCH_FEEDBACK_PETAL_START = from_skin_px(36)
+TOUCH_FEEDBACK_PETAL_END = from_skin_px(121)
+# Where the ring sprite's rim is, as a part of its half size.
+TOUCH_FEEDBACK_RING_RIM = 0.9
+
 FIREWORK_RAY_SIZE = from_skin_px(Vec2(88, 552))
 FIREWORK_BALL_SIZE = from_skin_px(420)
 FIREWORK_PALE_BALL_SIZE = from_skin_px(480)
@@ -936,6 +945,25 @@ def layout_touch_hold_glow(sensor: Sensor) -> Quad:
     return layout_effect_quad(
         get_sensor_effect_angle(sensor), get_sensor_distance(sensor_to_group(sensor)), Vec2(size, size)
     )
+
+def layout_touch_feedback_center(sensor: Sensor) -> Vec2:
+    """A sensors (and the buttons) on the ring, the others at their sensor."""
+    result = get_sensor_pos_from_center(sensor)
+    if sensor_to_group(sensor) == SensorGroup.A:
+        result @= layout_ring_pos(get_button_angle_horizontal(sensor - Sensor.A1 + 1), 1)
+    return result
+
+def layout_touch_feedback_ring(center: Vec2, radius: float) -> Quad:
+    """A ring sprite with its rim at ``radius`` (ring units)."""
+    side = layout_px_size(2 * radius / TOUCH_FEEDBACK_RING_RIM)
+    return Rect.from_center(center, Vec2(side, side)).as_quad()
+
+def layout_touch_feedback_petal(center: Vec2, angle: float, progress: float, scale: float) -> Quad:
+    """A petal pointing out at ``angle``, ``progress`` of the way from its start to its end distance."""
+    distance = lerp(TOUCH_FEEDBACK_PETAL_START, TOUCH_FEEDBACK_PETAL_END, progress)
+    position = center + Vec2.unit(angle) * layout_px_size(distance)
+    size = layout_px_size(TOUCH_FEEDBACK_PETAL_SIZE, scale)
+    return Rect.from_center(position, size).as_quad().rotate_centered(angle - pi / 2)
 
 def layout_button_firework_center(button: Button) -> Vec2:
     return layout_ring_pos(get_button_angle_horizontal(button), 1)

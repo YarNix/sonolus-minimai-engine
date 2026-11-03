@@ -88,17 +88,6 @@ class Options:
         max=1,
         step=0.05,
     )
-    sensor_alpha: float = slider_option(
-        name="Sensor Outline Alpha",
-        scope="Maimai",
-        category=graphics,
-        advanced=True,
-        default=0,
-        min=0,
-        max=0.8,
-        step=0.05,
-        unit=StandardText.PERCENTAGE_UNIT,
-    )
     button_size: float = slider_option(
         name="Button Size",
         scope="Maimai",
@@ -311,6 +300,14 @@ class Options:
         category=graphics,
         default=False,
     )
+    touch_feedback: int = select_option(
+        name="Touch Feedback",
+        description="A flash where you press. Outer: the buttons and A sensors. Inner: B, C and E.",
+        scope="Maimai",
+        category=graphics,
+        default=1,
+        values=["All", "Outer Only", "Inner Only", "Off"],
+    )
     show_input: bool = toggle_option(
         name="Show touch input.",
         description="Highlight hitbox when triggered by touches",
@@ -318,4 +315,15 @@ class Options:
         scope="Maimai",
         advanced=True,
         default=False,
+    )
+    sensor_alpha: float = slider_option(
+        name="Sensor Outline Alpha",
+        scope="Maimai",
+        category=miscellaneous,
+        advanced=True,
+        default=0,
+        min=0,
+        max=0.8,
+        step=0.05,
+        unit=StandardText.PERCENTAGE_UNIT,
     )

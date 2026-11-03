@@ -1,25 +1,23 @@
 from __future__ import annotations
-from math import floor
-from typing import cast
 
 from sonolus.script.archetype import PlayArchetype, callback
 from sonolus.script.array import Array, Dim
-from sonolus.script.vec import Vec2
-from sonolus.script.quad import Quad
 from sonolus.script.iterator import maybe_next
-from sonolus.script.maybe import Nothing
 from sonolus.script.containers import ArraySet, Pair, VarArray
-from sonolus.script.runtime import Touch, time, touches
-from sonolus.script.debug import debug_log, notify, assert_true
+from sonolus.script.runtime import Touch, touches
 
 from minimai.lib import archetype_names
 from minimai.lib.game import Button, Sensor
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib.input_state import InputState
 from minimai.lib.layout import get_sensor_pos_from_center
-from minimai.lib.options import Options
-from minimai.lib.skin import ActiveSkin
-from minimai.lib.layer import get_z, LAYER_DEBUG_LOW
+from minimai.lib.touch_feedback import (
+    draw_input_feedbacks,
+    draw_touch_feedbacks,
+    mark_button_feedback_hit,
+    mark_touch_feedback_hit,
+    update_touch_feedback,
+)
 from minimai.play.base_input import BaseInputMemory
 from minimai.play.slide import SlideMemory
 
@@ -78,27 +76,12 @@ class InputManager(PlayArchetype):
     @callback(order=-1)
     def touch(self):
         self.preassign_inputs()
+        update_touch_feedback()
         self.process_inputs()
 
     def update_parallel(self):
-        if not Options.show_input:
-            return
-        
-        for idx, is_down in enumerate(InputState.button_down):
-            if not is_down:
-                continue
-            for quad in Hitboxes.of_button_as_quads(idx + 1):
-                ActiveSkin.white_square.draw(quad, get_z(LAYER_DEBUG_LOW, 0, idx).tuple, 0.6)
-
-        is_sensor_down = +Array[bool, Dim[33]]
-        for sensors in InputState.sensor_touch_active.values():
-            for sns in sensors:
-                is_sensor_down[sns - 1] = True
-        for idx, is_down in enumerate(is_sensor_down):
-            if not is_down:
-                continue
-            for quad in Hitboxes.of_sensor_as_quads(idx + 1):
-                ActiveSkin.white_square.draw(quad, get_z(LAYER_DEBUG_LOW, 0, 8 + idx).tuple, 0.4)
+        draw_touch_feedbacks()
+        draw_input_feedbacks()
 
     @staticmethod
     def update_current_input():
@@ -188,6 +171,7 @@ class InputManager(PlayArchetype):
                     # Test success
                     InputState.button_started[target_tap.button - 1] = False
                     target_tap.captured_touch_id = touch_id
+                    mark_button_feedback_hit(target_tap.button)
                     continue
             # Test touch next
             for idx, processing in enumerate(InputState.processing_sensor_touch):
@@ -198,6 +182,7 @@ class InputManager(PlayArchetype):
                 if touch.time in target_tap.unadjusted_input_interval:
                     # Test success
                     target_tap.captured_touch_id = touch_id
+                    mark_touch_feedback_hit(processing.second)
                     InputState.processing_sensor_touch.pop(idx)
                     break
             
@@ -213,6 +198,7 @@ class InputManager(PlayArchetype):
                 if touch.time in target_touch.unadjusted_input_interval:
                     # Test success
                     target_touch.captured_touch_id = touch_id
+                    mark_touch_feedback_hit(processing.second)
                     InputState.processing_sensor_touch.pop(idx)
                     break
 

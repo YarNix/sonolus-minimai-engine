@@ -66,6 +66,8 @@ class BaseSkin:
     each_touch_overlap_border: SpriteGroup = sprite_group(f"Mai Each Touch {i} Overlap Border" for i in range(2, 4))
 
     touch_just_border: Sprite = sprite("Mai Touch Just Border")
+    touch_feedback_ring: Sprite = sprite("Mai Touch Feedback Ring")
+    touch_feedback_petal: Sprite = sprite("Mai Touch Feedback Petal")
 
     slide_path: Sprite = sprite("Mai Slide Path")
     break_slide_path: Sprite = sprite("Mai Break Slide Path")
@@ -298,6 +300,8 @@ class ActiveSkin:
     break_touch_overlap_border: SpriteGroup
     each_touch_overlap_border: SpriteGroup
     touch_just_border: Sprite
+    touch_feedback_ring: Sprite
+    touch_feedback_petal: Sprite
 
     slide_path: Sprite
     break_slide_path: BreakSpriteSet
@@ -411,6 +415,8 @@ def init_skin():
     ActiveSkin.break_touch_overlap_border = BaseSkin.break_touch_overlap_border
     ActiveSkin.each_touch_overlap_border = BaseSkin.each_touch_overlap_border
     ActiveSkin.touch_just_border = BaseSkin.touch_just_border
+    ActiveSkin.touch_feedback_ring = BaseSkin.touch_feedback_ring
+    ActiveSkin.touch_feedback_petal = BaseSkin.touch_feedback_petal
 
     ActiveSkin.slide_path = BaseSkin.slide_path
     ActiveSkin.break_slide_path = BreakSpriteSet(
