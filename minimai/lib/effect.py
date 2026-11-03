@@ -180,10 +180,10 @@ def schedule_count_in(bpm: float, first_note_time: float):
     interval = 60 / bpm
     ticks = COUNT_IN_TICKS
     while ticks > 0:
-        first_beat = COUNT_IN_EARLIEST_TIME / interval
+        minimum_beat = COUNT_IN_EARLIEST_TIME / interval
         beats = ticks - 1  # First beat already included
         # rounding slack keeps a tick that lands right on the bound
-        last_beat = max(0, ceil(first_beat + beats - 1e-6))
+        last_beat = max(0, ceil(minimum_beat + beats + 1 - 1e-6))
         if (last_beat * interval) <= first_note_time:
             for tick in range(ticks, 0, -1):
                 Effects.count_in.schedule((last_beat - tick) * interval, SFX_DISTANCE)
