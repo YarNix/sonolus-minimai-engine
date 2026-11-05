@@ -9,6 +9,16 @@ from sonolus.script.runtime import time
 from sonolus.script.record import Record
 from sonolus.script.sprite import RenderMode, Sprite, SpriteGroup, StandardSprite, ZIndex, pad_z_indexes, skin, sprite, sprite_group
 
+SLIDE_OK_STATES = ("Curve R", "Straight R", "Wifi Up", "Curve L", "Straight L", "Wifi Down")
+SLIDE_OK_GRADES = (
+    "Critical Perfect", "Just Perfect",
+    "Fast Perfect", "Late Perfect",
+    "Fast Great", "Late Great",
+    "Fast Good", "Late Good",
+    "Too Late",
+)
+COUNTER_COLOURS = ("Yellow", "Pink", "Green", "Silver", "Blue", "Red", "Gold")
+COUNTER_GLYPHS = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Dot", "Percent", "Plus", "Minus", "Star")
 
 @skin
 class BaseSkin:
@@ -166,21 +176,14 @@ class BaseSkin:
     firework_ball_pale: Sprite = sprite("Mai Firework Ball Pale")
     firework_sparkle: Sprite = sprite("Mai Firework Sparkle")
 
-    # By SlideOkState, then SlideOkGrade.
+    # By SLIDE_OK_STATES, then SLIDE_OK_GRADES.
     slide_oks: SpriteGroup = sprite_group(
-        f"Mai Slide OK {state} {grade}"
-        for state in ("Curve R", "Straight R", "Wifi Up", "Curve L", "Straight L", "Wifi Down")
-        for grade in (
-            "Critical Perfect",
-            "Just Perfect",
-            "Fast Perfect",
-            "Late Perfect",
-            "Fast Great",
-            "Late Great",
-            "Fast Good",
-            "Late Good",
-            "Too Late",
-        )
+        f"Mai Slide OK {state} {grade}" for state in SLIDE_OK_STATES for grade in SLIDE_OK_GRADES
+    )
+
+    # By COUNTER_COLOURS, then COUNTER_GLYPHS.
+    counter_glyphs: SpriteGroup = sprite_group(
+        f"Mai Counter {colour} {glyph}" for colour in COUNTER_COLOURS for glyph in COUNTER_GLYPHS
     )
 
 class HoldActiveSpriteSet(Record):
@@ -358,6 +361,8 @@ class ActiveSkin:
     firework_sparkle: Sprite
 
     slide_oks: SpriteGroup
+
+    counter_glyphs: SpriteGroup
 
 
 def init_skin():
@@ -552,3 +557,5 @@ def init_skin():
     ActiveSkin.firework_sparkle = BaseSkin.firework_sparkle
 
     ActiveSkin.slide_oks = BaseSkin.slide_oks
+
+    ActiveSkin.counter_glyphs = BaseSkin.counter_glyphs

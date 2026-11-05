@@ -12,7 +12,7 @@ from minimai.lib.judge_text import passes_filter
 from minimai.lib.layer import LAYER_SLIDE_OK, ZIndexes
 from minimai.lib.layout import SlideOkLayout
 from minimai.lib.options import Options
-from minimai.lib.skin import ActiveSkin
+from minimai.lib.skin import SLIDE_OK_GRADES, ActiveSkin
 
 # Seconds, before Effect Animation Speed.
 SLIDE_OK_FADE_IN = 0.033
@@ -31,7 +31,7 @@ class SlideOkGrade(IntEnum):
     TOO_LATE = auto()
 
 
-SLIDE_OK_GRADES = len(SlideOkGrade)
+assert len(SlideOkGrade) == len(SLIDE_OK_GRADES)
 
 
 def get_slide_ok_sprite(layout: SlideOkLayout, judgment: ArcadeJudgment, error: float) -> Sprite:
@@ -58,9 +58,9 @@ def get_slide_ok_sprite(layout: SlideOkLayout, judgment: ArcadeJudgment, error: 
         grade = SlideOkGrade.LATE_GOOD
         if is_fast:
             grade = SlideOkGrade.FAST_GOOD
-    result = +ActiveSkin.slide_oks[state * SLIDE_OK_GRADES + grade]
+    result = +ActiveSkin.slide_oks[state * len(SlideOkGrade) + grade]
     if grade <= SlideOkGrade.LATE_PERFECT and not result.is_available:
-        result @= ActiveSkin.slide_oks[state * SLIDE_OK_GRADES + SlideOkGrade.JUST_PERFECT]
+        result @= ActiveSkin.slide_oks[state * len(SlideOkGrade) + SlideOkGrade.JUST_PERFECT]
     return result
 
 

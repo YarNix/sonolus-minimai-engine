@@ -215,6 +215,14 @@ FIREWORK_INNER_SPARKLE_DISTANCE = from_skin_px(197)
 FIREWORK_OUTER_SPARKLE_MIN_DISTANCE = from_skin_px(230)
 FIREWORK_OUTER_SPARKLE_MAX_DISTANCE = from_skin_px(500)
 
+# Centre counter glyphs at the big (integer) size.
+# Every glyph sprite is one line box tall (COUNTER_GLYPH_WIDTHS, by COUNTER_GLYPHS);
+# the digits fill COUNTER_DIGIT_HEIGHT of it, outline included, centered.
+COUNTER_LINE_HEIGHT = from_skin_px(72)
+COUNTER_DIGIT_HEIGHT = from_skin_px(61)
+COUNTER_OUTLINE_WIDTH = from_skin_px(2.5)
+COUNTER_GLYPH_WIDTHS = tuple(from_skin_px(width) for width in (*(53,) * 10, 36, 76, 53, 40, 66))
+
 NOTE_END_SCALING_PROGRESS = 1 / ((1 - NOTE_SPAWN_DISTANCE) * NOTE_SCALE_RATE + 1)
 TOUCH_END_SCALING_PROGGRESS = 0.2
 
