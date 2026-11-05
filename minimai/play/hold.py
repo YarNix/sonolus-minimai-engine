@@ -10,12 +10,13 @@ from sonolus.script.runtime import delta_time, input_offset, time, touches
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
-from minimai.lib.game import apply_button_mirror_option
+from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
 from minimai.lib.effect import emit_firework_sfx, emit_hold_end_sfx, emit_tap_sfx, schedule_guide_sfx
 from minimai.lib.judge_text import button_slot, spawn_judge_text
 from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_hold_effect, layout_tap_effect
 from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
 from minimai.lib.firework import spawn_firework
+from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score
 from minimai.lib.hold import HoldState, HoldKind, draw_hold, is_break_hold, is_ex_hold
 from minimai.lib.input_state import InputState
 from minimai.lib.options import Options
@@ -33,7 +34,7 @@ class BaseHold(ButtonBaseInput):
     kind: HoldKind = entity_data()
     end_time: float = entity_data()
 
-    head_judgment: buckets.ArcadeJudgment = entity_memory()
+    head_judgment: ArcadeJudgment = entity_memory()
     head_error: float = entity_memory()
     head_bucket_value: float = entity_memory()
     held_at_head: bool = entity_memory()
@@ -44,7 +45,7 @@ class BaseHold(ButtonBaseInput):
     pending_release: float = entity_memory()
     hold_state: HoldState = entity_memory()
 
-    judgment: buckets.ArcadeJudgment = entity_memory()
+    judgment: ArcadeJudgment = entity_memory()
     head_text_shown: bool = entity_memory()
     glow: ParticleHandle = entity_memory()
 
@@ -74,8 +75,9 @@ class BaseHold(ButtonBaseInput):
             schedule_guide_sfx(self.target_time)
             if self.end_time - self.target_time >= 1 / 60:
                 schedule_guide_sfx(self.end_time)
-            self.emit_head_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
-            self.emit_end_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.end_time, scheduled=True)
+            self.emit_head_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
+            self.emit_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.end_time, scheduled=True)
+            add_note_to_total(BaseWeight.HOLD, is_break_hold(self.kind))
 
     def initialize(self):
         self.hold_state = HoldState.DEFAULT
@@ -86,10 +88,20 @@ class BaseHold(ButtonBaseInput):
 
     @property
     def is_head_judged(self) -> bool:
-        return self.head_judgment != buckets.ArcadeJudgment.NONE
+        return self.head_judgment != ArcadeJudgment.NONE
+
+    @property
+    def is_judged(self) -> bool:
+        return self.judgment != ArcadeJudgment.NONE
 
     def update_sequential(self):
         if self.despawn:
+            return
+        if self.is_judged:
+            # Judged in update_parallel
+            # Despawn deferred until the score is reported
+            report_score(BaseWeight.HOLD, is_break_hold(self.kind), self.judgment)
+            self.despawn = True
             return
         if self.is_scored and not self.is_head_judged and time() in self.input_interval:
             if self.captured_touch_id == 0:
@@ -147,7 +159,7 @@ class BaseHold(ButtonBaseInput):
     def judge_head(self, actual_time: float):
         error = self.judgment_window.good.clamp(actual_time - self.target_time)
         if is_ex_hold(self.kind):
-            self.head_judgment = buckets.ArcadeJudgment.CRITICAL_PERFECT
+            self.head_judgment = ArcadeJudgment.CRITICAL_PERFECT
             self.head_error = 0
         else:
             self.head_judgment = self.judgment_window.judge(actual_time, self.target_time)
@@ -156,21 +168,21 @@ class BaseHold(ButtonBaseInput):
         self.hold_state = HoldState.PRESSED
         self.emit_head_sfx(self.head_judgment, actual_time, scheduled=False)
 
-    def emit_head_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+    def emit_head_sfx(self, judgment: ArcadeJudgment, at: float, scheduled: bool):
         emit_tap_sfx(is_break_hold(self.kind), is_ex_hold(self.kind), judgment, at, scheduled)
 
-    def emit_end_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+    def emit_end_sfx(self, judgment: ArcadeJudgment, at: float, scheduled: bool):
         emit_hold_end_sfx(judgment, at, scheduled)
         emit_firework_sfx(self.firework, judgment, at, scheduled)
 
     def update_parallel(self):
-        if self.despawn:
+        if self.despawn or self.is_judged:
             return
         if not self.is_scored and time() >= self.end_time:
             self.despawn = True
             return
         if self.is_scored and not self.is_head_judged and time() > self.input_interval.end:
-            self.head_judgment = buckets.ArcadeJudgment.MISS
+            self.head_judgment = ArcadeJudgment.MISS
             self.head_error = self.judgment_window.good.end
         if self.is_scored and self.is_head_judged and time() >= self.end_time + input_offset():
             self.finish()
@@ -183,26 +195,25 @@ class BaseHold(ButtonBaseInput):
         if self.hold_input_interval.length > 0:
             if self.hold_state == HoldState.RELEASED or (
                 self.hold_state == HoldState.DEFAULT
-                and self.head_judgment == buckets.ArcadeJudgment.MISS
+                and self.head_judgment == ArcadeJudgment.MISS
             ):
                 self.release_time += delta_time()
 
             held = self.hold_input_interval.length
             percent = clamp((held - self.release_time) / held, 0, 1)
             final = buckets.hold_end_judge(self.head_judgment, percent)
-        elif self.head_judgment == buckets.ArcadeJudgment.MISS and self.held_at_head:
+        elif self.head_judgment == ArcadeJudgment.MISS and self.held_at_head:
             # Judged like a longer hold held all the way, so a missed head still gives a Good.
             final = buckets.hold_end_judge(self.head_judgment, 1)
 
         self.result.judgment = buckets.arcade_judgement_to_normal(final)
         self.result.accuracy = self.head_error
-        if self.head_judgment == buckets.ArcadeJudgment.MISS:
+        if self.head_judgment == ArcadeJudgment.MISS:
             self.result.bucket = Bucket(-1)
         elif self.result.bucket.id != -1:
             self.result.bucket_value = self.head_bucket_value
         self.emit_end_sfx(final, time(), scheduled=False)
         self.judgment = final
-        self.despawn = True
 
     @property
     def is_glowing(self) -> bool:
@@ -213,7 +224,7 @@ class BaseHold(ButtonBaseInput):
 
     def terminate(self):
         destroy_hold_glow(self.glow)
-        if self.is_scored and self.judgment != buckets.ArcadeJudgment.NONE:
+        if self.is_scored and self.is_judged:
             self.play_end_effects()
 
     def play_end_effects(self):

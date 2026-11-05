@@ -1,22 +1,13 @@
 from typing import cast
 
 from sonolus.script.archetype import (
-    AnyArchetype,
-    EntityRef,
-    PlayArchetype,
     StandardImport,
     entity_data,
     entity_memory,
-    exported,
     imported,
-    shared_memory,
 )
-from sonolus.script.interval import Interval
 from sonolus.script.runtime import input_offset, time, touches
 from sonolus.script.timing import beat_to_time
-from sonolus.script.globals import level_memory
-from sonolus.script.array import Dim
-from sonolus.script.containers import VarArray
 from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib import archetype_names, buckets
@@ -25,8 +16,9 @@ from minimai.lib.judge_text import spawn_judge_text, touch_slot
 from minimai.lib.layout import layout_sensor_firework_center, layout_touch_effect, layout_touch_judge_text
 from minimai.lib.particle import spawn_touch_effect
 from minimai.lib.firework import spawn_firework
+from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration
-from minimai.lib.game import Sensor, apply_sensor_mirror_option
+from minimai.lib.game import ArcadeJudgment, apply_sensor_mirror_option
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
 from minimai.play.activity_manager import register_touch_overlap, report_note_time
 
@@ -37,7 +29,7 @@ class BaseTouch(TouchBaseInput):
     kind: TouchKind = entity_data()
     start_time: float = entity_data()
 
-    judgment: buckets.ArcadeJudgment = entity_memory()
+    judgment: ArcadeJudgment = entity_memory()
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -61,10 +53,17 @@ class BaseTouch(TouchBaseInput):
         if self.is_scored:
             report_note_time(self.target_time)
             schedule_guide_sfx(self.target_time)
-            self.emit_hit_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
+            self.emit_hit_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
+            add_note_to_total(BaseWeight.TAP, self.kind == TouchKind.BREAK_TOUCH)
 
     def update_sequential(self):
         if self.despawn:
+            return
+        if self.judgment != ArcadeJudgment.NONE:
+            # Judged in update_parallel
+            # Despawn deferred until the score is reported
+            report_score(BaseWeight.TAP, self.kind == TouchKind.BREAK_TOUCH, self.judgment)
+            self.despawn = True
             return
         register_touch_overlap(self.sensor, self.start_time, self.index, self.kind)
         if self.is_scored and time() in self.input_interval: 
@@ -72,7 +71,7 @@ class BaseTouch(TouchBaseInput):
             BaseInputMemory.active_touch_inputs.append(self.ref().with_archetype(TouchBaseInput))
 
     def update_parallel(self):
-        if self.despawn:
+        if self.despawn or self.is_judged:
             return
         if not self.is_scored and time() >= self.target_time:
             self.despawn = True
@@ -98,22 +97,27 @@ class BaseTouch(TouchBaseInput):
     def judgment_window(self):
         return buckets.TOUCH_WINDOW
 
+    @property
+    def is_judged(self) -> bool:
+        return self.judgment != ArcadeJudgment.NONE
+
     def judge(self, actual_time: float):
         judgment = self.judgment_window.judge(actual_time, self.target_time)
         error = self.judgment_window.good.clamp(actual_time - self.target_time)
         self.register_group_hit(judgment, error)
         self.set_result(judgment, error)
+        report_score(BaseWeight.TAP, self.kind == TouchKind.BREAK_TOUCH, judgment)
+        self.despawn = True
 
-    def set_result(self, judgment: buckets.ArcadeJudgment, error: float):
+    def set_result(self, judgment: ArcadeJudgment, error: float):
         self.result.judgment = buckets.arcade_judgement_to_normal(judgment)
         self.result.accuracy = error
         if self.result.bucket.id != -1:
             self.result.bucket_value = error * buckets.WINDOW_SCALE
         self.emit_hit_sfx(judgment, time(), scheduled=False)
         self.judgment = judgment
-        self.despawn = True
 
-    def emit_hit_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+    def emit_hit_sfx(self, judgment: ArcadeJudgment, at: float, scheduled: bool):
         emit_touch_sfx(self.kind == TouchKind.BREAK_TOUCH, judgment, at, scheduled)
         emit_firework_sfx(self.firework, judgment, at, scheduled)
 
@@ -129,11 +133,10 @@ class BaseTouch(TouchBaseInput):
         self.result.judgment = Judgment.MISS
         self.result.accuracy = self.judgment_window.good.end
         self.result.bucket = Bucket(-1)
-        self.judgment = buckets.ArcadeJudgment.MISS
-        self.despawn = True
+        self.judgment = ArcadeJudgment.MISS
 
     def terminate(self):
-        if self.is_scored and self.judgment != buckets.ArcadeJudgment.NONE:
+        if self.is_scored and self.is_judged:
             self.play_hit_effects()
 
     def play_hit_effects(self):

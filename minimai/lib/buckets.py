@@ -16,6 +16,7 @@ from minimai.lib.layout import (
 )
 from minimai.lib.note import NoteKind
 from minimai.lib.skin import BaseSkin
+from minimai.lib.game import ArcadeJudgment
 from minimai.lib.slide import SlideKind
 from minimai.lib.touch import TouchKind
 from minimai.lib.touch_hold import TouchHoldKind
@@ -390,17 +391,6 @@ def round_interval(interval: Interval) -> Interval:
         start=round(interval.start),
         end=round(interval.end),
     )
-
-class ArcadeJudgment(IntEnum):
-    NONE = 0
-    CRITICAL_PERFECT = auto()
-    HIGH_PERFECT = auto()
-    LOW_PERFECT = auto()
-    CRITICAL_GREAT = auto()
-    HIGH_GREAT = auto()
-    LOW_GREAT = auto()
-    GOOD = auto()
-    MISS = auto()
 
 def arcade_judgement_to_normal(judgment: ArcadeJudgment):
     if judgment <= ArcadeJudgment.LOW_PERFECT:

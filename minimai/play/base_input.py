@@ -6,8 +6,7 @@ from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
 from sonolus.script.interval import Interval
 
-from minimai.lib import buckets
-from minimai.lib.game import Button, Sensor
+from minimai.lib.game import ArcadeJudgment, Button, Sensor
 
 
 class ButtonBaseInput(PlayArchetype):
@@ -52,17 +51,17 @@ class TouchBaseInput(PlayArchetype):
     # Group state, kept on the leader: members hit (not missed), and the judgment and error
     # the rest take over once more than half the group is hit.
     group_hit_count: int = shared_memory()
-    group_judgment: buckets.ArcadeJudgment = shared_memory()
+    group_judgment: ArcadeJudgment = shared_memory()
     group_error: float = shared_memory()
 
     @property
     def in_group(self) -> bool:
         return self.group_leader.index > 0
 
-    def register_group_hit(self, judgment: buckets.ArcadeJudgment, error: float):
+    def register_group_hit(self, judgment: ArcadeJudgment, error: float):
         """A member was hit (sequential callbacks only). The judgment counts until the group passes
         half; the member that takes it past half sets what the rest get."""
-        if not self.in_group or judgment == buckets.ArcadeJudgment.MISS:
+        if not self.in_group or judgment == ArcadeJudgment.MISS:
             return
         leader = self.group_leader.get()
         if leader.group_hit_count * 2 <= self.group_size:
@@ -78,12 +77,12 @@ class TouchBaseInput(PlayArchetype):
             leader = self.group_leader.get()
             result = (
                 leader.group_hit_count * 2 > self.group_size
-                and leader.group_judgment != buckets.ArcadeJudgment.NONE
+                and leader.group_judgment != ArcadeJudgment.NONE
             )
         return result
 
     @property
-    def group_result(self) -> buckets.ArcadeJudgment:
+    def group_result(self) -> ArcadeJudgment:
         return self.group_leader.get().group_judgment
 
     @property

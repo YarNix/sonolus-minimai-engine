@@ -5,6 +5,19 @@ from minimai.lib.options import Options
 
 Button = int
 
+class ArcadeJudgment(IntEnum):
+    """The arcade's grades (Sonolus' Judgment has only four)."""
+    NONE = 0
+    CRITICAL_PERFECT = auto()
+    HIGH_PERFECT = auto()
+    LOW_PERFECT = auto()
+    CRITICAL_GREAT = auto()
+    HIGH_GREAT = auto()
+    LOW_GREAT = auto()
+    GOOD = auto()
+    MISS = auto()
+
+
 class Sensor(IntEnum):
     N0 = 0 # Not assigned / Invalid / None
     A1 = auto()

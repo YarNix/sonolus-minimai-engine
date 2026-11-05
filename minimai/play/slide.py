@@ -23,7 +23,8 @@ from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_break_slide_end_sfx, emit_firework_sfx, schedule_slide_sfx
 from minimai.lib.firework import spawn_firework
 from minimai.lib.slide_ok import spawn_slide_ok
-from minimai.lib.game import Button, apply_button_mirror_option, is_mirror_option_reflection
+from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score
+from minimai.lib.game import ArcadeJudgment, Button, apply_button_mirror_option, is_mirror_option_reflection
 from minimai.lib.options import Options
 from minimai.lib.layout import SLIDE_TRACK_POINTS, layout_button_firework_center, layout_slide_ok
 from minimai.lib.slide import (
@@ -88,8 +89,8 @@ class BaseSlide(PlayArchetype):
     is_checkable: bool = shared_memory()
     judge_queue: SlideQueueState = shared_memory()
 
-    is_judged: bool = entity_memory()
-    arcade_judgment: buckets.ArcadeJudgment = entity_memory()
+    judgment: ArcadeJudgment = entity_memory()
+    is_judgment_reported: bool = entity_memory()
     despawn_time: float = entity_memory()
 
     @property
@@ -110,6 +111,10 @@ class BaseSlide(PlayArchetype):
     @property
     def chain_start_time(self) -> float:
         return beat_to_time(self.chain_start_beat)
+
+    @property
+    def is_judged(self) -> bool:
+        return self.judgment != ArcadeJudgment.NONE
 
     @property
     def is_chain_head(self) -> bool:
@@ -193,12 +198,18 @@ class BaseSlide(PlayArchetype):
             schedule_slide_sfx(is_break_slide(self.kind), self.chain_start_time)
         if self.is_scored:
             if is_break_slide(self.kind):
-                emit_break_slide_end_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.segment_end_time, scheduled=True)
-            self.emit_arrive_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.segment_end_time, scheduled=True)
+                emit_break_slide_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.segment_end_time, scheduled=True)
+            self.emit_arrive_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.segment_end_time, scheduled=True)
+            add_note_to_total(BaseWeight.SLIDE, is_break_slide(self.kind))
 
     def update_sequential(self):
         if self.despawn:
             return
+        if self.is_judged and not self.is_judgment_reported:
+            # Judged in update_parallel
+            # Report score here in sequential callback
+            self.is_judgment_reported = True
+            report_score(BaseWeight.SLIDE, is_break_slide(self.kind), self.judgment)
         if (time() in self.input_interval
             and not self.judge_queues_finished
             and not self.is_judged):
@@ -240,7 +251,7 @@ class BaseSlide(PlayArchetype):
         """
         if self.is_judged:
             if time() >= self.despawn_time:
-                self.emit_arrive_sfx(self.arcade_judgment, time(), scheduled=False)
+                self.emit_arrive_sfx(self.judgment, time(), scheduled=False)
                 self.despawn = True
             return
         if time() > self.input_interval.end:
@@ -348,29 +359,28 @@ class BaseSlide(PlayArchetype):
             return
 
         judgment = self.judgment_window.judge(actual_time, self.judgment_time)
-        if not Options.strict_slide_judgment and judgment <= buckets.ArcadeJudgment.LOW_PERFECT:
+        if not Options.strict_slide_judgment and judgment <= ArcadeJudgment.LOW_PERFECT:
             # Slide perfect judgment always round up
-            judgment = buckets.ArcadeJudgment.CRITICAL_PERFECT
+            judgment = ArcadeJudgment.CRITICAL_PERFECT
         error = self.judgment_window.good.clamp(actual_time - self.judgment_time)
         self.result.judgment = buckets.arcade_judgement_to_normal(judgment)
         self.result.accuracy = error
         if self.result.bucket.id != -1:
             self.result.bucket_value = self.judgment_window.normalize_error(error)
-        self.is_judged = True
-        self.arcade_judgment = judgment
+        self.judgment = judgment
         self.despawn_time = time() + self.get_despawn_wait_duration(actual_time)
         if is_break_slide(self.kind):
             emit_break_slide_end_sfx(judgment, actual_time, scheduled=False)
 
-    def emit_arrive_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+    def emit_arrive_sfx(self, judgment: ArcadeJudgment, at: float, scheduled: bool):
         emit_firework_sfx(self.firework, judgment, at, scheduled)
 
     def play_end_effects(self):
         # A Wi-Fi's track ends at its center.
         end_button = get_slide_end_button(self.track, self.start_button, self.is_mirrored)
-        spawn_firework(self.firework, self.arcade_judgment, layout_button_firework_center(end_button))
+        spawn_firework(self.firework, self.judgment, layout_button_firework_center(end_button))
         spawn_slide_ok(
-            self.arcade_judgment,
+            self.judgment,
             self.result.accuracy,
             layout_slide_ok(self.track, self.start_button, self.is_mirrored, end_button),
             self.target_time,
@@ -383,15 +393,14 @@ class BaseSlide(PlayArchetype):
             self.result.accuracy = self.judgment_window.good.end
             if self.result.bucket.id != -1:
                 self.result.bucket_value = self.judgment_window.normalize_error(self.result.accuracy)
-            self.arcade_judgment = buckets.ArcadeJudgment.GOOD
+            self.judgment = ArcadeJudgment.GOOD
         else:
             self.result.judgment = Judgment.MISS
             self.result.accuracy = 0
             self.result.bucket = Bucket(-1)
-            self.arcade_judgment = buckets.ArcadeJudgment.MISS
-        self.is_judged = True
-        self.emit_arrive_sfx(self.arcade_judgment, time(), scheduled=False)
-        self.despawn = True
+            self.judgment = ArcadeJudgment.MISS
+        # Despawns (with the arrive SFX) in the next update_parallel, after the score is reported.
+        self.despawn_time = time()
 
 
 def is_single_entity(slide: BaseSlide) -> bool:

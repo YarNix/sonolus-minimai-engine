@@ -3,7 +3,7 @@ from math import ceil
 
 from sonolus.script.effect import Effect, LoopedEffectHandle, StandardEffect, effect, effects
 
-from minimai.lib.buckets import ArcadeJudgment
+from minimai.lib.game import ArcadeJudgment
 from minimai.lib.options import Options
 
 EMPTY_EFFECT = Effect(-1)

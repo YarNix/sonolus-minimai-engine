@@ -3,7 +3,7 @@ from sonolus.script.particle import Particle, ParticleHandle, StandardParticle, 
 from sonolus.script.quad import Quad
 from sonolus.script.record import Record
 
-from minimai.lib.buckets import ArcadeJudgment
+from minimai.lib.game import ArcadeJudgment
 from minimai.lib.options import Options
 
 

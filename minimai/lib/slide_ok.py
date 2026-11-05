@@ -7,7 +7,7 @@ from sonolus.script.runtime import time
 from sonolus.script.sprite import Sprite
 
 from minimai.lib import archetype_names
-from minimai.lib.buckets import ArcadeJudgment
+from minimai.lib.game import ArcadeJudgment
 from minimai.lib.judge_text import passes_filter
 from minimai.lib.layer import LAYER_SLIDE_OK, ZIndexes
 from minimai.lib.layout import SlideOkLayout

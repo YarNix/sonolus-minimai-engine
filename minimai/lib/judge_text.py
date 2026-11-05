@@ -9,8 +9,7 @@ from sonolus.script.sprite import Sprite
 from sonolus.script.vec import Vec2
 
 from minimai.lib import archetype_names
-from minimai.lib.buckets import ArcadeJudgment
-from minimai.lib.game import Button, Sensor
+from minimai.lib.game import ArcadeJudgment, Button, Sensor
 from minimai.lib.layer import LAYER_JUDGE_TEXT, get_z
 from minimai.lib.layout import JudgeTextLayout
 from minimai.lib.options import Options

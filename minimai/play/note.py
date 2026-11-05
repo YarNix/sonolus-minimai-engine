@@ -2,26 +2,17 @@ from __future__ import annotations
 from typing import cast
 
 from sonolus.script.archetype import (
-    AnyArchetype,
-    EntityRef,
-    PlayArchetype,
     StandardImport,
     entity_data,
     entity_memory,
-    exported,
     imported,
     shared_memory,
 )
-from sonolus.script.globals import level_memory
-from sonolus.script.interval import unlerp, Interval, clamp
-from sonolus.script.array import Dim
-from sonolus.script.containers import VarArray
-from sonolus.script.runtime import delta_time, input_offset, offset_adjusted_time, time, touches
+from sonolus.script.runtime import input_offset, time, touches
 from sonolus.script.timing import beat_to_time
 from sonolus.script.bucket import Bucket, Judgment
-# from sonolus.script.debug import notify, debug_log
 
-from minimai.lib.game import Button, apply_button_mirror_option
+from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
 from minimai.lib.note import (
     NoteKind,
     get_tap_appear_duration,
@@ -31,14 +22,13 @@ from minimai.lib.note import (
     is_star,
     get_note_angle,
 )
-from minimai.lib.game import Sensor
-from minimai.lib.hitbox import Hitboxes
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_firework_sfx, emit_tap_sfx, schedule_guide_sfx
 from minimai.lib.judge_text import button_slot, spawn_judge_text
 from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_tap_effect
 from minimai.lib.particle import spawn_tap_effect
 from minimai.lib.firework import spawn_firework
+from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score
 from minimai.play.activity_manager import report_note_time
 from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
 
@@ -58,8 +48,7 @@ class BaseNote(ButtonBaseInput):
     rotate_speed: float = entity_memory()
     slide_rotate_speed: float = shared_memory()
 
-    # The arcade grade (result.judgment has only four), for the hit effects in terminate.
-    judgment: buckets.ArcadeJudgment = entity_memory()
+    judgment: ArcadeJudgment = entity_memory()
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -86,7 +75,8 @@ class BaseNote(ButtonBaseInput):
         if self.is_scored:
             report_note_time(self.target_time)
             schedule_guide_sfx(self.target_time)
-            self.emit_hit_sfx(buckets.ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
+            self.emit_hit_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
+            add_note_to_total(BaseWeight.TAP, is_break(self.kind))
 
     def initialize(self):
         if not self.has_custom_rotation and self.slide_rotate_speed != 0:
@@ -97,11 +87,17 @@ class BaseNote(ButtonBaseInput):
     def update_sequential(self):
         if self.despawn:
             return
+        if self.is_judged:
+            # Judged in update_parallel
+            # Despawn deferred until the score is reported
+            report_score(BaseWeight.TAP, is_break(self.kind), self.judgment)
+            self.despawn = True
+            return
         if self.is_scored and time() in self.input_interval and self.captured_touch_id == 0:
             BaseInputMemory.active_tap_inputs.append(self.ref().with_archetype(ButtonBaseInput))
 
     def update_parallel(self):
-        if self.despawn:
+        if self.despawn or self.is_judged:
             return
         if not self.is_scored and time() >= self.target_time:
             self.despawn = True
@@ -120,7 +116,7 @@ class BaseNote(ButtonBaseInput):
             return
         self.handle_hit()
 
-    def emit_hit_sfx(self, judgment: buckets.ArcadeJudgment, at: float, scheduled: bool):
+    def emit_hit_sfx(self, judgment: ArcadeJudgment, at: float, scheduled: bool):
         emit_tap_sfx(is_break(self.kind), is_ex(self.kind), judgment, at, scheduled)
         emit_firework_sfx(self.firework, judgment, at, scheduled)
 
@@ -128,13 +124,17 @@ class BaseNote(ButtonBaseInput):
     def judgment_window(self):
         return buckets.NOTE_WINDOW
 
+    @property
+    def is_judged(self) -> bool:
+        return self.judgment != ArcadeJudgment.NONE
+
     def judge(self, actual_time: float):
         if not is_ex(self.kind):
             judgment = self.judgment_window.judge(actual_time, self.target_time)
             error = self.judgment_window.good.clamp(actual_time - self.target_time)
             bucket_val = error * buckets.WINDOW_SCALE
         else:
-            judgment = buckets.ArcadeJudgment.CRITICAL_PERFECT
+            judgment = ArcadeJudgment.CRITICAL_PERFECT
             error = 0
             bucket_val = self.judgment_window.good.clamp(actual_time - self.target_time) * buckets.WINDOW_SCALE
         self.result.judgment = buckets.arcade_judgement_to_normal(judgment)
@@ -143,6 +143,7 @@ class BaseNote(ButtonBaseInput):
             self.result.bucket_value = bucket_val
         self.emit_hit_sfx(judgment, actual_time, scheduled=False)
         self.judgment = judgment
+        report_score(BaseWeight.TAP, is_break(self.kind), judgment)
         self.despawn = True
 
     def handle_hit(self):
@@ -157,12 +158,11 @@ class BaseNote(ButtonBaseInput):
         self.result.judgment = Judgment.MISS
         self.result.accuracy = self.judgment_window.good.end
         self.result.bucket = Bucket(-1)
-        self.judgment = buckets.ArcadeJudgment.MISS
-        self.despawn = True
+        self.judgment = ArcadeJudgment.MISS
 
     def terminate(self):
-        # Spawned here rather than at judgment, as Next Sekai does, so every way of despawning is covered.
-        if self.is_scored and self.judgment != buckets.ArcadeJudgment.NONE:
+        # Spawned here rather than at judgment, so every way of despawning is covered.
+        if self.is_scored and self.is_judged:
             self.play_hit_effects()
 
     def play_hit_effects(self):

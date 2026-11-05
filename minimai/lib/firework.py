@@ -6,7 +6,7 @@ from sonolus.script.runtime import time
 from sonolus.script.vec import Vec2
 
 from minimai.lib import archetype_names
-from minimai.lib.buckets import ArcadeJudgment
+from minimai.lib.game import ArcadeJudgment
 from minimai.lib.layer import LAYER_FIREWORK, get_z
 from minimai.lib.layout import (
     FIREWORK_BALL_SIZE,
