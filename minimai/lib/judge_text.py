@@ -4,7 +4,7 @@ from math import floor
 from sonolus.script.archetype import get_archetype_by_name
 from sonolus.script.interval import remap_clamped
 from sonolus.script.quad import Quad
-from sonolus.script.runtime import time
+from sonolus.script.runtime import runtime_ui, time
 from sonolus.script.sprite import Sprite
 from sonolus.script.vec import Vec2
 
@@ -205,9 +205,10 @@ def get_judge_text_end_time(start_time: float) -> float:
 
 
 def draw_judge_text(text: Sprite, shine: Sprite, text_quad: Quad, fast_late: Sprite, fast_late_quad: Quad, start_time: float):
+    ui = runtime_ui().judgment_config # Scale with player's judgment config
     elapsed = (time() - start_time) * Options.effect_animation_speed
-    scale = remap_clamped(0, JUDGE_TEXT_POP_DURATION, JUDGE_TEXT_POP_SCALE, 1, elapsed)
-    alpha = remap_clamped(JUDGE_TEXT_FADE_START, JUDGE_TEXT_FADE_END, 1, 0, elapsed)
+    scale = remap_clamped(0, JUDGE_TEXT_POP_DURATION, JUDGE_TEXT_POP_SCALE, 1, elapsed) * ui.scale
+    alpha = remap_clamped(JUDGE_TEXT_FADE_START, JUDGE_TEXT_FADE_END, 1, 0, elapsed) * ui.alpha
     if alpha <= 0:
         return
     factor = Vec2(scale, scale)

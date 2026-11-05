@@ -2,7 +2,6 @@
 
 from enum import IntEnum, auto
 
-from sonolus.script.debug import debug_log
 from sonolus.script.globals import level_memory
 
 from minimai.lib.game import ArcadeJudgment
@@ -136,10 +135,6 @@ def report_score(weight: float, is_break: bool, judgment: ArcadeJudgment):
     else:
         ScoreMemory.combo += 1
     ScoreMemory.grade = max(ScoreMemory.grade, get_grade(judgment, is_break))
-
-    debug_log(get_achievement_from_101())
-    # debug_log(ScoreMemory.combo)
-    # debug_log(-ScoreMemory.dx_lost)
 
 
 def get_base_total() -> float:

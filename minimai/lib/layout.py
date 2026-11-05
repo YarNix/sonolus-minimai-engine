@@ -222,6 +222,11 @@ COUNTER_LINE_HEIGHT = from_skin_px(72)
 COUNTER_DIGIT_HEIGHT = from_skin_px(61)
 COUNTER_OUTLINE_WIDTH = from_skin_px(2.5)
 COUNTER_GLYPH_WIDTHS = tuple(from_skin_px(width) for width in (*(53,) * 10, 36, 76, 53, 40, 66))
+# An achievement's dot and decimals, and its %, against the big digits; all on one baseline. The
+# small run is drawn tighter by COUNTER_SMALL_TRACKING per glyph ("101.0000%" is 357 wide).
+COUNTER_SMALL_SIZE = 0.72
+COUNTER_PERCENT_SIZE = 0.52
+COUNTER_SMALL_TRACKING = from_skin_px(-2)
 
 NOTE_END_SCALING_PROGRESS = 1 / ((1 - NOTE_SPAWN_DISTANCE) * NOTE_SCALE_RATE + 1)
 TOUCH_END_SCALING_PROGGRESS = 0.2
@@ -927,11 +932,13 @@ def layout_effect_quad(angle: float, distance: float, size: Vec2) -> Quad:
     center = layout_ring_pos(angle, distance)
     return Rect.from_center(center, size).as_quad().rotate_centered(angle - pi / 2)
 
-def layout_counter_glyph(left: float, width: float, scale: float) -> Quad:
-    """A counter glyph's cell, ``width`` wide with its left edge ``left`` from the string's center
-    (ring units at the big size), the whole string scaled by ``scale``."""
-    center = layout_ring_point(Vec2(left + width / 2, 0) * scale)
-    return Rect.from_center(center, layout_px_size(Vec2(width, COUNTER_LINE_HEIGHT), scale)).as_quad()
+def layout_counter_glyph(left: float, width: float, scale: float, size: float = 1.0) -> Quad:
+    """A counter glyph's cell,
+    ``width`` wide at the big size, drawn at ``size`` of it on the big digits' baseline.
+    ``left`` is its left edge from the string's center; the whole string is scaled by ``scale``."""
+    center = Vec2(left + width * size / 2, -COUNTER_DIGIT_HEIGHT / 2 * (1 - size))
+    cell = Vec2(width, COUNTER_LINE_HEIGHT) * size
+    return Rect.from_center(layout_ring_point(center * scale), layout_px_size(cell, scale)).as_quad()
 
 def layout_tap_effect(button: Button) -> Quad:
     size = layout_px_size(TAP_EFFECT_SIZE, Options.effect_size)
