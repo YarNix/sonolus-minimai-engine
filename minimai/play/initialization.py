@@ -14,6 +14,9 @@ from minimai.lib.ui import init_ui
 from minimai.play.input_manager import InputManager
 from minimai.play.activity_manager import ActivityManager, SfxMemory
 from minimai.play.ring import Ring
+from minimai.play.center_counter import CenterCounter
+from minimai.lib.counter import CenterDisplay
+from minimai.lib.options import Options
 
 
 class Initialization(PlayArchetype):
@@ -41,6 +44,8 @@ class Initialization(PlayArchetype):
         InputManager.spawn()
         ActivityManager.spawn()
         Ring.spawn()
+        if Options.center_display != CenterDisplay.OFF:
+            CenterCounter.spawn()
 
     def spawn_order(self) -> float:
         return -1e8

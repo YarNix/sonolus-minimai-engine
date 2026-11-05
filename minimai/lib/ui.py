@@ -70,7 +70,7 @@ def init_ui():
     box.l = -min_x_extent
     # show_ui = not Options.hide_ui
     show_ui = True
-    # Replaced by a counter of our own later (combo, achievement or DX score).
+    # The center counter (Center Display) shows it instead.
     show_combo = False
     # The judge text at each note shows instead, unless the option asks for Sonolus'.
     show_judgment = Options.sonolus_judgment

@@ -215,7 +215,7 @@ FIREWORK_INNER_SPARKLE_DISTANCE = from_skin_px(197)
 FIREWORK_OUTER_SPARKLE_MIN_DISTANCE = from_skin_px(230)
 FIREWORK_OUTER_SPARKLE_MAX_DISTANCE = from_skin_px(500)
 
-# Centre counter glyphs at the big (integer) size.
+# Center counter glyphs at the big (integer) size.
 # Every glyph sprite is one line box tall (COUNTER_GLYPH_WIDTHS, by COUNTER_GLYPHS);
 # the digits fill COUNTER_DIGIT_HEIGHT of it, outline included, centered.
 COUNTER_LINE_HEIGHT = from_skin_px(72)
@@ -926,6 +926,12 @@ def layout_effect_quad(angle: float, distance: float, size: Vec2) -> Quad:
     """A ``size`` (screen units) quad ``distance`` ring units out at ``angle``, its top facing out."""
     center = layout_ring_pos(angle, distance)
     return Rect.from_center(center, size).as_quad().rotate_centered(angle - pi / 2)
+
+def layout_counter_glyph(left: float, width: float, scale: float) -> Quad:
+    """A counter glyph's cell, ``width`` wide with its left edge ``left`` from the string's center
+    (ring units at the big size), the whole string scaled by ``scale``."""
+    center = layout_ring_point(Vec2(left + width / 2, 0) * scale)
+    return Rect.from_center(center, layout_px_size(Vec2(width, COUNTER_LINE_HEIGHT), scale)).as_quad()
 
 def layout_tap_effect(button: Button) -> Quad:
     size = layout_px_size(TAP_EFFECT_SIZE, Options.effect_size)

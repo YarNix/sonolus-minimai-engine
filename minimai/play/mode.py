@@ -10,6 +10,7 @@ from minimai.play.bpm_change import BpmChange
 from minimai.play.note import NOTE_ARCHETYPES
 from minimai.play.hold import HOLD_ARCHETYPES
 from minimai.play.ring import Ring
+from minimai.play.center_counter import CenterCounter
 from minimai.play.each_line import EachLine
 from minimai.play.touch import TOUCH_ARCHETYPES
 from minimai.play.touch_hold import TOUCH_HOLD_ARCHETYPES
@@ -26,6 +27,7 @@ play_mode = PlayMode(
         InputManager,
         ActivityManager,
         Ring,
+        CenterCounter,
         BpmChange,
         *NOTE_ARCHETYPES,
         *HOLD_ARCHETYPES,

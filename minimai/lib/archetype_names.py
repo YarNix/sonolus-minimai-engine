@@ -8,6 +8,7 @@ ACTIVITY_MANAGER = "_ActivityManager"
 JUDGE_TEXT = "_JudgeText"
 FIREWORK = "_Firework"
 SLIDE_OK = "_SlideOK"
+CENTER_COUNTER = "_CenterCounter"
 RING = "Ring"
 EACH_LINE = "EachLine"
 

@@ -240,6 +240,14 @@ class Options:
         category=gameplay,
         default=False,
     )
+    center_display: int = select_option(
+        name="Center Display",
+        description="What the ring center shows. Grade Combo colours the combo by the best result still reachable.",
+        scope="Maimai",
+        category=graphics,
+        default=1,
+        values=["Off", "Combo", "Grade Combo"],
+    )
     judge_text: int = select_option(
         name="Judge Text",
         description="Which judgments show their text at the note.",

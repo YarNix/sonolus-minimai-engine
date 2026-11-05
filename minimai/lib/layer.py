@@ -2,6 +2,7 @@ from sonolus.script import runtime
 from sonolus.script.record import Record
 
 LAYER_RING = 0
+LAYER_COUNTER = 1
 LAYER_DEBUG_LOW = 2
 LAYER_FIREWORK = 3
 LAYER_SLIDE_PATH = 5
