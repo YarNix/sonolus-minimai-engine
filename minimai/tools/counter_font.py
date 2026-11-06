@@ -211,6 +211,12 @@ class GlyphRenderer:
             # The advance is centered, not the ink: the font's own offsets (a "1" sits left) stay.
             x = (width - self.font.getlength(character)) / 2
             ImageDraw.Draw(fill).text((x, self.baseline), character, font=self.font, fill=255, anchor="ls")
+            if glyph in ("Plus", "Minus"):
+                # Measured on the ink: Pillow's bbox ends a "-" at the baseline.
+                _, top, _, bottom = fill.getbbox()
+                y = self.baseline + self.line_height / 2 - (top + bottom) / 2
+                fill = Image.new("L", (width, self.line_height))
+                ImageDraw.Draw(fill).text((x, y), character, font=self.font, fill=255, anchor="ls")
         return self.shape(glyph, fill)
 
     def header_masks(self, header: str, size: tuple[float, float], cap_height: float):

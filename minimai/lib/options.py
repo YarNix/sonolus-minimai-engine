@@ -256,6 +256,12 @@ class Options:
             "Achievement (+)",
             "Achievement (-100%)",
             "Achievement (-101%)",
+            "DX Score (+)",
+            "DX Score (MAX-)",
+            "DX Score (✧)",
+            "S Border",
+            "SS Border",
+            "SSS Border",
         ],
     )
     judge_text: int = select_option(

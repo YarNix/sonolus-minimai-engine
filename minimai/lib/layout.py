@@ -221,12 +221,15 @@ FIREWORK_OUTER_SPARKLE_MAX_DISTANCE = from_skin_px(500)
 COUNTER_LINE_HEIGHT = from_skin_px(72)
 COUNTER_DIGIT_HEIGHT = from_skin_px(61)
 COUNTER_OUTLINE_WIDTH = from_skin_px(2.5)
-COUNTER_GLYPH_WIDTHS = tuple(from_skin_px(width) for width in (*(53,) * 10, 36, 76, 53, 40, 66))
-# An achievement's dot and decimals, and its %, against the big digits; all on one baseline. The
-# small run is drawn tighter by COUNTER_SMALL_TRACKING per glyph ("101.0000%" is 357 wide).
+COUNTER_GLYPH_WIDTHS = tuple(from_skin_px(width) for width in (*(53,) * 10, 36, 76, 53, 53, 66))
+# An achievement's dot and decimals, and its %, against the big digits
 COUNTER_SMALL_SIZE = 0.72
 COUNTER_PERCENT_SIZE = 0.52
 COUNTER_SMALL_TRACKING = from_skin_px(-2)
+# A DX rank's stars
+COUNTER_HEADER_HEIGHT = from_skin_px(79)
+COUNTER_STAR_SIZE = 0.5
+COUNTER_STAR_TRACKING = from_skin_px(-4)
 
 NOTE_END_SCALING_PROGRESS = 1 / ((1 - NOTE_SPAWN_DISTANCE) * NOTE_SCALE_RATE + 1)
 TOUCH_END_SCALING_PROGGRESS = 0.2
@@ -937,6 +940,12 @@ def layout_counter_glyph(left: float, width: float, scale: float, size: float = 
     ``width`` wide at the big size, drawn at ``size`` of it on the big digits' baseline.
     ``left`` is its left edge from the string's center; the whole string is scaled by ``scale``."""
     center = Vec2(left + width * size / 2, -COUNTER_DIGIT_HEIGHT / 2 * (1 - size))
+    cell = Vec2(width, COUNTER_LINE_HEIGHT) * size
+    return Rect.from_center(layout_ring_point(center * scale), layout_px_size(cell, scale)).as_quad()
+
+def layout_counter_header_glyph(left: float, width: float, scale: float, size: float) -> Quad:
+    """Like ``layout_counter_glyph``, in the header row above the counter, centered on it."""
+    center = Vec2(left + width * size / 2, COUNTER_HEADER_HEIGHT)
     cell = Vec2(width, COUNTER_LINE_HEIGHT) * size
     return Rect.from_center(layout_ring_point(center * scale), layout_px_size(cell, scale)).as_quad()
 

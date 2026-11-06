@@ -1,6 +1,7 @@
 """Achievement, DX score, combo and grade."""
 
 from enum import IntEnum, auto
+from math import floor
 
 from sonolus.script.globals import level_memory
 
@@ -30,6 +31,7 @@ class ScoreMemory:
     base_lost: float
     bonus_earned: float
     bonus_lost: float
+    dx_earned: float
     dx_lost: float
     combo: int
     grade: Grade
@@ -129,6 +131,7 @@ def report_score(weight: float, is_break: bool, judgment: ArcadeJudgment):
         earned = get_normal_base(judgment) * weight
         ScoreMemory.base_earned += earned
         ScoreMemory.base_lost += get_normal_base() * weight - earned
+    ScoreMemory.dx_earned += get_dx(judgment)
     ScoreMemory.dx_lost += get_dx() - get_dx(judgment)
     if judgment == ArcadeJudgment.MISS:
         ScoreMemory.combo = 0
@@ -161,3 +164,32 @@ def get_achievement_from_101() -> float:
     """In percent: 101 less everything lost."""
     base = (ScoreMemory.total_base - ScoreMemory.base_lost) / get_base_total() * 100
     return base + (ScoreMemory.total_bonus - ScoreMemory.bonus_lost) / get_bonus_total()
+
+
+# A DX rank (✧1 to ✧5) is held while the DX score still reachable is above this part of the max.
+DX_RANK_BORDERS = (0.85, 0.90, 0.93, 0.95, 0.97)
+
+
+def get_dx_remaining() -> float:
+    """The DX score still reachable."""
+    return ScoreMemory.total_dx - ScoreMemory.dx_lost
+
+
+def get_dx_rank() -> int:
+    """0 below ✧1."""
+    rank = 0
+    ratio = get_dx_remaining() / max(ScoreMemory.total_dx, 1)
+    for border in DX_RANK_BORDERS:
+        if ratio > border:
+            rank += 1
+    return rank
+
+
+def get_dx_rank_margin() -> int:
+    """DX score above the current rank's border: how much can still be lost before dropping a rank."""
+    lowest = 0.0
+    ratio = get_dx_remaining() / max(ScoreMemory.total_dx, 1)
+    for border in DX_RANK_BORDERS:
+        if ratio > border:
+            lowest = floor(ScoreMemory.total_dx * border) + 1
+    return get_dx_remaining() - lowest
