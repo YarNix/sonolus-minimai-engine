@@ -2,8 +2,11 @@
 
 from enum import IntEnum, auto
 from math import floor
+from typing import Protocol, ClassVar
 
 from sonolus.script.globals import level_memory
+from sonolus.script.runtime import level_score, level_life
+from sonolus.script.archetype import LifeInfo
 
 from minimai.lib.game import ArcadeJudgment
 
@@ -13,6 +16,12 @@ class BaseWeight:
     HOLD = 2.0
     SLIDE = 3.0
 
+class JudgmentMultiplier:
+    PERFECT = 1.0
+    GREAT = 0.8
+    GOOD = 0.5
+    MISS = 0.0
+
 class Grade(IntEnum):
     """The best result still reachable."""
     AP_PLUS = 0
@@ -20,6 +29,15 @@ class Grade(IntEnum):
     FC_PLUS = auto()
     FC = auto()
     NONE = auto()
+
+class WeightedArchetype(Protocol):
+    is_scored: ClassVar[bool]
+    archetype_score_multiplier: ClassVar[float]
+    archetype_life: ClassVar[LifeInfo]
+    key: int | float
+
+    @classmethod
+    def score_weight(cls) -> float: ...
 
 
 @level_memory
@@ -45,6 +63,7 @@ def add_note_to_total(weight: float, is_break: bool):
     else:
         ScoreMemory.total_base += get_normal_base() * weight
     ScoreMemory.total_dx += get_dx()
+    update_life()
 
 
 def get_base_rate(judgment: ArcadeJudgment) -> float:
@@ -193,3 +212,40 @@ def get_dx_rank_margin() -> int:
         if ratio > border:
             lowest = floor(ScoreMemory.total_dx * border) + 1
     return get_dx_remaining() - lowest
+
+
+# Break use their how weight for scoring
+MAX_BREAK_WEIGHT = get_break_base() / get_normal_base()
+
+def init_score_multiplier():
+    level_score().update(
+        perfect_multiplier=JudgmentMultiplier.PERFECT,
+        great_multiplier=JudgmentMultiplier.GREAT,
+        good_multiplier=JudgmentMultiplier.GOOD,
+    )
+
+CLEAR_BORDER = 0.8
+LIFE_PER_WEIGHT = 25
+
+
+def get_life_loss(multiplier: float, weight: float) -> int:
+    return round((JudgmentMultiplier.PERFECT - multiplier) * weight * LIFE_PER_WEIGHT)
+
+
+def init_life_loss(archetype: type[WeightedArchetype], weight: float):
+    archetype.archetype_life.update(
+        perfect_increment=-get_life_loss(JudgmentMultiplier.PERFECT, weight),
+        great_increment=-get_life_loss(JudgmentMultiplier.GREAT, weight),
+        good_increment=-get_life_loss(JudgmentMultiplier.GOOD, weight),
+        miss_increment=-get_life_loss(JudgmentMultiplier.MISS, weight),
+    )
+
+
+def update_life():
+    """Update initial life when score total change."""
+    # Every note's base score at a perfect is its score weight in normal bases.
+    total_weight = ScoreMemory.total_base / get_normal_base()
+    min_lost = LIFE_PER_WEIGHT // 10
+    # Life 0 needs more lost than the margin: below the border, not on it.
+    initial = round(total_weight * LIFE_PER_WEIGHT * (1 - CLEAR_BORDER)) + min_lost
+    level_life().update(initial=initial, maximum=initial)

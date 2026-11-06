@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from enum import IntEnum, auto
 from typing import assert_never
 
@@ -19,6 +20,7 @@ from minimai.lib.layer import (
 )
 from minimai.lib.layout import HoldLayout, get_button_angle_vertical, get_line_alpha, layout_hold, layout_line
 from minimai.lib.skin import ActiveSkin, BodySpriteSet, BreakBodySpriteSet, ActiveBodySpriteSet
+from minimai.lib.scoring import MAX_BREAK_WEIGHT, WeightedArchetype, init_life_loss
 
 
 class HoldKind(IntEnum):
@@ -148,3 +150,18 @@ def _line_draw(kind: HoldKind, layout: Quad, layer: ZIndexes, alpha: float):
             ActiveSkin.break_line.draw(layout, layer.tuple, alpha)
         case _:
             assert_never(kind)
+
+
+def init_hold_score(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if is_break_hold(archetype.key) else archetype.score_weight()
+        archetype.archetype_score_multiplier = weight
+
+def init_hold_life(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if is_break_hold(archetype.key) else archetype.score_weight()
+        init_life_loss(archetype, weight)

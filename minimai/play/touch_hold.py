@@ -64,6 +64,10 @@ class BaseTouchHold(TouchBaseInput):
     body_group_time: float = shared_memory()
     body_group_held: int = shared_memory()
 
+    @classmethod
+    def score_weight(cls) -> float:
+        return BaseWeight.HOLD
+
     def spawn_order(self) -> float:
         return self.start_time
 
@@ -91,7 +95,7 @@ class BaseTouchHold(TouchBaseInput):
                 schedule_guide_sfx(self.end_time)
             # The head has no sound; the riser plays instead.
             self.emit_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.end_time, scheduled=True)
-            add_note_to_total(BaseWeight.HOLD, self.kind == TouchHoldKind.BREAK_TOUCH_HOLD)
+            add_note_to_total(self.score_weight(), self.kind == TouchHoldKind.BREAK_TOUCH_HOLD)
 
     def initialize(self):
         self.hold_state = HoldState.DEFAULT
@@ -114,7 +118,7 @@ class BaseTouchHold(TouchBaseInput):
         if self.is_judged:
             # Judged in update_parallel
             # Despawn deferred until the score is reported
-            report_score(BaseWeight.HOLD, self.kind == TouchHoldKind.BREAK_TOUCH_HOLD, self.judgment)
+            report_score(self.score_weight(), self.kind == TouchHoldKind.BREAK_TOUCH_HOLD, self.judgment)
             self.despawn = True
             return
         if self.is_scored and not self.is_head_judged and time() in self.input_interval:

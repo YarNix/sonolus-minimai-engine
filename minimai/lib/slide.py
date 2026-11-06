@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from enum import IntEnum, auto
 from math import pi
 from typing import TypeAlias, assert_never
@@ -34,6 +35,7 @@ from minimai.lib.game import (
     sensor_mirror,
     sensor_shift,
 )
+from minimai.lib.scoring import MAX_BREAK_WEIGHT, WeightedArchetype, init_life_loss
 
 
 class SlideKind(IntEnum):
@@ -577,3 +579,18 @@ def get_slide_appear_duration(speed: float):
     fade_time = from_skin_px(392.6913) / fade_speed
     fade_time += Options.slide_fade_offset / 1000
     return fade_time
+
+
+def init_slide_score(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if is_break_slide(archetype.key) else archetype.score_weight()
+        archetype.archetype_score_multiplier = weight
+
+def init_slide_life(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if is_break_slide(archetype.key) else archetype.score_weight()
+        init_life_loss(archetype, weight)

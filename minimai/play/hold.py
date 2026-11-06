@@ -49,6 +49,10 @@ class BaseHold(ButtonBaseInput):
     head_text_shown: bool = entity_memory()
     glow: ParticleHandle = entity_memory()
 
+    @classmethod
+    def score_weight(cls) -> float:
+        return BaseWeight.HOLD
+
     def spawn_order(self) -> float:
         return self.start_time
 
@@ -77,7 +81,7 @@ class BaseHold(ButtonBaseInput):
                 schedule_guide_sfx(self.end_time)
             self.emit_head_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
             self.emit_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.end_time, scheduled=True)
-            add_note_to_total(BaseWeight.HOLD, is_break_hold(self.kind))
+            add_note_to_total(self.score_weight(), is_break_hold(self.kind))
 
     def initialize(self):
         self.hold_state = HoldState.DEFAULT
@@ -100,7 +104,7 @@ class BaseHold(ButtonBaseInput):
         if self.is_judged:
             # Judged in update_parallel
             # Despawn deferred until the score is reported
-            report_score(BaseWeight.HOLD, is_break_hold(self.kind), self.judgment)
+            report_score(self.score_weight(), is_break_hold(self.kind), self.judgment)
             self.despawn = True
             return
         if self.is_scored and not self.is_head_judged and time() in self.input_interval:

@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from enum import IntEnum, auto
 from typing import assert_never
 
@@ -10,6 +11,7 @@ from minimai.lib.hold import HoldState
 from minimai.lib.layer import LAYER_TOUCH, LAYER_TOUCH_HOLD_BORDER, ZIndexes, get_z
 from minimai.lib.layout import TouchHoldBorderLayout, get_touch_fan_alpha, layout_touch_hold
 from minimai.lib.skin import ActiveSkin
+from minimai.lib.scoring import MAX_BREAK_WEIGHT, WeightedArchetype, init_life_loss
 
 
 class TouchHoldKind(IntEnum):
@@ -70,3 +72,19 @@ def _border_draw(state: HoldState, progress: float, sensor: Sensor, full: Quad, 
             ActiveSkin.touch_hold_border_on_bars[piece.side].draw(piece.quad, layer.tuple)
         else:
             ActiveSkin.touch_hold_border_off_bars[piece.side].draw(piece.quad, layer.tuple)
+
+
+def init_touch_hold_score(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if archetype.key == TouchHoldKind.BREAK_TOUCH_HOLD else archetype.score_weight()
+        archetype.archetype_score_multiplier = weight
+
+
+def init_touch_hold_life(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if archetype.key == TouchHoldKind.BREAK_TOUCH_HOLD else archetype.score_weight()
+        init_life_loss(archetype, weight)

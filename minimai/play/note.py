@@ -50,6 +50,10 @@ class BaseNote(ButtonBaseInput):
 
     judgment: ArcadeJudgment = entity_memory()
 
+    @classmethod
+    def score_weight(cls) -> float:
+        return BaseWeight.TAP
+
     def spawn_order(self) -> float:
         return self.start_time
 
@@ -76,7 +80,7 @@ class BaseNote(ButtonBaseInput):
             report_note_time(self.target_time)
             schedule_guide_sfx(self.target_time)
             self.emit_hit_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
-            add_note_to_total(BaseWeight.TAP, is_break(self.kind))
+            add_note_to_total(self.score_weight(), is_break(self.kind))
 
     def initialize(self):
         if not self.has_custom_rotation and self.slide_rotate_speed != 0:
@@ -90,7 +94,7 @@ class BaseNote(ButtonBaseInput):
         if self.is_judged:
             # Judged in update_parallel
             # Despawn deferred until the score is reported
-            report_score(BaseWeight.TAP, is_break(self.kind), self.judgment)
+            report_score(self.score_weight(), is_break(self.kind), self.judgment)
             self.despawn = True
             return
         if self.is_scored and time() in self.input_interval and self.captured_touch_id == 0:
@@ -143,7 +147,7 @@ class BaseNote(ButtonBaseInput):
             self.result.bucket_value = bucket_val
         self.emit_hit_sfx(judgment, actual_time, scheduled=False)
         self.judgment = judgment
-        report_score(BaseWeight.TAP, is_break(self.kind), judgment)
+        report_score(self.score_weight(), is_break(self.kind), judgment)
         self.despawn = True
 
     def handle_hit(self):

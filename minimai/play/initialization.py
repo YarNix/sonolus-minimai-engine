@@ -1,13 +1,17 @@
 from sonolus.script.archetype import EntityRef, PlayArchetype, callback, exported, imported
 
 from minimai.lib import archetype_names
-# from minimai.lib.baseevent import init_event_list
 from minimai.lib.buckets import init_buckets
 from minimai.lib.effect import schedule_count_in
 from minimai.lib.layout import init_layout
 from minimai.lib.hitbox import init_hitboxes
 from minimai.lib.level_config import init_level_config
-# from minimai.lib.note import init_life, init_score
+from minimai.lib.hold import init_hold_life, init_hold_score
+from minimai.lib.note import init_note_life, init_note_score
+from minimai.lib.scoring import init_score_multiplier
+from minimai.lib.slide import init_slide_life, init_slide_score
+from minimai.lib.touch import init_touch_life, init_touch_score
+from minimai.lib.touch_hold import init_touch_hold_life, init_touch_hold_score
 from minimai.lib.particle import init_particles
 from minimai.lib.skin import init_skin
 from minimai.lib.ui import init_ui
@@ -17,7 +21,26 @@ from minimai.play.ring import Ring
 from minimai.play.center_counter import CenterCounter
 from minimai.lib.counter import CenterDisplay
 from minimai.lib.options import Options
+from minimai.play.hold import HOLD_ARCHETYPES
+from minimai.play.note import NOTE_ARCHETYPES
+from minimai.play.slide import SLIDE_ARCHETYPES
+from minimai.play.touch import TOUCH_ARCHETYPES
+from minimai.play.touch_hold import TOUCH_HOLD_ARCHETYPES
 
+def init_score():
+    init_score_multiplier()
+    init_note_score(NOTE_ARCHETYPES)
+    init_hold_score(HOLD_ARCHETYPES)
+    init_touch_score(TOUCH_ARCHETYPES)
+    init_touch_hold_score(TOUCH_HOLD_ARCHETYPES)
+    init_slide_score(SLIDE_ARCHETYPES)
+
+def init_life():
+    init_note_life(NOTE_ARCHETYPES)
+    init_hold_life(HOLD_ARCHETYPES)
+    init_touch_life(TOUCH_ARCHETYPES)
+    init_touch_hold_life(TOUCH_HOLD_ARCHETYPES)
+    init_slide_life(SLIDE_ARCHETYPES)
 
 class Initialization(PlayArchetype):
     name = archetype_names.INITIALIZATION
@@ -34,10 +57,9 @@ class Initialization(PlayArchetype):
         init_particles()
         init_ui()
         init_buckets()
-        # init_score(NOTE_ARCHETYPES)
-        # init_life(NOTE_ARCHETYPES, self.initial_life)
+        init_score()
+        init_life()
         # init_play_common()
-        # init_event_list(self.first_camera_ref)
 
     def initialize(self):
         schedule_count_in(self.count_in_bpm, SfxMemory.first_note_time)

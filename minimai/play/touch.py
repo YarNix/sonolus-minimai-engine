@@ -31,6 +31,10 @@ class BaseTouch(TouchBaseInput):
 
     judgment: ArcadeJudgment = entity_memory()
 
+    @classmethod
+    def score_weight(cls) -> float:
+        return BaseWeight.TAP
+
     def spawn_order(self) -> float:
         return self.start_time
 
@@ -54,7 +58,7 @@ class BaseTouch(TouchBaseInput):
             report_note_time(self.target_time)
             schedule_guide_sfx(self.target_time)
             self.emit_hit_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
-            add_note_to_total(BaseWeight.TAP, self.kind == TouchKind.BREAK_TOUCH)
+            add_note_to_total(self.score_weight(), self.kind == TouchKind.BREAK_TOUCH)
 
     def update_sequential(self):
         if self.despawn:
@@ -62,7 +66,7 @@ class BaseTouch(TouchBaseInput):
         if self.judgment != ArcadeJudgment.NONE:
             # Judged in update_parallel
             # Despawn deferred until the score is reported
-            report_score(BaseWeight.TAP, self.kind == TouchKind.BREAK_TOUCH, self.judgment)
+            report_score(self.score_weight(), self.kind == TouchKind.BREAK_TOUCH, self.judgment)
             self.despawn = True
             return
         register_touch_overlap(self.sensor, self.start_time, self.index, self.kind)
@@ -106,7 +110,7 @@ class BaseTouch(TouchBaseInput):
         error = self.judgment_window.good.clamp(actual_time - self.target_time)
         self.register_group_hit(judgment, error)
         self.set_result(judgment, error)
-        report_score(BaseWeight.TAP, self.kind == TouchKind.BREAK_TOUCH, judgment)
+        report_score(self.score_weight(), self.kind == TouchKind.BREAK_TOUCH, judgment)
         self.despawn = True
 
     def set_result(self, judgment: ArcadeJudgment, error: float):
@@ -154,8 +158,8 @@ NormalTouchNote = BaseTouch.derive(archetype_names.NORMAL_TOUCH_NOTE, is_scored=
 BreakTouchNote = BaseTouch.derive(archetype_names.BREAK_TOUCH_NOTE, is_scored=True, key=TouchKind.BREAK_TOUCH)
 EachTouchNote = BaseTouch.derive(archetype_names.EACH_TOUCH_NOTE, is_scored=True, key=TouchKind.EACH_TOUCH)
 
-TOUCH_ARCHETYPES = [
+TOUCH_ARCHETYPES = (
     NormalTouchNote,
     BreakTouchNote,
     EachTouchNote,
-]
+)

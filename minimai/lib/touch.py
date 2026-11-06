@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from enum import IntEnum, auto
 from typing import assert_never
 
@@ -13,6 +14,7 @@ from minimai.lib.layout import (
 )
 from minimai.lib.layer import ZIndexes, get_z, LAYER_TOUCH, LAYER_TOUCH_OVERLAP
 from minimai.lib.skin import ActiveSkin
+from minimai.lib.scoring import MAX_BREAK_WEIGHT, WeightedArchetype, init_life_loss
 
 class TouchKind(IntEnum):
     NORM_TOUCH = auto()
@@ -77,3 +79,19 @@ def get_touch_appear_duration(speed: float):
     close_speed = abs(Options.touch_speed * speed)
     close_duration = 3.209385682 * (close_speed ** -0.9549621752)
     return max(close_duration, 0.15)
+
+
+def init_touch_score(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if archetype.key == TouchKind.BREAK_TOUCH else archetype.score_weight()
+        archetype.archetype_score_multiplier = weight
+
+
+def init_touch_life(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if archetype.key == TouchKind.BREAK_TOUCH else archetype.score_weight()
+        init_life_loss(archetype, weight)

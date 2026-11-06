@@ -93,6 +93,10 @@ class BaseSlide(PlayArchetype):
     is_judgment_reported: bool = entity_memory()
     despawn_time: float = entity_memory()
 
+    @classmethod
+    def score_weight(cls) -> float:
+        return BaseWeight.SLIDE
+
     @property
     def segment_slide_time(self) -> float:
         """The "start" time of this segment. The star begins traversing the track."""
@@ -200,7 +204,7 @@ class BaseSlide(PlayArchetype):
             if is_break_slide(self.kind):
                 emit_break_slide_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.segment_end_time, scheduled=True)
             self.emit_arrive_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.segment_end_time, scheduled=True)
-            add_note_to_total(BaseWeight.SLIDE, is_break_slide(self.kind))
+            add_note_to_total(self.score_weight(), is_break_slide(self.kind))
 
     def update_sequential(self):
         if self.despawn:
@@ -209,7 +213,7 @@ class BaseSlide(PlayArchetype):
             # Judged in update_parallel
             # Report score here in sequential callback
             self.is_judgment_reported = True
-            report_score(BaseWeight.SLIDE, is_break_slide(self.kind), self.judgment)
+            report_score(self.score_weight(), is_break_slide(self.kind), self.judgment)
         if (time() in self.input_interval
             and not self.judge_queues_finished
             and not self.is_judged):

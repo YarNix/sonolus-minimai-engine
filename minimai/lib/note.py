@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from enum import IntEnum, auto
 from math import pi
 from typing import assert_never
@@ -12,6 +13,7 @@ from minimai.lib.skin import ActiveSkin
 from minimai.lib.level_config import LevelConfig
 from minimai.lib.layout import get_line_alpha, layout_note, layout_line, get_button_angle_vertical, NOTE_SCALE_RATE, NOTE_SPAWN_DISTANCE
 from minimai.lib.layer import ZIndexes, get_z, LAYER_NOTE, LAYER_NOTE_LINE, LAYER_OFFSET_EX
+from minimai.lib.scoring import MAX_BREAK_WEIGHT, WeightedArchetype, init_life_loss
 
 
 class NoteKind(IntEnum):
@@ -172,3 +174,19 @@ def get_tap_appear_duration(speed: float):
     scale_time = 1 / (NOTE_SCALE_RATE * travel_speed)
     appear_duration = scale_time + travel_time
     return max(appear_duration, 0.15)
+
+
+def init_note_score(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if is_break(archetype.key) else archetype.score_weight()
+        archetype.archetype_score_multiplier = weight
+
+
+def init_note_life(archetypes: Iterable[type[WeightedArchetype]]):
+    for archetype in archetypes:
+        if not archetype.is_scored:
+            continue
+        weight = MAX_BREAK_WEIGHT if is_break(archetype.key) else archetype.score_weight()
+        init_life_loss(archetype, weight)
