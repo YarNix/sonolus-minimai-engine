@@ -28,15 +28,18 @@ TOUCH_FEEDBACK_COOLDOWN = 0.4167
 # Seconds, before Effect Animation Speed
 TOUCH_FEEDBACK_DURATION = 0.36
 # The main ring grows to its radius with this time constant while drifting on outward (radii per
-# second), and fades with the other time constant until it's cut off.
-RING_GROW = 0.018
-RING_DRIFT = 0.8
-RING_FADE_IN = 0.012
-RING_FADE = 0.05
+# second). It fades in, then fades with the other time constant until it's cut off.
+RING_GROW = 0.035
+RING_DRIFT = 0.5
+RING_FADE_IN = 0.03
+RING_FADE = 0.033
 RING_CUT = (0.1, 0.15)
-CENTER_GROW = 0.04
-CENTER_FADE_IN = 0.025
-CENTER_FADE_OUT = (0.03, 0.115)
+# The center ring starts growing after CENTER_DELAY, at most CENTER_ALPHA opaque.
+CENTER_DELAY = 0.04
+CENTER_GROW = 0.05
+CENTER_ALPHA = 0.3
+CENTER_FADE_IN = 0.03
+CENTER_FADE_OUT = (0.1, 0.17)
 PETALS = 10
 # Petals ease out to their end distance and shrink away over their whole life.
 PETAL_EASE = 2.2
@@ -137,10 +140,14 @@ def _touch_feedback_draw(slot: int, age: float):
             * remap_clamped(*RING_CUT, 1, 0, age)
         )
         ActiveSkin.touch_feedback_ring.draw(layout_touch_feedback_ring(center, radius), z, alpha)
-        radius = TOUCH_FEEDBACK_CENTER_RADIUS * (1 - e ** (-age / CENTER_GROW))
-        alpha = remap_clamped(0, CENTER_FADE_IN, 0, 1, age) * remap_clamped(*CENTER_FADE_OUT, 1, 0, age)
-        if alpha > 0:
-            ActiveSkin.touch_feedback_ring.draw(layout_touch_feedback_ring(center, radius), z, alpha)
+    if CENTER_DELAY < age < CENTER_FADE_OUT[1]:
+        radius = TOUCH_FEEDBACK_CENTER_RADIUS * (1 - e ** (-(age - CENTER_DELAY) / CENTER_GROW))
+        alpha = (
+            CENTER_ALPHA
+            * remap_clamped(CENTER_DELAY, CENTER_DELAY + CENTER_FADE_IN, 0, 1, age)
+            * remap_clamped(*CENTER_FADE_OUT, 1, 0, age)
+        )
+        ActiveSkin.touch_feedback_ring.draw(layout_touch_feedback_ring(center, radius), z, alpha)
     life = age / TOUCH_FEEDBACK_DURATION
     progress = 1 - (1 - life) ** PETAL_EASE
     rotation = TouchFeedbackMemory.rotation[slot]

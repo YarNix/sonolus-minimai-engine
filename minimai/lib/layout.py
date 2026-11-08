@@ -203,7 +203,7 @@ TOUCH_FAST_LATE_OFFSET = from_skin_px(56)
 # Firework skin sprites. A ray: its width at the far end and its length from the firework's center.
 # Touch feedback
 TOUCH_FEEDBACK_RADIUS = from_skin_px(85)
-TOUCH_FEEDBACK_CENTER_RADIUS = from_skin_px(22)
+TOUCH_FEEDBACK_CENTER_RADIUS = from_skin_px(26)
 TOUCH_FEEDBACK_PETAL_SIZE = from_skin_px(Vec2(12, 26))
 TOUCH_FEEDBACK_PETAL_START = from_skin_px(36)
 TOUCH_FEEDBACK_PETAL_END = from_skin_px(121)
