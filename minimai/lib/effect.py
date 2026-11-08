@@ -113,13 +113,17 @@ def emit_break_hit_sfx(judgment: ArcadeJudgment, at: float, scheduled: bool):
         emit_sfx(sfx, at, scheduled)
 
 
+def emit_ex_sfx(judgment: ArcadeJudgment, at: float, scheduled: bool):
+    if is_hit(judgment) and Options.ex_sound:
+        emit_sfx(Effects.tap_ex, at, scheduled)
+
+
 def emit_tap_sfx(is_break: bool, is_ex: bool, judgment: ArcadeJudgment, at: float, scheduled: bool):
     """Tap, star or hold head hit: break, then EX, then the grade sound."""
     if is_break:
         emit_break_hit_sfx(judgment, at, scheduled)
     elif is_ex:
-        if is_hit(judgment) and Options.ex_sound:
-            emit_sfx(Effects.tap_ex, at, scheduled)
+        emit_ex_sfx(judgment, at, scheduled)
     else:
         emit_sfx(get_plain_tap_sfx(judgment), at, scheduled)
 

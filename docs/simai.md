@@ -31,7 +31,8 @@ Text after the last comma is placed but doesn't move time forward.
 | `B1`, `D4`, `E8` | Touch. `C`, `C1`, `C2` are all the center. |
 | `Cb` | Break touch. |
 | `Cf` | Touch with a firework. On other notes see [Fireworks](#fireworks-extension-note_fireworks). |
-| `Ch[4:3]` | Touch hold. `Ch` without a length is a zero-length touch hold. Combines with `b` and `f`. |
+| `Cx` | EX touch. Combines with `b`. |
+| `Ch[4:3]` | Touch hold. `Ch` without a length is a zero-length touch hold. Combines with `b`, `f` and `x`. |
 
 ### Together
 
@@ -39,6 +40,7 @@ Text after the last comma is placed but doesn't move time forward.
 |---|---|
 | `1/5` | Notes at the same time. |
 | `15` | Short form for plain taps. |
+| `E3E8`, `CfE5` | Short form for touches. |
 | `` 1`2 `` | Pseudo-each: `2` is placed 1 ms after `1`, and isn't an each. |
 
 EACH colouring:

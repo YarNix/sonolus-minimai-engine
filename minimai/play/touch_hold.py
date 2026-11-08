@@ -10,7 +10,7 @@ from sonolus.script.runtime import delta_time, input_offset, time, touches
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
-from minimai.lib.effect import emit_firework_sfx, emit_hold_end_sfx, is_hit, schedule_guide_sfx
+from minimai.lib.effect import emit_ex_sfx, emit_firework_sfx, emit_hold_end_sfx, is_hit, schedule_guide_sfx
 from minimai.lib.judge_text import spawn_judge_text, touch_hold_slot
 from minimai.lib.layout import (
     layout_sensor_firework_center,
@@ -26,7 +26,7 @@ from minimai.lib.game import ArcadeJudgment, apply_sensor_mirror_option
 from minimai.lib.input_state import InputState
 from minimai.lib.hold import HoldState
 from minimai.lib.touch import get_touch_appear_duration
-from minimai.lib.touch_hold import TouchHoldKind, draw_touch_hold
+from minimai.lib.touch_hold import TouchHoldKind, draw_touch_hold, is_break_touch_hold, is_ex_touch_hold
 from minimai.play.activity_manager import register_touch_hold_riser, report_note_time
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
 
@@ -47,6 +47,7 @@ class BaseTouchHold(TouchBaseInput):
 
     head_judgment: ArcadeJudgment = entity_memory()
     head_error: float = entity_memory()
+    head_bucket_value: float = entity_memory()
     held_at_head: bool = entity_memory()
 
     hold_input_interval: Interval = entity_data()
@@ -90,7 +91,7 @@ class BaseTouchHold(TouchBaseInput):
 
         if self.is_scored:
             report_note_time(self.target_time)
-            add_note_to_total(self.score_weight(), self.kind == TouchHoldKind.BREAK_TOUCH_HOLD)
+            add_note_to_total(self.score_weight(), is_break_touch_hold(self.kind))
 
     def initialize(self):
         if is_challenge_over():
@@ -124,7 +125,7 @@ class BaseTouchHold(TouchBaseInput):
         if self.is_judged:
             # Judged in update_parallel
             # Despawn deferred until the score is reported
-            report_score(self.score_weight(), self.kind == TouchHoldKind.BREAK_TOUCH_HOLD, self.judgment)
+            report_score(self.score_weight(), is_break_touch_hold(self.kind), self.judgment)
             self.despawn = True
             return
         if self.is_scored and not self.is_head_judged and time() in self.input_interval:
@@ -190,10 +191,21 @@ class BaseTouchHold(TouchBaseInput):
         if self.captured_touch_id == 0:
             return
         captured_touch = next(touch for touch in touches() if touch.id == self.captured_touch_id)
-        self.head_judgment = self.judgment_window.judge(captured_touch.time, self.target_time)
-        self.head_error = self.judgment_window.good.clamp(captured_touch.time - self.target_time)
-        self.hold_state = HoldState.PRESSED
+        self.judge_head(
+            self.judgment_window.judge(captured_touch.time, self.target_time),
+            self.judgment_window.good.clamp(captured_touch.time - self.target_time),
+        )
         self.register_group_hit(self.head_judgment, self.head_error)
+
+    def judge_head(self, judgment: ArcadeJudgment, error: float):
+        if is_ex_touch_hold(self.kind):
+            self.head_judgment = ArcadeJudgment.CRITICAL_PERFECT
+            self.head_error = 0
+        else:
+            self.head_judgment = judgment
+            self.head_error = error
+        self.head_bucket_value = error * buckets.WINDOW_SCALE
+        self.hold_state = HoldState.PRESSED
 
     def update_parallel(self):
         if self.despawn or self.is_judged:
@@ -206,9 +218,7 @@ class BaseTouchHold(TouchBaseInput):
                 self.head_judgment = ArcadeJudgment.MISS
                 self.head_error = self.judgment_window.good.end
             elif self.is_group_judged:
-                self.head_judgment = self.group_result
-                self.head_error = self.group_result_error
-                self.hold_state = HoldState.PRESSED
+                self.judge_head(self.group_result, self.group_result_error)
         # No body check when the touch hold is 27 frames or shorter (empty or zero-length interval).
         if self.hold_input_interval.length > 0 and time() in self.hold_input_interval:
             self.check_body(self.pressed or self.is_body_group_held)
@@ -239,7 +249,7 @@ class BaseTouchHold(TouchBaseInput):
         if self.head_judgment == ArcadeJudgment.MISS:
             self.result.bucket = Bucket(-1)
         elif self.result.bucket.id != -1:
-            self.result.bucket_value = self.head_error * buckets.WINDOW_SCALE
+            self.result.bucket_value = self.head_bucket_value
         self.emit_end_sfx(final, time(), scheduled=False)
         self.judgment = final
 
@@ -255,7 +265,7 @@ class BaseTouchHold(TouchBaseInput):
             self.play_end_effects()
 
     def play_end_effects(self):
-        is_break = self.kind == TouchHoldKind.BREAK_TOUCH_HOLD
+        is_break = is_break_touch_hold(self.kind)
         spawn_tap_effect(is_break, self.judgment, layout_touch_hold_effect(self.sensor))
         spawn_firework(self.firework, self.judgment, layout_sensor_firework_center(self.sensor))
         spawn_judge_text(
@@ -263,22 +273,37 @@ class BaseTouchHold(TouchBaseInput):
         )
 
     def emit_end_sfx(self, judgment: ArcadeJudgment, at: float, scheduled: bool):
-        emit_hold_end_sfx(judgment, at, scheduled)
+        if is_ex_touch_hold(self.kind):
+            emit_ex_sfx(judgment, at, scheduled)
+        else:
+            emit_hold_end_sfx(judgment, at, scheduled)
         emit_firework_sfx(self.firework, judgment, at, scheduled)
 
 
 NormalTouchHoldNote = BaseTouchHold.derive(
     archetype_names.NORMAL_TOUCH_HOLD_NOTE, is_scored=True, key=TouchHoldKind.NORM_TOUCH_HOLD
 )
+ExTouchHoldNote = BaseTouchHold.derive(
+    archetype_names.EX_TOUCH_HOLD_NOTE, is_scored=True, key=TouchHoldKind.EX_TOUCH_HOLD
+)
 EachTouchHoldNote = BaseTouchHold.derive(
     archetype_names.EACH_TOUCH_HOLD_NOTE, is_scored=True, key=TouchHoldKind.EACH_TOUCH_HOLD
+)
+ExEachTouchHoldNote = BaseTouchHold.derive(
+    archetype_names.EX_EACH_TOUCH_HOLD_NOTE, is_scored=True, key=TouchHoldKind.EX_EACH_TOUCH_HOLD
 )
 BreakTouchHoldNote = BaseTouchHold.derive(
     archetype_names.BREAK_TOUCH_HOLD_NOTE, is_scored=True, key=TouchHoldKind.BREAK_TOUCH_HOLD
 )
+ExBreakTouchHoldNote = BaseTouchHold.derive(
+    archetype_names.EX_BREAK_TOUCH_HOLD_NOTE, is_scored=True, key=TouchHoldKind.EX_BREAK_TOUCH_HOLD
+)
 
 TOUCH_HOLD_ARCHETYPES = (
     NormalTouchHoldNote,
+    ExTouchHoldNote,
     EachTouchHoldNote,
+    ExEachTouchHoldNote,
     BreakTouchHoldNote,
+    ExBreakTouchHoldNote,
 )

@@ -148,11 +148,11 @@ def create_hold_bucket_sprites(*kinds: HoldKind) -> list[BucketSprite]:
 def get_touch_bucket_sprites(kind: TouchKind) -> tuple[Sprite, Sprite]:
     """(point, fan)"""
     match kind:
-        case TouchKind.NORM_TOUCH:
+        case TouchKind.NORM_TOUCH | TouchKind.EX_TOUCH:
             return BaseSkin.normal_touch_point, BaseSkin.normal_touch_fan
-        case TouchKind.EACH_TOUCH:
+        case TouchKind.EACH_TOUCH | TouchKind.EX_EACH_TOUCH:
             return BaseSkin.each_touch_point, BaseSkin.each_touch_fan
-        case TouchKind.BREAK_TOUCH:
+        case TouchKind.BREAK_TOUCH | TouchKind.EX_BREAK_TOUCH:
             return BaseSkin.break_touch_point, BaseSkin.break_touch_fan
     raise ValueError(f"No bucket sprite for {kind!r}")
 
@@ -183,11 +183,11 @@ def create_touch_bucket_sprites(*kinds: TouchKind) -> list[BucketSprite]:
 
 def get_touch_hold_bucket_point(kind: TouchHoldKind) -> Sprite:
     match kind:
-        case TouchHoldKind.NORM_TOUCH_HOLD:
+        case TouchHoldKind.NORM_TOUCH_HOLD | TouchHoldKind.EX_TOUCH_HOLD:
             return BaseSkin.normal_touch_point
-        case TouchHoldKind.EACH_TOUCH_HOLD:
+        case TouchHoldKind.EACH_TOUCH_HOLD | TouchHoldKind.EX_EACH_TOUCH_HOLD:
             return BaseSkin.each_touch_point
-        case TouchHoldKind.BREAK_TOUCH_HOLD:
+        case TouchHoldKind.BREAK_TOUCH_HOLD | TouchHoldKind.EX_BREAK_TOUCH_HOLD:
             return BaseSkin.break_touch_point
     raise ValueError(f"No bucket sprite for {kind!r}")
 
@@ -256,6 +256,10 @@ class Buckets:
         sprites=create_note_bucket_sprites(NoteKind.NORM_TAP, NoteKind.EACH_TAP, NoteKind.NORM_STAR, NoteKind.EACH_STAR),
         unit=StandardText.MILLISECOND_UNIT,
     )
+    break_tap: Bucket = bucket(
+        sprites=create_note_bucket_sprites(NoteKind.BREAK_TAP, NoteKind.BREAK_STAR),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
     ex_tap: Bucket = bucket(
         sprites=create_note_bucket_sprites(
             NoteKind.EX_TAP, NoteKind.EX_EACH_TAP, NoteKind.EX_BREAK_TAP,
@@ -263,20 +267,16 @@ class Buckets:
         ),
         unit=StandardText.MILLISECOND_UNIT,
     )
-    break_tap: Bucket = bucket(
-        sprites=create_note_bucket_sprites(NoteKind.BREAK_TAP, NoteKind.BREAK_STAR),
-        unit=StandardText.MILLISECOND_UNIT,
-    )
     standard_hold: Bucket = bucket(
         sprites=create_hold_bucket_sprites(HoldKind.NORM_HOLD, HoldKind.EACH_HOLD),
         unit=StandardText.MILLISECOND_UNIT,
     )
-    ex_hold: Bucket = bucket(
-        sprites=create_hold_bucket_sprites(HoldKind.EX_HOLD, HoldKind.EX_EACH_HOLD, HoldKind.EX_BREAK_HOLD),
-        unit=StandardText.MILLISECOND_UNIT,
-    )
     break_hold: Bucket = bucket(
         sprites=create_hold_bucket_sprites(HoldKind.BREAK_HOLD),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
+    ex_hold: Bucket = bucket(
+        sprites=create_hold_bucket_sprites(HoldKind.EX_HOLD, HoldKind.EX_EACH_HOLD, HoldKind.EX_BREAK_HOLD),
         unit=StandardText.MILLISECOND_UNIT,
     )
     standard_touch: Bucket = bucket(
@@ -287,12 +287,22 @@ class Buckets:
         sprites=create_touch_bucket_sprites(TouchKind.BREAK_TOUCH),
         unit=StandardText.MILLISECOND_UNIT,
     )
+    ex_touch: Bucket = bucket(
+        sprites=create_touch_bucket_sprites(TouchKind.EX_TOUCH, TouchKind.EX_EACH_TOUCH, TouchKind.EX_BREAK_TOUCH),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
     standard_touch_hold: Bucket = bucket(
         sprites=create_touch_hold_bucket_sprites(TouchHoldKind.NORM_TOUCH_HOLD, TouchHoldKind.EACH_TOUCH_HOLD),
         unit=StandardText.MILLISECOND_UNIT,
     )
     break_touch_hold: Bucket = bucket(
         sprites=create_touch_hold_bucket_sprites(TouchHoldKind.BREAK_TOUCH_HOLD),
+        unit=StandardText.MILLISECOND_UNIT,
+    )
+    ex_touch_hold: Bucket = bucket(
+        sprites=create_touch_hold_bucket_sprites(
+            TouchHoldKind.EX_TOUCH_HOLD, TouchHoldKind.EX_EACH_TOUCH_HOLD, TouchHoldKind.EX_BREAK_TOUCH_HOLD
+        ),
         unit=StandardText.MILLISECOND_UNIT,
     )
     standard_slide: Bucket = bucket(
@@ -305,15 +315,17 @@ class Buckets:
 
 def init_buckets():
     Buckets.standard_tap.window = NOTE_WINDOW.bucket_window
-    Buckets.ex_tap.window = NOTE_WINDOW.bucket_window
     Buckets.break_tap.window = NOTE_WINDOW.bucket_window
+    Buckets.ex_tap.window = NOTE_WINDOW.ex_bucket_window
     Buckets.standard_hold.window = NOTE_WINDOW.bucket_window
-    Buckets.ex_hold.window = NOTE_WINDOW.bucket_window
     Buckets.break_hold.window = NOTE_WINDOW.bucket_window
+    Buckets.ex_hold.window = NOTE_WINDOW.ex_bucket_window
     Buckets.standard_touch.window = TOUCH_WINDOW.bucket_window
     Buckets.break_touch.window = TOUCH_WINDOW.bucket_window
+    Buckets.ex_touch.window = TOUCH_WINDOW.ex_bucket_window
     Buckets.standard_touch_hold.window = TOUCH_WINDOW.bucket_window
     Buckets.break_touch_hold.window = TOUCH_WINDOW.bucket_window
+    Buckets.ex_touch_hold.window = TOUCH_WINDOW.ex_bucket_window
     Buckets.standard_slide.window = SLIDE_BUCKET_WINDOW
     Buckets.break_slide.window = SLIDE_BUCKET_WINDOW
 
@@ -357,6 +369,8 @@ def get_touch_bucket(kind: TouchKind) -> Bucket:
             result @= Buckets.standard_touch
         case TouchKind.BREAK_TOUCH:
             result @= Buckets.break_touch
+        case TouchKind.EX_TOUCH | TouchKind.EX_EACH_TOUCH | TouchKind.EX_BREAK_TOUCH:
+            result @= Buckets.ex_touch
         case _:
             assert_never(kind)
     return result
@@ -369,6 +383,8 @@ def get_touch_hold_bucket(kind: TouchHoldKind) -> Bucket:
             result @= Buckets.standard_touch_hold
         case TouchHoldKind.BREAK_TOUCH_HOLD:
             result @= Buckets.break_touch_hold
+        case TouchHoldKind.EX_TOUCH_HOLD | TouchHoldKind.EX_EACH_TOUCH_HOLD | TouchHoldKind.EX_BREAK_TOUCH_HOLD:
+            result @= Buckets.ex_touch_hold
         case _:
             assert_never(kind)
     return result
@@ -417,6 +433,11 @@ class ArcadeWindow(Record):
             great=round_interval(self.low_great * WINDOW_SCALE),
             good=round_interval(self.good * WINDOW_SCALE),
         )
+
+    @property
+    def ex_bucket_window(self):
+        good = round_interval(self.good * WINDOW_SCALE)
+        return JudgmentWindow(perfect=good, great=good, good=good)
 
     def normalize_error(self, error: float) -> float:
         """Piecewise linear: perfect edge -> ±1, great edge -> ±2, good edge -> ±3."""

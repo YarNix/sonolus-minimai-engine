@@ -18,8 +18,22 @@ from minimai.lib.scoring import MAX_BREAK_WEIGHT, WeightedArchetype, init_life_l
 
 class TouchKind(IntEnum):
     NORM_TOUCH = auto()
+    EX_TOUCH = auto()
+
     EACH_TOUCH = auto()
+    EX_EACH_TOUCH = auto()
+
     BREAK_TOUCH = auto()
+    EX_BREAK_TOUCH = auto()
+
+
+def is_ex_touch(kind: TouchKind) -> bool:
+    return kind in {TouchKind.EX_TOUCH, TouchKind.EX_EACH_TOUCH, TouchKind.EX_BREAK_TOUCH}
+
+
+def is_break_touch(kind: TouchKind) -> bool:
+    return kind in {TouchKind.BREAK_TOUCH, TouchKind.EX_BREAK_TOUCH}
+
 
 def draw_touch(kind: TouchKind, sensor: Sensor, start_time: float, target_time: float):
     progress = unlerp(start_time, target_time, time())
@@ -41,33 +55,33 @@ def draw_touch_overlap(kind: TouchKind, sensor: Sensor, count: int):
     layout = Rect.from_center(get_sensor_pos_from_center(sensor), Vec2(size, size)).as_quad()
     layer = get_z(LAYER_TOUCH_OVERLAP, 0, count).tuple
     match kind:
-        case TouchKind.NORM_TOUCH:
+        case TouchKind.NORM_TOUCH | TouchKind.EX_TOUCH:
             ActiveSkin.normal_touch_overlap_border[count - 2].draw(layout, layer)
-        case TouchKind.EACH_TOUCH:
+        case TouchKind.EACH_TOUCH | TouchKind.EX_EACH_TOUCH:
             ActiveSkin.each_touch_overlap_border[count - 2].draw(layout, layer)
-        case TouchKind.BREAK_TOUCH:
+        case TouchKind.BREAK_TOUCH | TouchKind.EX_BREAK_TOUCH:
             ActiveSkin.break_touch_overlap_border[count - 2].draw(layout, layer)
         case _:
             assert_never(kind)
 
 def _point_draw(kind: TouchKind, layout: Quad, layer: ZIndexes, alpha: float = 1):
     match kind:
-        case TouchKind.NORM_TOUCH:
+        case TouchKind.NORM_TOUCH | TouchKind.EX_TOUCH:
             ActiveSkin.normal_touch_point.draw(layout, layer.tuple, alpha)
-        case TouchKind.EACH_TOUCH:
+        case TouchKind.EACH_TOUCH | TouchKind.EX_EACH_TOUCH:
             ActiveSkin.each_touch_point.draw(layout, layer.tuple, alpha)
-        case TouchKind.BREAK_TOUCH:
+        case TouchKind.BREAK_TOUCH | TouchKind.EX_BREAK_TOUCH:
             ActiveSkin.break_touch_point.draw(layout, layer.tuple, alpha)
         case _:
             assert_never(kind)
 
 def _fan_draw(kind: TouchKind, layout: Quad, layer: ZIndexes, alpha: float = 1):
     match kind:
-        case TouchKind.NORM_TOUCH:
+        case TouchKind.NORM_TOUCH | TouchKind.EX_TOUCH:
             ActiveSkin.normal_touch_fan.draw(layout, layer.tuple, alpha)
-        case TouchKind.EACH_TOUCH:
+        case TouchKind.EACH_TOUCH | TouchKind.EX_EACH_TOUCH:
             ActiveSkin.each_touch_fan.draw(layout, layer.tuple, alpha)
-        case TouchKind.BREAK_TOUCH:
+        case TouchKind.BREAK_TOUCH | TouchKind.EX_BREAK_TOUCH:
             ActiveSkin.break_touch_fan.draw(layout, layer.tuple, alpha)
         case _:
             assert_never(kind)
@@ -85,7 +99,7 @@ def init_touch_score(archetypes: Iterable[type[WeightedArchetype]]):
     for archetype in archetypes:
         if not archetype.is_scored:
             continue
-        weight = MAX_BREAK_WEIGHT if archetype.key == TouchKind.BREAK_TOUCH else archetype.score_weight()
+        weight = MAX_BREAK_WEIGHT if is_break_touch(archetype.key) else archetype.score_weight()
         archetype.archetype_score_multiplier = weight
 
 
@@ -93,5 +107,5 @@ def init_touch_life(archetypes: Iterable[type[WeightedArchetype]]):
     for archetype in archetypes:
         if not archetype.is_scored:
             continue
-        weight = MAX_BREAK_WEIGHT if archetype.key == TouchKind.BREAK_TOUCH else archetype.score_weight()
+        weight = MAX_BREAK_WEIGHT if is_break_touch(archetype.key) else archetype.score_weight()
         init_life_loss(archetype, weight)

@@ -11,13 +11,13 @@ from sonolus.script.timing import beat_to_time
 from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib import archetype_names, buckets
-from minimai.lib.effect import emit_firework_sfx, emit_touch_sfx, schedule_guide_sfx
+from minimai.lib.effect import emit_firework_sfx, emit_touch_sfx, is_hit, schedule_guide_sfx
 from minimai.lib.judge_text import spawn_judge_text, touch_slot
 from minimai.lib.layout import layout_sensor_firework_center, layout_touch_effect, layout_touch_judge_text
 from minimai.lib.particle import spawn_touch_effect
 from minimai.lib.firework import spawn_firework
 from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
-from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration
+from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration, is_break_touch, is_ex_touch
 from minimai.lib.game import ArcadeJudgment, apply_sensor_mirror_option
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
 from minimai.play.activity_manager import register_touch_overlap, report_note_time
@@ -56,7 +56,7 @@ class BaseTouch(TouchBaseInput):
 
         if self.is_scored:
             report_note_time(self.target_time)
-            add_note_to_total(self.score_weight(), self.kind == TouchKind.BREAK_TOUCH)
+            add_note_to_total(self.score_weight(), is_break_touch(self.kind))
 
     def initialize(self):
         if is_challenge_over():
@@ -74,7 +74,7 @@ class BaseTouch(TouchBaseInput):
         if self.judgment != ArcadeJudgment.NONE:
             # Judged in update_parallel
             # Despawn deferred until the score is reported
-            report_score(self.score_weight(), self.kind == TouchKind.BREAK_TOUCH, self.judgment)
+            report_score(self.score_weight(), is_break_touch(self.kind), self.judgment)
             self.despawn = True
             return
         register_touch_overlap(self.sensor, self.start_time, self.index, self.kind)
@@ -116,21 +116,25 @@ class BaseTouch(TouchBaseInput):
     def judge(self, actual_time: float):
         judgment = self.judgment_window.judge(actual_time, self.target_time)
         error = self.judgment_window.good.clamp(actual_time - self.target_time)
-        self.register_group_hit(judgment, error)
         self.set_result(judgment, error)
-        report_score(self.score_weight(), self.kind == TouchKind.BREAK_TOUCH, judgment)
+        self.register_group_hit(self.judgment, self.result.accuracy)
+        report_score(self.score_weight(), is_break_touch(self.kind), self.judgment)
         self.despawn = True
 
     def set_result(self, judgment: ArcadeJudgment, error: float):
+        bucket_value = error * buckets.WINDOW_SCALE
+        if is_ex_touch(self.kind) and is_hit(judgment):
+            judgment = ArcadeJudgment.CRITICAL_PERFECT
+            error = 0
         self.result.judgment = buckets.arcade_judgement_to_normal(judgment)
         self.result.accuracy = error
         if self.result.bucket.id != -1:
-            self.result.bucket_value = error * buckets.WINDOW_SCALE
+            self.result.bucket_value = bucket_value
         self.emit_hit_sfx(judgment, time(), scheduled=False)
         self.judgment = judgment
 
     def emit_hit_sfx(self, judgment: ArcadeJudgment, at: float, scheduled: bool):
-        emit_touch_sfx(self.kind == TouchKind.BREAK_TOUCH, judgment, at, scheduled)
+        emit_touch_sfx(is_break_touch(self.kind), judgment, at, scheduled)
         emit_firework_sfx(self.firework, judgment, at, scheduled)
 
     def handle_touch(self):
@@ -156,18 +160,24 @@ class BaseTouch(TouchBaseInput):
         spawn_firework(self.firework, self.judgment, layout_sensor_firework_center(self.sensor))
         spawn_judge_text(
             self.judgment,
-            self.kind == TouchKind.BREAK_TOUCH,
+            is_break_touch(self.kind),
             self.result.accuracy,
             touch_slot(self.sensor),
             layout_touch_judge_text(self.sensor),
         )
 
 NormalTouchNote = BaseTouch.derive(archetype_names.NORMAL_TOUCH_NOTE, is_scored=True, key=TouchKind.NORM_TOUCH)
+ExTouchNote = BaseTouch.derive(archetype_names.EX_TOUCH_NOTE, is_scored=True, key=TouchKind.EX_TOUCH)
 BreakTouchNote = BaseTouch.derive(archetype_names.BREAK_TOUCH_NOTE, is_scored=True, key=TouchKind.BREAK_TOUCH)
+ExBreakTouchNote = BaseTouch.derive(archetype_names.EX_BREAK_TOUCH_NOTE, is_scored=True, key=TouchKind.EX_BREAK_TOUCH)
 EachTouchNote = BaseTouch.derive(archetype_names.EACH_TOUCH_NOTE, is_scored=True, key=TouchKind.EACH_TOUCH)
+ExEachTouchNote = BaseTouch.derive(archetype_names.EX_EACH_TOUCH_NOTE, is_scored=True, key=TouchKind.EX_EACH_TOUCH)
 
 TOUCH_ARCHETYPES = (
     NormalTouchNote,
+    ExTouchNote,
     BreakTouchNote,
+    ExBreakTouchNote,
     EachTouchNote,
+    ExEachTouchNote,
 )

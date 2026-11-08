@@ -112,6 +112,7 @@ class SimaiHold:
 class SimaiTouch:
     sensor: str  # A1 .. E8, C
     brk: bool = False
+    ex: bool = False
     firework: bool = False
     hold: bool = False
     length: SimaiLength | None = None
@@ -229,10 +230,21 @@ def parse_slot(chart: SimaiChart, slot: str, closed: bool, extensions: frozenset
         state.advance()
 
 
+TOUCH_TOKEN = r"(?:[ABDE][1-8]|C[12]?)[bfhx]*(?:\[[^\]]*\])?[bfhx]*"
+
+
 def parse_group(group: str, beat: float, state: SimaiState, extensions: frozenset[str] = ALL_EXTENSIONS) -> SimaiGroup:
     tokens = [token for token in group.split("/") if token]
     if len(tokens) == 1 and re.fullmatch(r"[1-8]{2,}", tokens[0]):
         tokens = list(tokens[0])
+    # Touches written together
+    split_tokens = []
+    for token in tokens:
+        if re.fullmatch(f"(?:{TOUCH_TOKEN}){{2,}}", token):
+            split_tokens.extend(re.findall(TOUCH_TOKEN, token))
+        else:
+            split_tokens.append(token)
+    tokens = split_tokens
     return SimaiGroup(beat, [parse_note(token, state, extensions) for token in tokens])
 
 
@@ -272,6 +284,7 @@ def parse_note(token: str, state: SimaiState, extensions: frozenset[str] = ALL_E
         return SimaiTouch(
             "C" if match.group(1).startswith("C") else match.group(1),
             brk="b" in flags,
+            ex="x" in flags,
             firework="f" in flags,
             hold="h" in flags,
             length=length,

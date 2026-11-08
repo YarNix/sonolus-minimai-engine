@@ -168,15 +168,16 @@ def test_touch_hold():
     builder.add_touch(TouchKind.NORM_TOUCH, Sensor.C)
     builder.advance(4)
 
-    # simai: each touch holds, break, zero-length, firework flag, a seconds length.
+    # simai: each touch holds, break, zero-length, firework flag, a seconds length, EX.
     builder.parse_line(
         "Ch[2:1]/B5h[2:1],,,,"
         "E2bh[4:3],,,,Ch,,Chf[4:1],,"
         "D4h[#1.5],,,,"
+        "Cxh[2:1],,,,C1xbh[2:1]/B3h[2:1],,,,"
     )
 
     for i in range(8):
-        builder.add_touch_hold(TouchKind.EACH_TOUCH, Sensor.E1 + i, 5)
+        builder.add_touch_hold(TouchHoldKind.EACH_TOUCH_HOLD, Sensor.E1 + i, 5)
         builder.same_line()
 
     return builder.get_level()
@@ -313,6 +314,7 @@ def test_simai():
         "1?-5[2:1],,,1@>4[4:1],,1V35[4:1],,1w5[4:2],,,"
         "1-5[160#8:3],,1-5[1##1],,"
         "C/B1/E8,A1,D3b,Cf,{#0.25}1`2`3,,,,"
+        "{4}Cx,B1bx,E3E8,CfE5,Cxh[2:1],,,,"
         "{4}1w5-1[2:1]~^1,,,,1w5-1[2:1]~4^1~6^1,,,,1w5w1[4:1]~6^1[4:1],,,,1w5-1[2:1]~^1w5~~~-1,,,,"
         # Lengths are fixed times: 4 quarter notes at 120 = 2 s, across a drop to 60 and back.
         "(120)7h[4:4]/3-7[4:4],(60),,(120),,,,"

@@ -16,8 +16,21 @@ from minimai.lib.scoring import MAX_BREAK_WEIGHT, WeightedArchetype, init_life_l
 
 class TouchHoldKind(IntEnum):
     NORM_TOUCH_HOLD = auto()
+    EX_TOUCH_HOLD = auto()
+
     EACH_TOUCH_HOLD = auto()
+    EX_EACH_TOUCH_HOLD = auto()
+
     BREAK_TOUCH_HOLD = auto()
+    EX_BREAK_TOUCH_HOLD = auto()
+
+
+def is_ex_touch_hold(kind: TouchHoldKind) -> bool:
+    return kind in {TouchHoldKind.EX_TOUCH_HOLD, TouchHoldKind.EX_EACH_TOUCH_HOLD, TouchHoldKind.EX_BREAK_TOUCH_HOLD}
+
+
+def is_break_touch_hold(kind: TouchHoldKind) -> bool:
+    return kind in {TouchHoldKind.BREAK_TOUCH_HOLD, TouchHoldKind.EX_BREAK_TOUCH_HOLD}
 
 def draw_touch_hold(
     kind: TouchHoldKind,
@@ -47,11 +60,11 @@ def draw_touch_hold(
 
 def _point_draw(kind: TouchHoldKind, layout: Quad, layer: ZIndexes):
     match kind:
-        case TouchHoldKind.NORM_TOUCH_HOLD:
+        case TouchHoldKind.NORM_TOUCH_HOLD | TouchHoldKind.EX_TOUCH_HOLD:
             ActiveSkin.normal_touch_point.draw(layout, layer.tuple)
-        case TouchHoldKind.EACH_TOUCH_HOLD:
+        case TouchHoldKind.EACH_TOUCH_HOLD | TouchHoldKind.EX_EACH_TOUCH_HOLD:
             ActiveSkin.each_touch_point.draw(layout, layer.tuple)
-        case TouchHoldKind.BREAK_TOUCH_HOLD:
+        case TouchHoldKind.BREAK_TOUCH_HOLD | TouchHoldKind.EX_BREAK_TOUCH_HOLD:
             ActiveSkin.break_touch_point.draw(layout, layer.tuple)
         case _:
             assert_never(kind)
@@ -78,7 +91,7 @@ def init_touch_hold_score(archetypes: Iterable[type[WeightedArchetype]]):
     for archetype in archetypes:
         if not archetype.is_scored:
             continue
-        weight = MAX_BREAK_WEIGHT if archetype.key == TouchHoldKind.BREAK_TOUCH_HOLD else archetype.score_weight()
+        weight = MAX_BREAK_WEIGHT if is_break_touch_hold(archetype.key) else archetype.score_weight()
         archetype.archetype_score_multiplier = weight
 
 
@@ -86,5 +99,5 @@ def init_touch_hold_life(archetypes: Iterable[type[WeightedArchetype]]):
     for archetype in archetypes:
         if not archetype.is_scored:
             continue
-        weight = MAX_BREAK_WEIGHT if archetype.key == TouchHoldKind.BREAK_TOUCH_HOLD else archetype.score_weight()
+        weight = MAX_BREAK_WEIGHT if is_break_touch_hold(archetype.key) else archetype.score_weight()
         init_life_loss(archetype, weight)

@@ -110,7 +110,9 @@ Comprised of many archetypes according to the following naming scheme:
 
 Comprised of many archetypes according to the following naming scheme:
 
-[![][touch_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Choice%280,%20%27Normal%27,%20%27Each%27,%20%27Break%27%29,%20%27TouchNote%27%29)
+[![][touch_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Sequence%28Choice%280,%20%27Normal%27,%20%27Ex%27,%20Sequence%28Optional%28%27Ex%27,%20%27skip%27%29,Choice%280,%20%27Each%27,%20%27Break%27%29%29%29%29,%20%27TouchNote%27%29)
+
+Note: Ex looks the same as the others; a hit counts as a critical perfect.
 
 ### Fields
 
@@ -125,9 +127,9 @@ Comprised of many archetypes according to the following naming scheme:
 
 Comprised of many archetypes according to the following naming scheme:
 
-[![][touch_hold_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Choice%280,%20%27Normal%27,%20%27Each%27,%20%27Break%27%29,%20%27TouchHoldNote%27%29)
+[![][touch_hold_diagram]](https://tabatkins.github.io/railroad-diagrams/generator.html#Diagram%28Sequence%28Choice%280,%20%27Normal%27,%20%27Ex%27,%20Sequence%28Optional%28%27Ex%27,%20%27skip%27%29,Choice%280,%20%27Each%27,%20%27Break%27%29%29%29%29,%20%27TouchHoldNote%27%29)
 
-Note: Each and break only change the centre point (and break scores as a break).
+Note: Each and break only change the centre point (and break scores as a break). Ex looks the same; a hit head counts as a critical perfect, and the end plays the EX sound.
 
 ### Fields
 

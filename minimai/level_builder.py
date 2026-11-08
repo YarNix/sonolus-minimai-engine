@@ -124,11 +124,22 @@ def get_hold_kind(*, ex: bool = False, each: bool = False, brk: bool = False) ->
     return HoldKind.EX_HOLD if ex else HoldKind.NORM_HOLD
 
 
-def get_touch_hold_kind(*, each: bool = False, brk: bool = False) -> TouchHoldKind:
+def get_touch_kind(*, ex: bool = False, each: bool = False, brk: bool = False) -> TouchKind:
     """Break overrides each."""
     if brk:
-        return TouchHoldKind.BREAK_TOUCH_HOLD
-    return TouchHoldKind.EACH_TOUCH_HOLD if each else TouchHoldKind.NORM_TOUCH_HOLD
+        return TouchKind.EX_BREAK_TOUCH if ex else TouchKind.BREAK_TOUCH
+    if each:
+        return TouchKind.EX_EACH_TOUCH if ex else TouchKind.EACH_TOUCH
+    return TouchKind.EX_TOUCH if ex else TouchKind.NORM_TOUCH
+
+
+def get_touch_hold_kind(*, ex: bool = False, each: bool = False, brk: bool = False) -> TouchHoldKind:
+    """Break overrides each."""
+    if brk:
+        return TouchHoldKind.EX_BREAK_TOUCH_HOLD if ex else TouchHoldKind.BREAK_TOUCH_HOLD
+    if each:
+        return TouchHoldKind.EX_EACH_TOUCH_HOLD if ex else TouchHoldKind.EACH_TOUCH_HOLD
+    return TouchHoldKind.EX_TOUCH_HOLD if ex else TouchHoldKind.NORM_TOUCH_HOLD
 
 
 def get_slide_kind(*, each: bool = False, brk: bool = False, wifi: bool = False) -> SlideKind:
@@ -533,14 +544,14 @@ class LevelBuilder:
         for parsed in notes:
             if isinstance(parsed, SimaiTouch):
                 if parsed.hold:
-                    kind = get_touch_hold_kind(each=each_head, brk=parsed.brk)
+                    kind = get_touch_hold_kind(ex=parsed.ex, each=each_head, brk=parsed.brk)
                     hold_seconds = parsed.length.seconds if parsed.length else None
                     self.emit_touch_hold(
                         kind, Sensor[parsed.sensor], hold_seconds=hold_seconds,
                         firework=parsed.firework or None, beat=group.beat,
                     )
                 else:
-                    kind = TouchKind.BREAK_TOUCH if parsed.brk else TouchKind.EACH_TOUCH if each_head else TouchKind.NORM_TOUCH
+                    kind = get_touch_kind(ex=parsed.ex, each=each_head, brk=parsed.brk)
                     self.emit_touch(kind, Sensor[parsed.sensor], firework=parsed.firework or None, beat=group.beat)
             elif isinstance(parsed, SimaiHold):
                 kind = get_hold_kind(ex=parsed.ex, each=each_head, brk=parsed.brk)

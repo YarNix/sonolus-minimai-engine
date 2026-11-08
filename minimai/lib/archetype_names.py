@@ -41,12 +41,18 @@ BREAK_HOLD_NOTE = "BreakHoldNote"
 EX_BREAK_HOLD_NOTE = "ExBreakHoldNote"
 
 NORMAL_TOUCH_NOTE = "NormalTouchNote"
+EX_TOUCH_NOTE = "ExTouchNote"
 BREAK_TOUCH_NOTE = "BreakTouchNote"
+EX_BREAK_TOUCH_NOTE = "ExBreakTouchNote"
 EACH_TOUCH_NOTE = "EachTouchNote"
+EX_EACH_TOUCH_NOTE = "ExEachTouchNote"
 
 NORMAL_TOUCH_HOLD_NOTE = "NormalTouchHoldNote"
+EX_TOUCH_HOLD_NOTE = "ExTouchHoldNote"
 EACH_TOUCH_HOLD_NOTE = "EachTouchHoldNote"
+EX_EACH_TOUCH_HOLD_NOTE = "ExEachTouchHoldNote"
 BREAK_TOUCH_HOLD_NOTE = "BreakTouchHoldNote"
+EX_BREAK_TOUCH_HOLD_NOTE = "ExBreakTouchHoldNote"
 
 NORMAL_SLIDE_NOTE = "NormalSlideNote"
 BREAK_SLIDE_NOTE = "BreakSlideNote"
