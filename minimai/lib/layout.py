@@ -3,7 +3,8 @@ from math import atan2, ceil, cos, floor, log, pi, sin, sqrt, tan, e
 from typing import assert_never
 
 from sonolus.script.globals import level_data
-from sonolus.script.runtime import screen
+from sonolus.script.runtime import safe_area, screen, set_background, set_particle_transform, set_skin_transform
+from sonolus.script.transform import Transform2d
 from sonolus.script.quad import Quad, Rect
 from sonolus.script.vec import Vec2
 from sonolus.script.array import Array, Dim
@@ -17,6 +18,9 @@ from minimai.lib.options import Options
 
 @level_data
 class Layout:
+    # The view: the screen as the player sees it, turned by the Orientation option.
+    # Everything is laid out in view coordinates; view_angle turns them onto the screen.
+    view_angle: float
     field_w: float
     field_h: float
     ring_center: Vec2
@@ -236,12 +240,60 @@ COUNTER_LIFE_SIZE = from_skin_px(276)
 NOTE_END_SCALING_PROGRESS = 1 / ((1 - NOTE_SPAWN_DISTANCE) * NOTE_SCALE_RATE + 1)
 TOUCH_END_SCALING_PROGGRESS = 0.2
 
+class Orientation(IntEnum):
+    LANDSCAPE = 0
+    LANDSCAPE_REVERSED = auto()
+    # The screen's left edge up.
+    PORTRAIT = auto()
+    # The screen's right edge up.
+    PORTRAIT_REVERSED = auto()
+
+
+def get_orientation_angle(orientation: Orientation) -> float:
+    """How far the view is turned on the screen, counterclockwise."""
+    result = 0.0
+    if orientation == Orientation.LANDSCAPE_REVERSED:
+        result = pi
+    elif orientation == Orientation.PORTRAIT:
+        result = pi / 2
+    elif orientation == Orientation.PORTRAIT_REVERSED:
+        result = -pi / 2
+    return result
+
+
+def to_view(point: Vec2) -> Vec2:
+    """A screen point (a touch) in view coordinates."""
+    return point.rotate(-Layout.view_angle)
+
+
+def to_screen(point: Vec2) -> Vec2:
+    """A view point on the screen."""
+    return point.rotate(Layout.view_angle)
+
+
+def get_view_rect(rect: Rect) -> Rect:
+    """A screen rect as seen in the view."""
+    a = to_view(Vec2(rect.l, rect.b))
+    b = to_view(Vec2(rect.r, rect.t))
+    return Rect(l=min(a.x, b.x), r=max(a.x, b.x), b=min(a.y, b.y), t=max(a.y, b.y))
+
+
+def get_view_safe_area() -> Rect:
+    return get_view_rect(safe_area())
+
+
 def init_layout():
-    Layout.field_w = screen().w
-    Layout.field_h = screen().h
+    Layout.view_angle = get_orientation_angle(Options.orientation)
+    view = get_view_rect(screen())
+    Layout.field_w = view.w
+    Layout.field_h = view.h
     Layout.ring_radius = Options.ring_size
-    # Change this when it's time to add orientation
     Layout.ring_center = Vec2(0, Options.ring_offset)
+    if Options.orientation != Orientation.LANDSCAPE:
+        transform = Transform2d.new().rotate(Layout.view_angle)
+        set_skin_transform(transform)
+        set_particle_transform(transform)
+        set_background(transform.transform_quad(view.as_quad()))
 
 def wrap_pi(angle: float):
     return (angle + pi) % (2 * pi) - pi

@@ -58,6 +58,18 @@ class Options:
         default=0,
         values=["OFF", "⇔", "⇅", "↻", "⇙", "⇘"],
     )
+    orientation: int = select_option(
+        name="Orientation",
+        description=(
+            "How the game is orientated\n"
+            "Portrait: the screen's left edge up.\n"
+            "Portrait (Reversed): the screen's right edge up."
+        ),
+        scope="Maimai",
+        category=gameplay,
+        default=0,
+        values=["Landscape", "Landscape (Reversed)", "Portrait", "Portrait (Reversed)"],
+    )
     input_radius_scale: float = slider_option(
         name="Input radius",
         scope="Maimai",

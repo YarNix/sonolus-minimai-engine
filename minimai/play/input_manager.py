@@ -10,7 +10,7 @@ from minimai.lib import archetype_names
 from minimai.lib.game import Button, Sensor
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib.input_state import InputState
-from minimai.lib.layout import get_sensor_pos_from_center
+from minimai.lib.layout import get_sensor_pos_from_center, to_view
 from minimai.lib.touch_feedback import (
     draw_input_feedbacks,
     draw_touch_feedbacks,
@@ -42,7 +42,7 @@ def button_test_touches(button: Button) -> int:
     for touch in touches():
         if touch.ended and not touch.started:
             continue
-        if Hitboxes.of_button_contains_point(button, touch.position):
+        if Hitboxes.of_button_contains_point(button, to_view(touch.position)):
             return touch.id
     return 0
 
@@ -50,9 +50,10 @@ def touch_test_sensors(touch: Touch) -> ArraySet[Sensor, Dim[8]]:
     """Collect at-most 8 nearest sensors hit by this touch"""
 
     sensors = VarArray[Pair[Sensor, float], Dim[33]].new()
+    position = to_view(touch.position)
     for sensor in range(Sensor.A1, Sensor.E8 + 1):
-        if Hitboxes.of_sensor_contains_point(sensor, touch.position):
-            dist = (get_sensor_pos_from_center(sensor) - touch.position).magnitude
+        if Hitboxes.of_sensor_contains_point(sensor, position):
+            dist = (get_sensor_pos_from_center(sensor) - position).magnitude
             sensors.append(Pair(sensor, dist))
     sensors.sort(key=lambda p: p.second)
 
@@ -106,7 +107,7 @@ class InputManager(PlayArchetype):
             maybe_touch = maybe_next(touch for touch in touches() if touch.id == touch_id)
             if (maybe_touch.is_some
                 and not maybe_touch.get().ended
-                and Hitboxes.of_button_contains_point(button, maybe_touch.get().position)):
+                and Hitboxes.of_button_contains_point(button, to_view(maybe_touch.get().position))):
                 continue
 
             # Try assigning a new touch for the button 
