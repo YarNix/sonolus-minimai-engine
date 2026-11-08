@@ -17,3 +17,10 @@ class InputState:
     sensor_touch_started: Array[bool, Dim[33]]
     sensor_touch_down: Array[bool, Dim[33]]
     sensor_touch_ended: Array[bool, Dim[33]]
+
+    # The same, with the note radius. Read by taps, holds and slides.
+    processing_sensor_note: VarArray[Pair[int, Sensor], Dim[32]]
+    sensor_note_active: ArrayMap[int, ArraySet[Sensor, Dim[8]], Dim[16]]
+    sensor_note_started: Array[bool, Dim[33]]
+    sensor_note_down: Array[bool, Dim[33]]
+    sensor_note_ended: Array[bool, Dim[33]]

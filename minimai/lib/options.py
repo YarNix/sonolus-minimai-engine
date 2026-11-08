@@ -70,25 +70,41 @@ class Options:
         default=0,
         values=["Landscape", "Landscape (Reversed)", "Portrait", "Portrait (Reversed)"],
     )
-    input_radius_scale: float = slider_option(
-        name="Input radius",
+    note_radius: float = slider_option(
+        name="Note Radius",
         scope="Maimai",
         category=gameplay,
-        description="How big the radius of your touches are. Bigger radius cover more sensors but also less accurate!",
+        description=(
+            "How big the radius of your touches are for tap/slide notes.\n"
+            "Bigger radius cover more sensors but more likely to splash!"
+        ),
         default=1,
         min=0,
         max=3,
-        step=0.1,
+        step=0.01,
         unit=StandardText.PERCENTAGE_UNIT,
     )
-    # Judgment ring radius, as a fraction of half the screen height.
+    touch_radius: float = slider_option(
+        name="Touch Radius",
+        scope="Maimai",
+        category=gameplay,
+        description=(
+            "How big the radius of your touches are for touch notes.\n"
+            "Bigger radius cover more sensors but more likely to splash!"
+        ),
+        default=1.5,
+        min=0,
+        max=3,
+        step=0.01,
+        unit=StandardText.PERCENTAGE_UNIT,
+    )
     ring_size: float = slider_option(
         name="Ring Size",
         scope="Maimai",
         category=gameplay,
-        default=0.875,
+        default=1,
         min=0.1,
-        max=1.2,
+        max=1.5,
         step=0.01,
         unit=StandardText.PERCENTAGE_UNIT,
     )

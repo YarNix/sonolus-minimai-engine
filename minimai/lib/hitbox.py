@@ -1,13 +1,13 @@
 from math import ceil, pi
-from typing import Iterable, Protocol, assert_never, cast
+from typing import Iterable, Protocol, Self, assert_never, cast
 
 from sonolus.script.globals import level_data
 from sonolus.script.quad import Quad, Rect
-from sonolus.script.vec import Vec2
+from sonolus.script.vec import Vec2, pnpoly
 from sonolus.script.array import Array, Dim
 from sonolus.script.containers import VarArray
 from sonolus.script.record import Record
-from sonolus.script.interval import Interval
+from sonolus.script.interval import Interval, clamp
 from sonolus.script.debug import assert_true, debug_log
 
 from minimai.lib.game import Button, Sensor, SensorGroup, get_button_iterator, sensor_offset, sensor_to_group
@@ -17,9 +17,20 @@ from minimai.lib.layout import (
 )
 from minimai.lib.options import Options
 
+class PointTestResult(Record):
+    # Whether the point was inside the sensor
+    inside: bool
+    # Whether the point overlapped with the sensor given the touch radius
+    touch: bool
+    # Whether the point overlapped with the sensor given the note radius
+    note: bool
+
+
 class HitBoxLike(Protocol):
     def contains_point(self, point: Vec2) -> bool: ...
+    def test_point(self, point: Vec2, touch_radius: float = 0, note_radius: float = 0) -> PointTestResult: ...
     def as_quads(self) -> Iterable[Quad]: ...
+    def as_outline(self) -> Iterable[Vec2]: ...
 
 
 class CircTrapHitBox(Record):
@@ -28,11 +39,28 @@ class CircTrapHitBox(Record):
     angle: Interval
     distance: Interval
 
-    def contains_point(self, point: Vec2, radius: float = 0) -> bool:
+    def contains_point(self, point: Vec2) -> bool:
         from_center = (point - self.center)
-        expand_distance = self.distance.expand(radius / 2)
-        return from_center.magnitude in expand_distance \
-            and from_center.angle in self.angle
+        return from_center.magnitude in self.distance and from_center.angle in self.angle
+
+    def test_point(self, point: Vec2, touch_radius: float = 0, note_radius: float = 0) -> PointTestResult:
+        from_center = (point - self.center)
+        dist_squared = 0.0
+        if from_center.angle in self.angle:
+            magnitude = from_center.magnitude
+            outside = max(self.distance.start - magnitude, magnitude - self.distance.end, 0)
+            dist_squared = outside * outside
+        else:
+            # Outside the angle, the nearest points are on the two straight sides.
+            dist_squared = min(
+                side_distance_squared(from_center, Vec2.unit(self.angle.start), self.distance),
+                side_distance_squared(from_center, Vec2.unit(self.angle.end), self.distance),
+            )
+        return PointTestResult(
+            inside=dist_squared == 0,
+            touch=dist_squared <= touch_radius * touch_radius,
+            note=dist_squared <= note_radius * note_radius,
+        )
 
     def as_quads(self):
         segements = ceil(self.angle.length / (pi / 8))
@@ -49,44 +77,158 @@ class CircTrapHitBox(Record):
                 br=self.center + Vec2.unit(start_angle) * self.distance.end,
             )
 
-def expand_quad(quad: Quad, radius: float):
-    new_quad = +quad
-    if radius == 0:
-        return new_quad
-    vertices = Array[Vec2, Dim[4]](quad.bl, quad.tl, quad.tr, quad.br)
-    normals = +Array[Vec2, Dim[4]]
-    for i in range(4):
-        edge = vertices[(i + 1) % 4] - vertices[i]
-        normals[i] = edge.orthogonal().normalize()
-    expanded = +Array[Vec2, Dim[4]]
-    for i in range(4):
-        pv_normal = normals[(i - 1) % 4]
-        normal = normals[i]
-        miter = (normal + pv_normal).normalize()
-        denominator = miter.dot(normal)
-        scale_factor = radius / denominator if denominator != 0 else radius
-        expanded[i] = vertices[i] + (miter * scale_factor)
-    new_quad @= Quad(expanded[0], expanded[1], expanded[2], expanded[3])
-    return new_quad
+    def as_outline(self) -> Iterable[Vec2]:
+        point = +Vec2
+        segments = ceil(self.angle.length / (pi / 8))
+        is_circle = self.angle.length >= 2 * pi
+        for s in range(segments if is_circle else segments + 1):
+            angle = min(self.angle.start + s * pi / 8, self.angle.end)
+            point @= self.center + Vec2.unit(angle) * self.distance.end
+            yield point
+        if not is_circle:
+            for s in range(segments + 1):
+                angle = max(self.angle.end - s * pi / 8, self.angle.start)
+                point @= self.center + Vec2.unit(angle) * self.distance.start
+                yield point
+
+def side_distance_squared(point: Vec2, direction: Vec2, distance: Interval) -> float:
+    """Squared distance from the segment along ``direction`` (a unit vector) over ``distance``."""
+    offset = point - direction * distance.clamp(point.dot(direction))
+    return offset.dot(offset)
+
+def cross(a: Vec2, b: Vec2) -> float:
+    return a.x * b.y - a.y * b.x
+
+def segment_distance_squared(point: Vec2, a: Vec2, b: Vec2) -> float:
+    edge = b - a
+    t = clamp((point - a).dot(edge) / edge.dot(edge), 0, 1)
+    offset = point - a - edge * t
+    return offset.dot(offset)
 
 class NQuadHitBox[Size](Record):
     "A hitbox represent by combine n quads together"
     quads: Array[Quad, Size]
 
-    def contains_point(self, point: Vec2, radius: float = 0) -> bool:
-        return any(expand_quad(quad, radius).contains_point(point) for quad in self.quads)
+    def contains_point(self, point: Vec2) -> bool:
+        return any(quad.contains_point(point) for quad in self.quads)
+
+    def test_point(self, point: Vec2, touch_radius: float = 0, note_radius: float = 0) -> PointTestResult:
+        dist_squared = 1e9
+        for quad in self.quads:
+            if quad.contains_point(point):
+                dist_squared = 0.0
+            else:
+                dist_squared = min(
+                    dist_squared,
+                    segment_distance_squared(point, quad.bl, quad.tl),
+                    segment_distance_squared(point, quad.tl, quad.tr),
+                    segment_distance_squared(point, quad.tr, quad.br),
+                    segment_distance_squared(point, quad.br, quad.bl),
+                )
+        return PointTestResult(
+            inside=dist_squared == 0,
+            touch=dist_squared <= touch_radius * touch_radius,
+            note=dist_squared <= note_radius * note_radius,
+        )
 
     def as_quads(self):
         return self.quads
 
+    def as_outline(self) -> Iterable[Vec2]:
+        quad = self.quads[0]
+        point = +Vec2
+        for corner in (quad.bl, quad.tl, quad.tr, quad.br):
+            point @= corner
+            yield point
+
+class PolygonHitBox[VertexCount, QuadCount](Record):
+    "A hitbox represent by a polygon, vertices in outline order"
+    vertices: Array[Vec2, VertexCount]
+    # A circle around every vertex, to skip far away points.
+    bound_center: Vec2
+    bound_radius: float
+    # The polygon split into quads, for drawing.
+    quads: Array[Quad, QuadCount]
+
+    @classmethod
+    def new(cls, center: Vec2, vertices: Array[Vec2, VertexCount]) -> Self:
+        """A polygon hitbox around ``center``, with its bound circle and its quads"""
+        count = len(vertices)
+        radius = 0.0
+        for v in vertices:
+            radius = max(radius, (v - center).magnitude)
+        hitbox = cls(
+            vertices=vertices,
+            bound_center=center,
+            bound_radius=radius,
+            quads=+Array[Quad, (count - 1) // 2],
+        )
+
+        # Fan triangulation, with pairs of triangles merged into quads.
+        # The fan starts from the reflex vertex if there is one, so it stays inside the polygon.
+        area = 0.0
+        for i in range(count):
+            area += cross(vertices[i], vertices[(i + 1) % count])
+        start = 0
+        for i in range(count):
+            prev = vertices[(i + count - 1) % count]
+            here = vertices[i]
+            after = vertices[(i + 1) % count]
+            if cross(here - prev, after - here) * area < 0:
+                start = i
+        for q in range(len(hitbox.quads)):
+            origin = vertices[start]
+            first = vertices[(start + 2 * q + 1) % count]
+            second = vertices[(start + 2 * q + 2) % count]
+            if 2 * q + 3 < count:
+                hitbox.quads[q] = Quad(origin, first, second, vertices[(start + 2 * q + 3) % count])
+            else:
+                # A triangle left over: split its outer edge in two.
+                hitbox.quads[q] = Quad(origin, first, (first + second) / 2, second)
+        return hitbox
+
+    def contains_point(self, point: Vec2) -> bool:
+        return pnpoly(self.vertices, point)
+
+    def test_point(self, point: Vec2, touch_radius: float = 0, note_radius: float = 0) -> PointTestResult:
+        dist_squared = self.distance_squared(point, max(touch_radius, note_radius))
+        return PointTestResult(
+            inside=dist_squared == 0,
+            touch=dist_squared <= touch_radius * touch_radius,
+            note=dist_squared <= note_radius * note_radius,
+        )
+
+    def distance_squared(self, point: Vec2, reach: float) -> float:
+        """Squared distance from the polygon, 0 inside. Above reach² when farther than reach."""
+        bound = self.bound_radius + reach
+        to_bound = point - self.bound_center
+        bound_dist_squared = to_bound.dot(to_bound)
+        if bound_dist_squared > bound * bound:
+            return bound_dist_squared
+        if pnpoly(self.vertices, point):
+            return 0.0
+        count = len(self.vertices)
+        return min(
+            segment_distance_squared(point, self.vertices[i], self.vertices[(i + 1) % count]) for i in range(count)
+        )
+
+    def as_quads(self):
+        return self.quads
+
+    def as_outline(self) -> Iterable[Vec2]:
+        """The outline as a closed loop of points"""
+        for v in self.vertices:
+            yield v
+
 @level_data
 class Hitboxes:
     touch_radius: float
+    note_radius: float
     button: Array[CircTrapHitBox, Dim[8]]
-    group_a: Array[NQuadHitBox[2], Dim[8]]
-    group_b: Array[NQuadHitBox[2], Dim[8]]
+    group_a: Array[PolygonHitBox[7, 3], Dim[8]]
+    group_b: Array[PolygonHitBox[7, 3], Dim[8]]
     group_c: CircTrapHitBox
-    group_d: Array[NQuadHitBox[2], Dim[8]]
+    group_d: Array[PolygonHitBox[6, 2], Dim[8]]
     group_e: Array[NQuadHitBox[1], Dim[8]]
 
     @staticmethod
@@ -100,23 +242,24 @@ class Hitboxes:
         return Hitboxes.button[btn - 1].as_quads()
 
     @staticmethod
-    def of_sensor_contains_point(sensor: Sensor, pos: Vec2):
+    def of_sensor_test_point(sensor: Sensor, pos: Vec2) -> PointTestResult:
         group = sensor_to_group(sensor)
         offset = sensor_offset(sensor)
+        result = +PointTestResult
         match group:
             case SensorGroup.A:
-                return Hitboxes.group_a[offset].contains_point(pos, Hitboxes.touch_radius)
+                result @= Hitboxes.group_a[offset].test_point(pos, Hitboxes.touch_radius, Hitboxes.note_radius)
             case SensorGroup.B:
-                return Hitboxes.group_b[offset].contains_point(pos, Hitboxes.touch_radius)
+                result @= Hitboxes.group_b[offset].test_point(pos, Hitboxes.touch_radius, Hitboxes.note_radius)
             case SensorGroup.C:
-                return Hitboxes.group_c.contains_point(pos, Hitboxes.touch_radius)
+                result @= Hitboxes.group_c.test_point(pos, Hitboxes.touch_radius, Hitboxes.note_radius)
             case SensorGroup.D:
-                return Hitboxes.group_d[offset].contains_point(pos, Hitboxes.touch_radius)
+                result @= Hitboxes.group_d[offset].test_point(pos, Hitboxes.touch_radius, Hitboxes.note_radius)
             case SensorGroup.E:
-                return Hitboxes.group_e[offset].contains_point(pos, Hitboxes.touch_radius)
+                result @= Hitboxes.group_e[offset].test_point(pos, Hitboxes.touch_radius, Hitboxes.note_radius)
             case _:
                 assert_never(group)
-                return False
+        return result
 
     @staticmethod
     def of_sensor_as_quads(sensor: Sensor):
@@ -143,15 +286,45 @@ class Hitboxes:
                 assert_never(group)
         return quads
 
-# Screen units (the finger, not the ring).
-BASE_TOUCH_RADIUS = 0.06
+    @staticmethod
+    def of_sensor_as_outline(sensor: Sensor) -> Iterable[Vec2]:
+        group = sensor_to_group(sensor)
+        offset = sensor_offset(sensor)
+        out = +Vec2
+        match group:
+            case SensorGroup.A:
+                for point in Hitboxes.group_a[offset].as_outline():
+                    out @= point
+                    yield out
+            case SensorGroup.B:
+                for point in Hitboxes.group_b[offset].as_outline():
+                    out @= point
+                    yield out
+            case SensorGroup.C:
+                for point in Hitboxes.group_c.as_outline():
+                    out @= point
+                    yield out
+            case SensorGroup.D:
+                for point in Hitboxes.group_d[offset].as_outline():
+                    out @= point
+                    yield out
+            case SensorGroup.E:
+                for point in Hitboxes.group_e[offset].as_outline():
+                    out @= point
+                    yield out
+            case _:
+                assert_never(group)
+
+# Ring units. Option scales are percentages of NOTE_RADIUS.
+NOTE_RADIUS = 0.125
 # Button hitbox depth, as a fraction of the button distance.
 BUTTON_HITBOX_SIZE = 0.35
 
 # Sensor hitbox distances and sizes are in ring units (0 = center, 1 = judgment ring).
 GROUP_A_ANGLE_WIDTH = 14 / 180 * pi
 GROUP_A_BOT_L_DIST = 0.113111
-GROUP_A_BOT_R_DIST = 0.205656
+GROUP_A_BOT_MID_ANGLE = 6.72 / 180 * pi
+GROUP_A_BOT_MID_DIST = 0.1694
 GROUP_A_TOP_DIST = 0.303342
 
 GROUP_B_TOP_ANGLE = 10 / 180 * pi
@@ -159,7 +332,8 @@ GROUP_B_MID_ANGLE = 22 / 180 * pi
 GROUP_B_BOT_ANGLE = 22 / 180 * pi
 GROUP_B_TOP_DIST = 0.164524
 GROUP_B_MID_DIST = 0.010283
-GROUP_B_BOT_DIST = 0.133676
+GROUP_B_BOT_DIST = 0.0587
+GROUP_B_TIP_DIST = 0.1555
 
 GROUP_C_HITBOX_SIZE = 0.231362
 
@@ -171,7 +345,8 @@ GROUP_D_TOP_DIST = 0.277635
 GROUP_E_HITBOX_SIZE = 0.215938
 
 def init_hitboxes():
-    Hitboxes.touch_radius = Options.input_radius_scale * BASE_TOUCH_RADIUS
+    Hitboxes.touch_radius = layout_px_size(NOTE_RADIUS, Options.touch_radius)
+    Hitboxes.note_radius = layout_px_size(NOTE_RADIUS, Options.note_radius)
 
     for i, b in get_button_iterator():
         center_angle = get_button_angle_horizontal(b)
@@ -189,21 +364,18 @@ def init_hitboxes():
         angle = get_sensor_angle_horizontal(Sensor.A1 + i)
         l_angle = angle + GROUP_A_ANGLE_WIDTH
         r_angle = angle - GROUP_A_ANGLE_WIDTH
-        bl_dist = dist - GROUP_A_BOT_L_DIST
-        br_dist = dist - GROUP_A_BOT_R_DIST
+        b_dist = dist - GROUP_A_BOT_L_DIST
+        bm_dist = dist - GROUP_A_BOT_MID_DIST
         t_dist = dist + GROUP_A_TOP_DIST
-        Hitboxes.group_a[i].quads[0] = Quad(
-            bl=layout_ring_pos(l_angle, bl_dist),
-            tl=layout_ring_pos(l_angle, t_dist),
-            tr=layout_ring_pos(angle, t_dist),
-            br=layout_ring_pos(angle, br_dist)
-        )
-        Hitboxes.group_a[i].quads[1] = Quad(
-            br=layout_ring_pos(r_angle, bl_dist),
-            tr=layout_ring_pos(r_angle, t_dist),
-            tl=layout_ring_pos(angle, t_dist),
-            bl=layout_ring_pos(angle, br_dist)
-        )
+        Hitboxes.group_a[i] = PolygonHitBox.new(layout_ring_pos(angle, dist), Array(
+            layout_ring_pos(l_angle, b_dist),
+            layout_ring_pos(l_angle, t_dist),
+            layout_ring_pos(angle, t_dist),
+            layout_ring_pos(r_angle, t_dist),
+            layout_ring_pos(r_angle, b_dist),
+            layout_ring_pos(angle - GROUP_A_BOT_MID_ANGLE, bm_dist),
+            layout_ring_pos(angle + GROUP_A_BOT_MID_ANGLE, bm_dist),
+        ))
 
     for i in range(8):
         dist = get_sensor_distance(SensorGroup.B)
@@ -211,18 +383,15 @@ def init_hitboxes():
         mid_dist = dist + GROUP_B_MID_DIST
         top_dist = dist + GROUP_B_TOP_DIST
         bot_dist = dist - GROUP_B_BOT_DIST
-        Hitboxes.group_b[i].quads[0] = Quad(
-            bl=layout_ring_pos(angle + GROUP_B_MID_ANGLE, mid_dist),
-            tl=layout_ring_pos(angle + GROUP_B_TOP_ANGLE, top_dist),
-            tr=layout_ring_pos(angle - GROUP_B_TOP_ANGLE, top_dist),
-            br=layout_ring_pos(angle - GROUP_B_MID_ANGLE, mid_dist)
-        )
-        Hitboxes.group_b[i].quads[1] = Quad(
-            br=layout_ring_pos(angle + GROUP_B_MID_ANGLE, mid_dist),
-            tr=layout_ring_pos(angle + GROUP_B_BOT_ANGLE, bot_dist),
-            tl=layout_ring_pos(angle - GROUP_B_BOT_ANGLE, bot_dist),
-            bl=layout_ring_pos(angle - GROUP_B_MID_ANGLE, mid_dist)
-        )
+        Hitboxes.group_b[i] = PolygonHitBox.new(layout_ring_pos(angle, dist), Array(
+            layout_ring_pos(angle + GROUP_B_MID_ANGLE, mid_dist),
+            layout_ring_pos(angle + GROUP_B_TOP_ANGLE, top_dist),
+            layout_ring_pos(angle - GROUP_B_TOP_ANGLE, top_dist),
+            layout_ring_pos(angle - GROUP_B_MID_ANGLE, mid_dist),
+            layout_ring_pos(angle - GROUP_B_BOT_ANGLE, bot_dist),
+            layout_ring_pos(angle, dist - GROUP_B_TIP_DIST),
+            layout_ring_pos(angle + GROUP_B_BOT_ANGLE, bot_dist),
+        ))
 
     center_size = layout_px_size(GROUP_C_HITBOX_SIZE)
     Hitboxes.group_c = CircTrapHitBox(
@@ -239,18 +408,14 @@ def init_hitboxes():
         bl_dist = dist - GROUP_D_BOT_L_DIST
         br_dist = dist - GROUP_D_BOT_R_DIST
         t_dist = dist + GROUP_D_TOP_DIST
-        Hitboxes.group_d[i].quads[0] = Quad(
-            bl=layout_ring_pos(l_angle, bl_dist),
-            tl=layout_ring_pos(l_angle, t_dist),
-            tr=layout_ring_pos(angle, t_dist),
-            br=layout_ring_pos(angle, br_dist)
-        )
-        Hitboxes.group_d[i].quads[1] = Quad(
-            br=layout_ring_pos(r_angle, bl_dist),
-            tr=layout_ring_pos(r_angle, t_dist),
-            tl=layout_ring_pos(angle, t_dist),
-            bl=layout_ring_pos(angle, br_dist)
-        )
+        Hitboxes.group_d[i] = PolygonHitBox.new(layout_ring_pos(angle, dist), Array(
+            layout_ring_pos(l_angle, bl_dist),
+            layout_ring_pos(l_angle, t_dist),
+            layout_ring_pos(angle, t_dist),
+            layout_ring_pos(r_angle, t_dist),
+            layout_ring_pos(r_angle, bl_dist),
+            layout_ring_pos(angle, br_dist),
+        ))
 
     for i in range(8):
         dist = get_sensor_distance(SensorGroup.E)

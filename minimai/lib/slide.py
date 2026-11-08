@@ -308,10 +308,10 @@ class SlideQueueState(Record):
             released_bit = self._flag_bit(area_offset, sensor_offset, False)
             was_activated = (
                 self._test_flag(activated_bit)
-                or InputState.sensor_touch_started[sensor - 1]
-                or InputState.sensor_touch_down[sensor - 1]
+                or InputState.sensor_note_started[sensor - 1]
+                or InputState.sensor_note_down[sensor - 1]
             )
-            was_released = was_activated and InputState.sensor_touch_ended[sensor - 1]
+            was_released = was_activated and InputState.sensor_note_ended[sensor - 1]
             self._set_flag(activated_bit, was_activated)
             self._set_flag(released_bit, was_released)
             active = active or was_activated

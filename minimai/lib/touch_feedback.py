@@ -6,6 +6,7 @@ from sonolus.script.array import Array, Dim
 from sonolus.script.globals import level_memory
 from sonolus.script.interval import remap_clamped
 from sonolus.script.runtime import time
+from sonolus.script.vec import Vec2
 
 from minimai.lib.game import Button, Sensor, SensorGroup, sensor_to_group
 from minimai.lib.input_state import InputState
@@ -14,6 +15,7 @@ from minimai.lib.layer import LAYER_DEBUG_LOW, LAYER_TOUCH_FEEDBACK, get_z
 from minimai.lib.layout import (
     TOUCH_FEEDBACK_CENTER_RADIUS,
     TOUCH_FEEDBACK_RADIUS,
+    layout_debug_line,
     layout_touch_feedback_center,
     layout_touch_feedback_petal,
     layout_touch_feedback_ring,
@@ -93,8 +95,13 @@ def update_touch_feedback():
     for i in range(8):
         if InputState.button_started[i]:
             start_feedback(Sensor.A1 + i)
-    for pressed in InputState.processing_sensor_touch:
-        start_feedback(pressed.second)
+    # Presses within the smaller of the two radii.
+    if Hitboxes.note_radius <= Hitboxes.touch_radius:
+        for pressed in InputState.processing_sensor_note:
+            start_feedback(pressed.second)
+    else:
+        for pressed in InputState.processing_sensor_touch:
+            start_feedback(pressed.second)
 
 
 def mark_touch_feedback_hit(sensor: Sensor):
@@ -151,8 +158,26 @@ def draw_input_feedbacks():
         for quad in Hitboxes.of_button_as_quads(idx + 1):
             ActiveSkin.white_square.draw(quad, get_z(LAYER_DEBUG_LOW, 0, idx).tuple, 0.6)
 
-    for idx, is_down in enumerate(InputState.sensor_touch_down):
+    # Note (tap/slide) input: filled
+    for idx, is_down in enumerate(InputState.sensor_note_down):
         if not is_down:
             continue
         for quad in Hitboxes.of_sensor_as_quads(idx + 1):
             ActiveSkin.white_square.draw(quad, get_z(LAYER_DEBUG_LOW, 0, 8 + idx).tuple, 0.4)
+
+    # Touch input: outlined
+    for idx, is_down in enumerate(InputState.sensor_touch_down):
+        if not is_down:
+            continue
+        z = get_z(LAYER_DEBUG_LOW, 0, 41 + idx).tuple
+        first = +Vec2
+        prev = +Vec2
+        is_first = True
+        for point in Hitboxes.of_sensor_as_outline(idx + 1):
+            if is_first:
+                first @= point
+                is_first = False
+            else:
+                ActiveSkin.white_square.draw(layout_debug_line(prev, point), z, 0.8)
+            prev @= point
+        ActiveSkin.white_square.draw(layout_debug_line(prev, first), z, 0.8)

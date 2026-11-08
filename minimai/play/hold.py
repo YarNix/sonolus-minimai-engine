@@ -136,7 +136,7 @@ class BaseHold(ButtonBaseInput):
                 )
 
     def is_pressed(self) -> bool:
-        return InputState.button_down[self.button - 1] != 0 or InputState.sensor_touch_down[self.sensor - 1]
+        return InputState.button_down[self.button - 1] != 0 or InputState.sensor_note_down[self.sensor - 1]
 
     def check_body(self, pressed: bool):
         if pressed:

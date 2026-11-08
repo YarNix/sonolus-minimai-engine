@@ -282,12 +282,15 @@ def get_view_safe_area() -> Rect:
     return get_view_rect(safe_area())
 
 
+# Judgment ring radius at 100% Ring Size, as a fraction of half the screen height.
+RING_SIZE_SCALE = 0.875
+
 def init_layout():
     Layout.view_angle = get_orientation_angle(Options.orientation)
     view = get_view_rect(screen())
     Layout.field_w = view.w
     Layout.field_h = view.h
-    Layout.ring_radius = Options.ring_size
+    Layout.ring_radius = Options.ring_size * RING_SIZE_SCALE
     Layout.ring_center = Vec2(0, Options.ring_offset)
     if Options.orientation != Orientation.LANDSCAPE:
         transform = Transform2d.new().rotate(Layout.view_angle)
@@ -1040,6 +1043,14 @@ def layout_touch_feedback_center(sensor: Sensor) -> Vec2:
     if sensor_to_group(sensor) == SensorGroup.A:
         result @= layout_ring_pos(get_button_angle_horizontal(sensor - Sensor.A1 + 1), 1)
     return result
+
+# Ring units.
+DEBUG_LINE_WIDTH = 0.008
+
+def layout_debug_line(a: Vec2, b: Vec2) -> Quad:
+    """A line from ``a`` to ``b`` (screen points)."""
+    side = (b - a).orthogonal().normalize() * layout_px_size(DEBUG_LINE_WIDTH / 2)
+    return Quad(bl=a - side, tl=a + side, tr=b + side, br=b - side)
 
 def layout_touch_feedback_ring(center: Vec2, radius: float) -> Quad:
     """A ring sprite with its rim at ``radius`` (ring units)."""
