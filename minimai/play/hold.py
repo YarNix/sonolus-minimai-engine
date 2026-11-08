@@ -16,7 +16,7 @@ from minimai.lib.judge_text import button_slot, spawn_judge_text
 from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_hold_effect, layout_tap_effect
 from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
 from minimai.lib.firework import spawn_firework
-from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score
+from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.lib.hold import HoldState, HoldKind, draw_hold, is_break_hold, is_ex_hold
 from minimai.lib.input_state import InputState
 from minimai.lib.options import Options
@@ -57,7 +57,7 @@ class BaseHold(ButtonBaseInput):
         return self.start_time
 
     def should_spawn(self) -> bool:
-        return time() >= self.start_time
+        return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
         self.kind = cast(HoldKind, self.key)
@@ -76,15 +76,18 @@ class BaseHold(ButtonBaseInput):
 
         if self.is_scored:
             report_note_time(self.target_time)
+            add_note_to_total(self.score_weight(), is_break_hold(self.kind))
+
+    def initialize(self):
+        if is_challenge_over():
+            return
+        self.hold_state = HoldState.DEFAULT
+        if self.is_scored:
             schedule_guide_sfx(self.target_time)
             if self.end_time - self.target_time >= 1 / 60:
                 schedule_guide_sfx(self.end_time)
             self.emit_head_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
             self.emit_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.end_time, scheduled=True)
-            add_note_to_total(self.score_weight(), is_break_hold(self.kind))
-
-    def initialize(self):
-        self.hold_state = HoldState.DEFAULT
 
     @property
     def judgment_window(self):
@@ -100,6 +103,9 @@ class BaseHold(ButtonBaseInput):
 
     def update_sequential(self):
         if self.despawn:
+            return
+        if is_challenge_over():
+            self.despawn = True
             return
         if self.is_judged:
             # Judged in update_parallel

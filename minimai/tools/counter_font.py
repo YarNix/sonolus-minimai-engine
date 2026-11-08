@@ -2,11 +2,11 @@
 
 Usage: python -m minimai.tools.counter_font <font> <folder> [--scale S]
 
-Needs Pillow (``uv sync --extra tools``). Writes ``Mai Counter <Colour> <Glyph>.png`` for every
-colour and glyph in ``COUNTER_COLOURS`` / ``COUNTER_GLYPHS``, and ``Mai Counter <Colour>
-<Header>.png`` for the headers in ``HEADERS``, sized for the layout at one pixel per skin pixel
-(``--scale 2`` doubles them). The headers aren't skin sprites; they're drawn for skins that want
-them.
+Needs Pillow (``uv sync --extra tools``).
+Writes ``Mai Counter <Colour> <Glyph>.png`` for every colour and glyph in ``COUNTER_COLOURS`` / ``COUNTER_GLYPHS``,
+``Mai Counter <Colour> Life.png`` (the life counter's backdrop) for every colour,
+and ``Mai Counter <Colour> <Header>.png`` for the headers in ``HEADERS``,
+sized for the layout at one pixel per skin pixel (``--scale 2`` doubles them).
 """
 
 import argparse
@@ -15,6 +15,7 @@ from pathlib import Path
 from minimai.lib.layout import (
     COUNTER_DIGIT_HEIGHT,
     COUNTER_GLYPH_WIDTHS,
+    COUNTER_LIFE_SIZE,
     COUNTER_LINE_HEIGHT,
     COUNTER_OUTLINE_WIDTH,
     SKIN_RING_RADIUS_PX,
@@ -65,6 +66,30 @@ CHECKER_SIZE = 5.5
 CHECKER_SHADE = 0.9
 STRIPE_PERIOD = 6.0
 STRIPE_SHADE = 0.9
+# The life backdrop, in skin px from its center (COUNTER_LIFE_SIZE square)
+LIFE_RING_OUTER = 135
+LIFE_RING_INNER = 93
+LIFE_RING_RIM = 6.0
+LIFE_LIGHT_STRIP = 7.0
+LIFE_MARK_GAP = 5.0
+LIFE_DEEP_SHADE = 0.75
+LIFE_MARK_LIGHT = (240, 236, 238)
+LIFE_BACKDROP = (8, 4, 4, 220)
+LIFE_BRIGHTNESS = 0.68
+LIFE_HEART_WIDTHS = {"Green": 147, "Yellow": 115, "Red": 0, "Silver": 0}
+# The other colours (not used by the life counter).
+LIFE_HEART_WIDTH = 147
+LIFE_HEART_DROP = 8
+# The heart
+LIFE_HEART_WARM = (255, 236, 80)
+LIFE_HEART_TOP_WARMTH = 0.3
+LIFE_HEART_BOTTOM_DEPTH = 0.6
+LIFE_HEART_SHADE = 0.82
+LIFE_HEART_ALPHA = 255
+LIFE_HEART_RIM = 0.06
+LIFE_HEART_BEVEL = 0.16
+LIFE_HEART_BEVEL_FADE = 0.08
+LIFE_HEART_BEVEL_LIGHT = 0.15
 
 
 def skin_px(value: float) -> float:
@@ -328,6 +353,128 @@ def paint(fill, solid, outlined, colour: str, px: float, shines: bool = True):
     return image
 
 
+def heart_points(width: float, center: tuple[float, float]) -> list[tuple[float, float]]:
+    """A heart ``width`` wide, its bounding box centered on ``center`` (image coordinates)."""
+    import math
+
+    points = []
+    for i in range(400):
+        t = 2 * math.pi * i / 400
+        points.append((16 * math.sin(t) ** 3, 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)))
+    xs, ys = [x for x, _ in points], [y for _, y in points]
+    scale = width / (max(xs) - min(xs))
+    middle = (max(ys) + min(ys)) / 2
+    return [(center[0] + x * scale, center[1] - (y - middle) * scale) for x, y in points]
+
+
+def deep_shade(colour: tuple[int, int, int]) -> tuple[int, int, int]:
+    """The colour multiplied by itself and darkened: green stays green, yellow turns orange."""
+    return tuple(round(v * v / 255 * LIFE_DEEP_SHADE) for v in colour)
+
+
+def mix(colour: tuple[int, int, int], other: tuple[int, int, int], amount: float) -> tuple[int, int, int]:
+    return tuple(round(a + (b - a) * amount) for a, b in zip(colour, other))
+
+
+def draw_life(colour: str, px: float):
+    """The life counter's backdrop in ``colour``, at ``px`` texture px per skin px."""
+    import math
+
+    from PIL import Image, ImageDraw
+
+    base = FILLS[colour][0]
+    side = round(skin_px(COUNTER_LIFE_SIZE) * px / SUPERSAMPLE) * SUPERSAMPLE
+    c = side / 2
+    image = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+
+    def disc(radius: float):
+        return (c - radius * px, c - radius * px, c + radius * px, c + radius * px)
+
+    def ring(outer: float, inner: float):
+        mask = Image.new("L", (side, side))
+        mask_draw = ImageDraw.Draw(mask)
+        mask_draw.ellipse(disc(outer), fill=255)
+        mask_draw.ellipse(disc(inner), fill=0)
+        return mask
+
+    deep = deep_shade(base)
+    draw.ellipse(disc(LIFE_RING_INNER), fill=LIFE_BACKDROP)
+    draw.ellipse(disc(LIFE_RING_OUTER), outline=deep + (255,), width=round((LIFE_RING_OUTER - LIFE_RING_INNER) * px))
+    # The marks between the rims, the coloured ones centered on the buttons (22.5° off the top).
+    marks = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    mark_draw = ImageDraw.Draw(marks)
+    for i in range(16):
+        start = -90 - 11.25 + 22.5 * i
+        colour_mark = base if i % 2 else LIFE_MARK_LIGHT
+        mark_draw.pieslice(disc(LIFE_RING_OUTER), start, start + 22.5, fill=colour_mark + (255,))
+    image.paste(marks, mask=ring(LIFE_RING_OUTER - LIFE_RING_RIM, LIFE_RING_INNER + LIFE_RING_RIM))
+    strip_outer = LIFE_RING_OUTER - LIFE_RING_RIM
+    image.paste(LIFE_MARK_LIGHT + (255,), mask=ring(strip_outer, strip_outer - LIFE_LIGHT_STRIP))
+    # Dividers between the marks, through the strip.
+    for i in range(16):
+        angle = math.radians(-90 - 11.25 + 22.5 * i)
+        inner, outer = LIFE_RING_INNER * px, LIFE_RING_OUTER * px
+        draw.line(
+            [(c + inner * math.cos(angle), c + inner * math.sin(angle)), (c + outer * math.cos(angle), c + outer * math.sin(angle))],
+            fill=deep + (255,),
+            width=round(LIFE_MARK_GAP * px),
+        )
+    width = LIFE_HEART_WIDTHS.get(colour, LIFE_HEART_WIDTH)
+    if width:
+        heart_side = round(width * 1.2 * px)
+        heart = draw_heart(base, width * px, heart_side)
+        image.alpha_composite(heart, (round(c - heart_side / 2), round(c + LIFE_HEART_DROP * px - heart_side / 2)))
+    red, green, blue, alpha = image.split()
+    red, green, blue = (band.point(lambda v: round(v * LIFE_BRIGHTNESS)) for band in (red, green, blue))
+    return Image.merge("RGBA", (red, green, blue, alpha))
+
+
+def draw_heart(base: tuple[int, int, int], width: float, side: int):
+    """A heart ``width`` wide (texture px) in the middle of a ``side`` square: a shade of ``base``,
+    darker toward its point, then shaded from its border in."""
+    from PIL import Image, ImageDraw
+
+    heart_center = (side / 2, side / 2)
+    heart = Image.new("L", (side, side))
+    ImageDraw.Draw(heart).polygon(heart_points(width, heart_center), fill=LIFE_HEART_ALPHA)
+    top = shade(mix(base, LIFE_HEART_WARM, LIFE_HEART_TOP_WARMTH), LIFE_HEART_SHADE)
+    bottom = shade(mix(base, deep_shade(base), LIFE_HEART_BOTTOM_DEPTH), LIFE_HEART_SHADE)
+    # Top to bottom over the heart itself.
+    _, box_top, _, box_bottom = heart.getbbox()
+    gradient = Image.new("L", (side, side))
+    gradient.paste(255, (0, box_bottom, side, side))
+    gradient.paste(Image.linear_gradient("L").resize((side, box_bottom - box_top)), (0, box_top))
+    body = Image.composite(Image.new("RGB", (side, side), bottom), Image.new("RGB", (side, side), top), gradient)
+    # How far in: nested hearts, each smaller one drawn over the last.
+    depth = Image.new("L", (side, side))
+    depth_draw = ImageDraw.Draw(depth)
+    steps = round(width / 4)
+    for step in range(steps):
+        depth_draw.polygon(heart_points(width * (1 - step / steps), heart_center), fill=round(255 * step / steps))
+    body = shade_heart(body, depth, deep_shade(base))
+    image = body.convert("RGBA")
+    image.putalpha(heart)
+    return image
+
+
+def shade_heart(body, depth, deep: tuple[int, int, int]):
+    """``depth`` 0 at the heart's border to 255 at its center: a rim in ``deep``, then a light bevel
+    fading into the body."""
+    from PIL import Image
+
+    def bevel(value: int) -> float:
+        d = value / 255
+        if d < LIFE_HEART_BEVEL:
+            return LIFE_HEART_BEVEL_LIGHT
+        return LIFE_HEART_BEVEL_LIGHT * max(1 - (d - LIFE_HEART_BEVEL) / LIFE_HEART_BEVEL_FADE, 0)
+
+    light = depth.point(lambda v: round(255 * bevel(v)))
+    rim = depth.point(lambda v: 255 if v / 255 < LIFE_HEART_RIM else 0)
+    body = Image.composite(Image.new("RGB", body.size, (255, 255, 255)), body, light)
+    return Image.composite(Image.new("RGB", body.size, deep), body, rim)
+
+
 def draw_counter_font(font_path: Path, folder: Path, scale: float):
     try:
         from PIL import Image
@@ -344,7 +491,12 @@ def draw_counter_font(font_path: Path, folder: Path, scale: float):
             size = (image.width // SUPERSAMPLE, image.height // SUPERSAMPLE)
             image = image.convert("RGBa").resize(size, Image.Resampling.LANCZOS).convert("RGBA")
             image.save(folder / f"Mai Counter {colour} {name}.png")
-    print(f"{len(COUNTER_COLOURS) * len(shapes)} sprites written to {folder}")
+    for colour in COUNTER_COLOURS:
+        image = draw_life(colour, renderer.px)
+        size = (image.width // SUPERSAMPLE, image.height // SUPERSAMPLE)
+        image = image.convert("RGBa").resize(size, Image.Resampling.LANCZOS).convert("RGBA")
+        image.save(folder / f"Mai Counter {colour} Life.png")
+    print(f"{len(COUNTER_COLOURS) * (len(shapes) + 1)} sprites written to {folder}")
 
 
 def main():

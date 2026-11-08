@@ -6,6 +6,7 @@ from sonolus.script.runtime import time
 from minimai.lib import archetype_names
 from minimai.lib.each_line import draw_each_line
 from minimai.lib.game import Button
+from minimai.lib.scoring import is_challenge_over
 from minimai.play.base_input import ButtonBaseInput
 
 
@@ -50,11 +51,20 @@ class EachLine(PlayArchetype):
         return self.start_time
 
     def should_spawn(self) -> bool:
-        return time() >= self.start_time
+        return time() >= self.start_time or is_challenge_over()
+
+    # def initialize(self):
+    #     if is_challenge_over():
+    #         return
 
     def update_parallel(self):
         # Gone with the first of its notes.
-        if self.steps == 0 or self.left_ref.get().is_despawned or self.right_ref.get().is_despawned:
+        if (
+            is_challenge_over()
+            or self.steps == 0
+            or self.left_ref.get().is_despawned
+            or self.right_ref.get().is_despawned
+        ):
             self.despawn = True
             return
         draw_each_line(self.start_button, self.steps, self.start_time, self.target_time, self.stops_at_ring)

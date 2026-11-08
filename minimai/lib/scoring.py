@@ -9,6 +9,7 @@ from sonolus.script.runtime import level_score, level_life
 from sonolus.script.archetype import LifeInfo
 
 from minimai.lib.game import ArcadeJudgment
+from minimai.lib.options import Options
 
 class BaseWeight:
     """Base weight of each note types; Break doesn't have weight, and use different base"""
@@ -53,6 +54,8 @@ class ScoreMemory:
     dx_lost: float
     combo: int
     grade: Grade
+    # Life Challenge lives left.
+    life: int
 
 
 def add_note_to_total(weight: float, is_break: bool):
@@ -135,6 +138,30 @@ def get_grade(judgment: ArcadeJudgment, is_break: bool) -> Grade:
     return result
 
 
+def init_life_challenge():
+    """Preprocess."""
+    ScoreMemory.life = Options.life_challenge
+
+
+def get_challenge_loss(judgment: ArcadeJudgment) -> int:
+    """Lives a Life Challenge loses on ``judgment``."""
+    result = Options.critical_perfect_loss
+    if judgment == ArcadeJudgment.MISS:
+        result = Options.miss_loss
+    elif judgment == ArcadeJudgment.GOOD:
+        result = Options.good_loss
+    elif judgment > ArcadeJudgment.LOW_PERFECT:
+        result = Options.great_loss
+    elif judgment > ArcadeJudgment.CRITICAL_PERFECT:
+        result = Options.perfect_loss
+    return result
+
+
+def is_challenge_over() -> bool:
+    """No lives left, and End at 0 Life: every note drops out."""
+    return Options.life_challenge > 0 and Options.end_at_zero_life and ScoreMemory.life <= 0
+
+
 def report_score(weight: float, is_break: bool, judgment: ArcadeJudgment):
     """A scored note's final judgment (sequential callbacks only)."""
     if judgment == ArcadeJudgment.NONE:
@@ -157,6 +184,8 @@ def report_score(weight: float, is_break: bool, judgment: ArcadeJudgment):
     else:
         ScoreMemory.combo += 1
     ScoreMemory.grade = max(ScoreMemory.grade, get_grade(judgment, is_break))
+    if Options.life_challenge > 0:
+        ScoreMemory.life = max(ScoreMemory.life - get_challenge_loss(judgment), 0)
 
 
 def get_base_total() -> float:

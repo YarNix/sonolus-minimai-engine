@@ -28,7 +28,7 @@ from minimai.lib.judge_text import button_slot, spawn_judge_text
 from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_tap_effect
 from minimai.lib.particle import spawn_tap_effect
 from minimai.lib.firework import spawn_firework
-from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score
+from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.play.activity_manager import report_note_time
 from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
 
@@ -58,7 +58,7 @@ class BaseNote(ButtonBaseInput):
         return self.start_time
 
     def should_spawn(self) -> bool:
-        return time() >= self.start_time
+        return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
         self.kind = cast(NoteKind, self.key)
@@ -78,11 +78,14 @@ class BaseNote(ButtonBaseInput):
 
         if self.is_scored:
             report_note_time(self.target_time)
-            schedule_guide_sfx(self.target_time)
-            self.emit_hit_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
             add_note_to_total(self.score_weight(), is_break(self.kind))
 
     def initialize(self):
+        if is_challenge_over():
+            return
+        if self.is_scored:
+            schedule_guide_sfx(self.target_time)
+            self.emit_hit_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
         if not self.has_custom_rotation and self.slide_rotate_speed != 0:
             self.rotate_speed = self.slide_rotate_speed
         else:
@@ -90,6 +93,9 @@ class BaseNote(ButtonBaseInput):
 
     def update_sequential(self):
         if self.despawn:
+            return
+        if is_challenge_over():
+            self.despawn = True
             return
         if self.is_judged:
             # Judged in update_parallel

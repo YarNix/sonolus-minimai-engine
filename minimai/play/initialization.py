@@ -8,7 +8,7 @@ from minimai.lib.hitbox import init_hitboxes
 from minimai.lib.level_config import init_level_config
 from minimai.lib.hold import init_hold_life, init_hold_score
 from minimai.lib.note import init_note_life, init_note_score
-from minimai.lib.scoring import init_score_multiplier
+from minimai.lib.scoring import init_score_multiplier, init_life_challenge
 from minimai.lib.slide import init_slide_life, init_slide_score
 from minimai.lib.touch import init_touch_life, init_touch_score
 from minimai.lib.touch_hold import init_touch_hold_life, init_touch_hold_score
@@ -57,6 +57,7 @@ class Initialization(PlayArchetype):
         init_particles()
         init_ui()
         init_buckets()
+        init_life_challenge()
         init_score()
         init_life()
         # init_play_common()
@@ -66,7 +67,7 @@ class Initialization(PlayArchetype):
         InputManager.spawn()
         ActivityManager.spawn()
         Ring.spawn()
-        if Options.center_display != CenterDisplay.OFF:
+        if Options.center_display != CenterDisplay.OFF or Options.life_challenge > 0:
             CenterCounter.spawn()
 
     def spawn_order(self) -> float:

@@ -185,6 +185,8 @@ class BaseSkin:
     counter_glyphs: SpriteGroup = sprite_group(
         f"Mai Counter {colour} {glyph}" for colour in COUNTER_COLOURS for glyph in COUNTER_GLYPHS
     )
+    # The life counter's backdrop, by COUNTER_COLOURS.
+    counter_lives: SpriteGroup = sprite_group(f"Mai Counter {colour} Life" for colour in COUNTER_COLOURS)
 
 class HoldActiveSpriteSet(Record):
     light: Sprite
@@ -363,6 +365,7 @@ class ActiveSkin:
     slide_oks: SpriteGroup
 
     counter_glyphs: SpriteGroup
+    counter_lives: SpriteGroup
 
 
 def init_skin():
@@ -559,3 +562,4 @@ def init_skin():
     ActiveSkin.slide_oks = BaseSkin.slide_oks
 
     ActiveSkin.counter_glyphs = BaseSkin.counter_glyphs
+    ActiveSkin.counter_lives = BaseSkin.counter_lives

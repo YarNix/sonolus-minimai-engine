@@ -20,7 +20,7 @@ from minimai.lib.layout import (
 )
 from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
 from minimai.lib.firework import spawn_firework
-from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score
+from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.lib.options import Options
 from minimai.lib.game import ArcadeJudgment, apply_sensor_mirror_option
 from minimai.lib.input_state import InputState
@@ -72,7 +72,7 @@ class BaseTouchHold(TouchBaseInput):
         return self.start_time
 
     def should_spawn(self) -> bool:
-        return time() >= self.start_time
+        return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
         self.kind = cast(TouchHoldKind, self.key)
@@ -90,15 +90,18 @@ class BaseTouchHold(TouchBaseInput):
 
         if self.is_scored:
             report_note_time(self.target_time)
+            add_note_to_total(self.score_weight(), self.kind == TouchHoldKind.BREAK_TOUCH_HOLD)
+
+    def initialize(self):
+        if is_challenge_over():
+            return
+        self.hold_state = HoldState.DEFAULT
+        if self.is_scored:
             schedule_guide_sfx(self.target_time)
             if self.end_time - self.target_time >= 1 / 60:
                 schedule_guide_sfx(self.end_time)
             # The head has no sound; the riser plays instead.
             self.emit_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.end_time, scheduled=True)
-            add_note_to_total(self.score_weight(), self.kind == TouchHoldKind.BREAK_TOUCH_HOLD)
-
-    def initialize(self):
-        self.hold_state = HoldState.DEFAULT
 
     @property
     def judgment_window(self):
@@ -114,6 +117,9 @@ class BaseTouchHold(TouchBaseInput):
 
     def update_sequential(self):
         if self.despawn:
+            return
+        if is_challenge_over():
+            self.despawn = True
             return
         if self.is_judged:
             # Judged in update_parallel

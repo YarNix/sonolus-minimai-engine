@@ -230,6 +230,8 @@ COUNTER_SMALL_TRACKING = from_skin_px(-2)
 COUNTER_HEADER_HEIGHT = from_skin_px(79)
 COUNTER_STAR_SIZE = 0.5
 COUNTER_STAR_TRACKING = from_skin_px(-4)
+# The life counter's backdrop (heart, ring and button marks), centered on the counter.
+COUNTER_LIFE_SIZE = from_skin_px(276)
 
 NOTE_END_SCALING_PROGRESS = 1 / ((1 - NOTE_SPAWN_DISTANCE) * NOTE_SCALE_RATE + 1)
 TOUCH_END_SCALING_PROGGRESS = 0.2
@@ -942,6 +944,10 @@ def layout_counter_glyph(left: float, width: float, scale: float, size: float = 
     center = Vec2(left + width * size / 2, -COUNTER_DIGIT_HEIGHT / 2 * (1 - size))
     cell = Vec2(width, COUNTER_LINE_HEIGHT) * size
     return Rect.from_center(layout_ring_point(center * scale), layout_px_size(cell, scale)).as_quad()
+
+def layout_counter_backdrop(size: float, scale: float) -> Quad:
+    """A ``size`` square behind the counter, centered on it, scaled with it by ``scale``."""
+    return Rect.from_center(layout_ring_point(Vec2(0, 0)), layout_px_size(Vec2(size, size), scale)).as_quad()
 
 def layout_counter_header_glyph(left: float, width: float, scale: float, size: float) -> Quad:
     """Like ``layout_counter_glyph``, in the header row above the counter, centered on it."""

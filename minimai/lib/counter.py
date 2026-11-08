@@ -12,6 +12,8 @@ from minimai.lib.layout import (
     COUNTER_SMALL_TRACKING,
     COUNTER_STAR_SIZE,
     COUNTER_STAR_TRACKING,
+    COUNTER_LIFE_SIZE,
+    layout_counter_backdrop,
     layout_counter_glyph,
     layout_counter_header_glyph,
 )
@@ -91,6 +93,10 @@ SS_BORDER = 99
 SSS_BORDER = 100
 
 
+def get_counter_alpha() -> float:
+    return runtime_ui().combo_config.alpha * Options.center_display_opacity
+
+
 def get_counter_sprite(colour: CounterColour, glyph: int) -> Sprite:
     return ActiveSkin.counter_glyphs[colour * len(COUNTER_GLYPHS) + glyph]
 
@@ -132,7 +138,7 @@ def draw_glyph(colour: CounterColour, glyph: int, left: float, width: float, siz
     """Draws a glyph at ``size`` of the big digits, on their baseline. Returns its right edge."""
     ui = runtime_ui().combo_config
     layout = layout_counter_glyph(left, width, ui.scale, size)
-    get_counter_sprite(colour, glyph).draw(layout, get_z(LAYER_COUNTER).tuple, ui.alpha)
+    get_counter_sprite(colour, glyph).draw(layout, get_z(LAYER_COUNTER).tuple, get_counter_alpha())
     return left + width * size
 
 
@@ -206,14 +212,36 @@ def draw_dx_rank(rank: int, margin: int):
     left = -(rank * pitch - COUNTER_STAR_TRACKING) / 2
     for _ in range(rank):
         layout = layout_counter_header_glyph(left, STAR_WIDTH, ui.scale, COUNTER_STAR_SIZE)
-        get_counter_sprite(colour, CounterGlyph.STAR).draw(layout, z, ui.alpha)
+        get_counter_sprite(colour, CounterGlyph.STAR).draw(layout, z, get_counter_alpha())
         left += pitch
     draw_signed(margin, CounterGlyph.PLUS, PLUS_WIDTH, colour)
 
 
+def get_life_colour(life: int) -> CounterColour:
+    result = CounterColour.GREEN
+    if life <= 0:
+        result = CounterColour.SILVER
+    elif life < Options.life_challenge:
+        if life < 10:
+            result = CounterColour.RED
+        elif life < 100:
+            result = CounterColour.YELLOW
+    return result
+
+
+def draw_life_counter(life: int):
+    colour = get_life_colour(life)
+    ui = runtime_ui().combo_config
+    layout = layout_counter_backdrop(COUNTER_LIFE_SIZE, ui.scale)
+    ActiveSkin.counter_lives[colour].draw(layout, get_z(LAYER_COUNTER, offset=-1).tuple, get_counter_alpha())
+    draw_integer(life, colour)
+
+
 def draw_center_counter():
     display = Options.center_display
-    if display == CenterDisplay.COMBO or display == CenterDisplay.GRADE_COMBO:
+    if Options.life_challenge > 0:
+        draw_life_counter(ScoreMemory.life)
+    elif display == CenterDisplay.COMBO or display == CenterDisplay.GRADE_COMBO:
         if ScoreMemory.combo > 0:
             colour = CounterColour.PINK
             if display == CenterDisplay.GRADE_COMBO:

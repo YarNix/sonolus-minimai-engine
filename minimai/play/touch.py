@@ -16,7 +16,7 @@ from minimai.lib.judge_text import spawn_judge_text, touch_slot
 from minimai.lib.layout import layout_sensor_firework_center, layout_touch_effect, layout_touch_judge_text
 from minimai.lib.particle import spawn_touch_effect
 from minimai.lib.firework import spawn_firework
-from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score
+from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration
 from minimai.lib.game import ArcadeJudgment, apply_sensor_mirror_option
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
@@ -39,7 +39,7 @@ class BaseTouch(TouchBaseInput):
         return self.start_time
 
     def should_spawn(self) -> bool:
-        return time() >= self.start_time
+        return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
         self.kind = cast(TouchKind, self.key)
@@ -56,12 +56,20 @@ class BaseTouch(TouchBaseInput):
 
         if self.is_scored:
             report_note_time(self.target_time)
+            add_note_to_total(self.score_weight(), self.kind == TouchKind.BREAK_TOUCH)
+
+    def initialize(self):
+        if is_challenge_over():
+            return
+        if self.is_scored:
             schedule_guide_sfx(self.target_time)
             self.emit_hit_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time, scheduled=True)
-            add_note_to_total(self.score_weight(), self.kind == TouchKind.BREAK_TOUCH)
 
     def update_sequential(self):
         if self.despawn:
+            return
+        if is_challenge_over():
+            self.despawn = True
             return
         if self.judgment != ArcadeJudgment.NONE:
             # Judged in update_parallel

@@ -9,6 +9,7 @@ class Options:
     graphics = OptionCategory(title=StandardText.GRAPHICS)
     audio = OptionCategory(title=StandardText.AUDIO)
     miscellaneous = OptionCategory(title=StandardText.MISCELLANEOUS)
+    challenge = OptionCategory(title="Challenge")
 
     speed: float = slider_option(
         name=StandardText.SPEED,
@@ -264,6 +265,16 @@ class Options:
             "SSS Border",
         ],
     )
+    center_display_opacity: float = slider_option(
+        name="Center Display Opacity",
+        scope="Maimai",
+        category=graphics,
+        default=0.7,
+        min=0,
+        max=1,
+        step=0.01,
+        unit=StandardText.PERCENTAGE_UNIT,
+    )
     judge_text: int = select_option(
         name="Judge Text",
         description="Which judgments show their text at the note.",
@@ -350,4 +361,71 @@ class Options:
         max=0.8,
         step=0.05,
         unit=StandardText.PERCENTAGE_UNIT,
+    )
+    life_challenge: float = slider_option(
+        name="Life Challenge",
+        description="Start with this many lives, lost by judgment (see below). 0: off. The center shows the lives instead.",
+        scope="Maimai",
+        category=challenge,
+        default=0,
+        min=0,
+        max=999,
+        step=1,
+    )
+    critical_perfect_loss: float = slider_option(
+        name="Critical Perfect Loss",
+        description="Lives lost on a critical perfect.",
+        scope="Maimai",
+        category=challenge,
+        default=0,
+        min=0,
+        max=100,
+        step=1,
+    )
+    perfect_loss: float = slider_option(
+        name="Perfect Loss",
+        description="Lives lost on a (non-critical) perfect.",
+        scope="Maimai",
+        category=challenge,
+        default=0,
+        min=0,
+        max=100,
+        step=1,
+    )
+    great_loss: float = slider_option(
+        name="Great Loss",
+        description="Lives lost on a great.",
+        scope="Maimai",
+        category=challenge,
+        default=1,
+        min=0,
+        max=100,
+        step=1,
+    )
+    good_loss: float = slider_option(
+        name="Good Loss",
+        description="Lives lost on a good.",
+        scope="Maimai",
+        category=challenge,
+        default=1,
+        min=0,
+        max=100,
+        step=1,
+    )
+    miss_loss: float = slider_option(
+        name="Miss Loss",
+        description="Lives lost on a miss.",
+        scope="Maimai",
+        category=challenge,
+        default=1,
+        min=0,
+        max=100,
+        step=1,
+    )
+    end_at_zero_life: bool = toggle_option(
+        name="End at 0 Life",
+        description="With no lives left, the rest of the notes are dropped (as misses) and the track can be skipped.",
+        scope="Maimai",
+        category=challenge,
+        default=True,
     )

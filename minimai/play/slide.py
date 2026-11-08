@@ -23,7 +23,7 @@ from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_break_slide_end_sfx, emit_firework_sfx, schedule_slide_sfx
 from minimai.lib.firework import spawn_firework
 from minimai.lib.slide_ok import spawn_slide_ok
-from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score
+from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.lib.game import ArcadeJudgment, Button, apply_button_mirror_option, is_mirror_option_reflection
 from minimai.lib.options import Options
 from minimai.lib.layout import SLIDE_TRACK_POINTS, layout_button_firework_center, layout_slide_ok
@@ -166,7 +166,7 @@ class BaseSlide(PlayArchetype):
         return self.start_time
 
     def should_spawn(self) -> bool:
-        return time() >= self.start_time
+        return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
         # A reflected slide is the same track from the mirrored button, reflected the other way.
@@ -196,18 +196,27 @@ class BaseSlide(PlayArchetype):
                 self.index, self.segment_start_beat
             )
 
-        # The slide sound when the star starts moving; auto SFX: the break end on arrival.
         if self.is_chain_head:
             report_note_time(self.target_time)
+        if self.is_scored:
+            add_note_to_total(self.score_weight(), is_break_slide(self.kind))
+
+    def initialize(self):
+        if is_challenge_over():
+            return
+        # The slide sound when the star starts moving; auto SFX: the break end on arrival.
+        if self.is_chain_head:
             schedule_slide_sfx(is_break_slide(self.kind), self.chain_start_time)
         if self.is_scored:
             if is_break_slide(self.kind):
                 emit_break_slide_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.segment_end_time, scheduled=True)
             self.emit_arrive_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.segment_end_time, scheduled=True)
-            add_note_to_total(self.score_weight(), is_break_slide(self.kind))
 
     def update_sequential(self):
         if self.despawn:
+            return
+        if is_challenge_over():
+            self.despawn = True
             return
         if self.is_judged and not self.is_judgment_reported:
             # Judged in update_parallel
