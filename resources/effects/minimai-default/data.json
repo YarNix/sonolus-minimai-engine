@@ -21,8 +21,8 @@
             "filename": "break_tap.wav"
         },
         {
-            "name": "Mai Break Critical",
-            "filename": "break.wav"
+            "name": "Mai Break Critical Hit",
+            "filename": "break_critical_hit.wav"
         },
         {
             "name": "Mai Touch Hit",
@@ -50,7 +50,7 @@
         },
         {
             "name": "Mai Break Slide End",
-            "filename": "slide_break_slide.wav"
+            "filename": "slide_break_end.wav"
         },
         {
             "name": "Mai Guide",

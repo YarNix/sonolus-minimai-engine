@@ -7,10 +7,16 @@ THUMBNAIL_SUFFIXES = {".png", ".jpg", ".jpeg"}
 RISER_STEM = "touch_hold_riser"
 # Amplitude factors (0.5 is half, -6 dB) for clips louder than the rest: the guide and the slides.
 CLIP_GAINS = {
-    "answer": 0.5,
+    "answer": 0.75,
     "slide": 0.5,
     "slide_break_start": 0.5,
     "slide_break_slide": 0.5,
+}
+# Clips mixed into one (after the gains), so fewer sounds play at once. Sources that aren't clips of
+# their own (break, slide_break_slide) are dropped.
+CLIP_MIXES = {
+    "break_critical_hit": ("break_tap", "break"),
+    "slide_break_end": ("slide_break_slide", "break"),
 }
 
 
@@ -42,8 +48,9 @@ def read_source(source: Path) -> tuple[dict[str, bytes], bytes | None]:
 
 
 def build_effect(name: str, source: Path, *, author: str, description: str, thumbnail: Path | None):
-    from minimai.effect_packer import pack_effect
+    from minimai.effect_packer import CLIP_NAMES, pack_effect
     from minimai.tools.clip_gain import scale_wav
+    from minimai.tools.clip_mix import mix_wavs
     from minimai.tools.riser_cut import cut_riser
 
     clips, found_thumbnail = read_source(source)
@@ -61,6 +68,19 @@ def build_effect(name: str, source: Path, *, author: str, description: str, thum
                 clips[stem] = scale_wav(clips[stem], gain)
             except Exception as error:
                 print(f"Not changing the volume of {stem}: {error}")
+    stems = {stem.lower(): stem for stem in clips}
+    mixed_sources = set()
+    for target, sources in CLIP_MIXES.items():
+        if not all(source in stems for source in sources):
+            print(f"Skipping {target}: needs {', '.join(sources)}")
+            continue
+        try:
+            clips[target] = mix_wavs(*(clips[stems[source]] for source in sources))
+            mixed_sources.update(sources)
+        except Exception as error:
+            print(f"Skipping {target}: {error}")
+    for source in mixed_sources - set(CLIP_NAMES):
+        del clips[stems[source]]
     folder = pack_effect(
         name,
         clips,

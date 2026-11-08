@@ -20,7 +20,7 @@ class Effects:
     touch_hold_sustain_fallback: StandardEffect.HOLD
 
     break_hit: Effect = effect("Mai Break Hit")
-    break_critical: Effect = effect("Mai Break Critical")
+    break_critical_hit: Effect = effect("Mai Break Critical Hit")
     touch_hit: Effect = effect("Mai Touch Hit")
     firework: Effect = effect("Mai Firework")
     # Played as a loop only so it can be cut off on release.
@@ -105,9 +105,12 @@ def get_plain_tap_sfx(judgment: ArcadeJudgment) -> Effect:
 
 def emit_break_hit_sfx(judgment: ArcadeJudgment, at: float, scheduled: bool):
     if is_hit(judgment) and Options.break_sound:
-        emit_sfx(first_available_effect(Effects.break_hit, Effects.break_hit_fallback), at, scheduled)
+        sfx = +EMPTY_EFFECT
         if judgment == ArcadeJudgment.CRITICAL_PERFECT:
-            emit_sfx(Effects.break_critical, at, scheduled)
+            sfx @= first_available_effect(Effects.break_critical_hit, Effects.break_hit, Effects.break_hit_fallback)
+        else:
+            sfx @= first_available_effect(Effects.break_hit, Effects.break_hit_fallback)
+        emit_sfx(sfx, at, scheduled)
 
 
 def emit_tap_sfx(is_break: bool, is_ex: bool, judgment: ArcadeJudgment, at: float, scheduled: bool):
@@ -154,11 +157,8 @@ def schedule_slide_sfx(is_break: bool, start_time: float):
 
 def emit_break_slide_end_sfx(judgment: ArcadeJudgment, at: float, scheduled: bool):
     """Only a critical perfect break slide."""
-    if judgment == ArcadeJudgment.CRITICAL_PERFECT:
-        if Options.slide_sound:
-            emit_sfx(Effects.break_slide_end, at, scheduled)
-        if Options.break_sound:
-            emit_sfx(Effects.break_critical, at, scheduled)
+    if judgment == ArcadeJudgment.CRITICAL_PERFECT and Options.slide_sound:
+        emit_sfx(Effects.break_slide_end, at, scheduled)
 
 
 def schedule_guide_sfx(at: float):

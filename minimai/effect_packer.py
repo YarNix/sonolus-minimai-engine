@@ -22,7 +22,8 @@ CLIP_NAMES: dict[str, str] = {
     "tap_good": "#GOOD",
     "tap_ex": "#PERFECT_ALTERNATIVE",
     "break_tap": "Mai Break Hit",
-    "break": "Mai Break Critical",
+    # break_tap and break critical mixed.
+    "break_critical_hit": "Mai Break Critical Hit",
     "touch": "Mai Touch Hit",
     "touch_hanabi": "Mai Firework",
     # Cut from touch_hold_riser.
@@ -30,7 +31,8 @@ CLIP_NAMES: dict[str, str] = {
     "touch_hold_sustain": "Mai Touch Hold Sustain",
     "slide": "Mai Slide",
     "slide_break_start": "Mai Break Slide",
-    "slide_break_slide": "Mai Break Slide End",
+    # slide_break_slide and break critical mixed.
+    "slide_break_end": "Mai Break Slide End",
     "answer": "Mai Guide",
     "answer_clock": "Mai Count In",
 }
