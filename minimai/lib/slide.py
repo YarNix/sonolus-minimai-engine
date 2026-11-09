@@ -22,7 +22,7 @@ from minimai.lib.layout import (
     layout_slide_path,
     layout_wifi_slide_path,
 )
-from minimai.lib.level_config import LevelConfig
+from minimai.lib.level_config import LevelConfig, init_level_config
 from minimai.lib.options import Options
 from minimai.lib.skin import ActiveSkin
 from minimai.lib.note import NoteKind, _note_draw
@@ -575,6 +575,7 @@ def _wifi_slide_path_draw(
 
 def get_slide_appear_duration(speed: float):
     assert_true(speed != 0, "Speed 0 is not supported!")
+    init_level_config()
     fade_speed = max(abs(LevelConfig.noteSpeed * speed), 0.01)
     fade_time = from_skin_px(392.6913) / fade_speed
     fade_time += Options.slide_fade_offset / 1000

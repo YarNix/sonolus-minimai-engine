@@ -18,7 +18,15 @@ from sonolus.script.runtime import delta_time, input_offset, offset_adjusted_tim
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
-from minimai.lib.effect import emit_ex_sfx, emit_firework_sfx, emit_hold_end_sfx, is_hit, schedule_guide_sfx
+from minimai.lib.effect import (
+    emit_ex_sfx,
+    emit_firework_sfx,
+    emit_hold_end_sfx,
+    is_hit,
+    register_touch_hold_riser,
+    report_note_time,
+    schedule_guide_sfx,
+)
 from minimai.lib.judge_text import spawn_judge_text, touch_hold_slot
 from minimai.lib.layout import (
     layout_sensor_firework_center,
@@ -36,7 +44,6 @@ from minimai.lib.input_state import InputState
 from minimai.lib.hold import HoldState
 from minimai.lib.touch import get_touch_appear_duration
 from minimai.lib.touch_hold import TouchHoldKind, draw_touch_hold, is_break_touch_hold, is_ex_touch_hold
-from minimai.play.activity_manager import register_touch_hold_riser, report_note_time
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
 
 

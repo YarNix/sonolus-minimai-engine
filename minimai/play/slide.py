@@ -21,7 +21,7 @@ from sonolus.script.timing import beat_to_time
 
 from minimai.typing import override_archetype
 from minimai.lib import archetype_names, buckets
-from minimai.lib.effect import emit_break_slide_end_sfx, emit_firework_sfx, schedule_slide_sfx
+from minimai.lib.effect import emit_break_slide_end_sfx, emit_firework_sfx, report_note_time, schedule_slide_sfx
 from minimai.lib.firework import spawn_firework
 from minimai.lib.slide_ok import spawn_slide_ok
 from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
@@ -45,7 +45,6 @@ from minimai.lib.slide import (
     is_break_slide,
 )
 from minimai.play import note
-from minimai.play.activity_manager import report_note_time
 
 # Upper bound on chain walks; guards against malformed (cyclic) level data.
 MAX_CHAIN_LENGTH = 32

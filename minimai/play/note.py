@@ -24,13 +24,12 @@ from minimai.lib.note import (
     get_note_angle,
 )
 from minimai.lib import archetype_names, buckets
-from minimai.lib.effect import emit_firework_sfx, emit_tap_sfx, schedule_guide_sfx
+from minimai.lib.effect import emit_firework_sfx, emit_tap_sfx, report_note_time, schedule_guide_sfx
 from minimai.lib.judge_text import button_slot, spawn_judge_text
 from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_tap_effect
 from minimai.lib.particle import spawn_tap_effect
 from minimai.lib.firework import spawn_firework
 from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
-from minimai.play.activity_manager import report_note_time
 from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
 
 # Fake-rotate star (simai ``$$``): -440 deg/s, in half-turns per second.

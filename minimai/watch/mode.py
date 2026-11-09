@@ -4,10 +4,17 @@ from minimai.lib.buckets import Buckets
 from minimai.lib.effect import Effects
 from minimai.lib.particle import BaseParticles
 from minimai.lib.skin import BaseSkin
+from minimai.watch.bpm_change import WatchBpmChange
+from minimai.watch.initialization import WatchInitialization
+from minimai.watch.ring import WatchRing
 from minimai.watch.update_spawn import update_spawn
 
 watch_mode = WatchMode(
-    archetypes=[],
+    archetypes=[
+        WatchInitialization,
+        WatchRing,
+        WatchBpmChange,
+    ],
     skin=BaseSkin,
     effects=Effects,
     particles=BaseParticles,

@@ -11,7 +11,7 @@ from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
-from minimai.lib.effect import emit_firework_sfx, emit_hold_end_sfx, emit_tap_sfx, schedule_guide_sfx
+from minimai.lib.effect import emit_firework_sfx, emit_hold_end_sfx, emit_tap_sfx, report_note_time, schedule_guide_sfx
 from minimai.lib.judge_text import button_slot, spawn_judge_text
 from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_hold_effect, layout_tap_effect
 from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
@@ -22,7 +22,6 @@ from minimai.lib.input_state import InputState
 from minimai.lib.options import Options
 from minimai.lib.streams import STREAM_START_TIME, Streams
 from minimai.lib.note import get_tap_appear_duration
-from minimai.play.activity_manager import report_note_time
 from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
 
 

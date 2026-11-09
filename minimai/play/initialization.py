@@ -2,7 +2,7 @@ from sonolus.script.archetype import EntityRef, PlayArchetype, callback, exporte
 
 from minimai.lib import archetype_names
 from minimai.lib.buckets import init_buckets
-from minimai.lib.effect import schedule_count_in
+from minimai.lib.effect import SfxMemory, init_sfx_memory, schedule_count_in
 from minimai.lib.layout import init_layout
 from minimai.lib.hitbox import init_hitboxes
 from minimai.lib.level_config import init_level_config
@@ -17,7 +17,7 @@ from minimai.lib.particle import init_particles
 from minimai.lib.skin import init_skin
 from minimai.lib.ui import init_ui
 from minimai.play.input_manager import InputManager
-from minimai.play.activity_manager import ActivityManager, SfxMemory
+from minimai.play.activity_manager import ActivityManager
 from minimai.play.ring import Ring
 from minimai.play.center_counter import CenterCounter
 from minimai.lib.counter import CenterDisplay
@@ -50,9 +50,8 @@ class Initialization(PlayArchetype):
 
     replay_version: int = exported(name="replayVersion")
 
-    @callback(order=-1)
+    @callback(order=1)
     def preprocess(self):
-        SfxMemory.first_note_time = 1e9
         init_level_config()
         init_layout()
         init_hitboxes()
@@ -64,10 +63,11 @@ class Initialization(PlayArchetype):
         init_score()
         init_life()
         # init_play_common()
+        init_sfx_memory()
+        schedule_count_in(self.count_in_bpm, SfxMemory.first_note_time)
 
     def initialize(self):
         self.replay_version = REPLAY_VERSION
-        schedule_count_in(self.count_in_bpm, SfxMemory.first_note_time)
         InputManager.spawn()
         ActivityManager.spawn()
         Ring.spawn()

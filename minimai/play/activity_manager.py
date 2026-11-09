@@ -9,7 +9,13 @@ from sonolus.script.record import Record
 from sonolus.script.runtime import offset_adjusted_time, time
 
 from minimai.lib import archetype_names
-from minimai.lib.effect import TOUCH_HOLD_CHARGE_DURATION, Effects, first_available_effect, stop_looped_sfx
+from minimai.lib.effect import (
+    TOUCH_HOLD_CHARGE_DURATION,
+    Effects,
+    SfxMemory,
+    first_available_effect,
+    stop_looped_sfx,
+)
 from minimai.lib.options import Options
 from minimai.lib.scoring import ScoreSnapshot, get_score_snapshot
 from minimai.lib.streams import STREAM_START_TIME, Streams
@@ -36,14 +42,6 @@ OverlapEntries = VarArray[OverlapEntry, Dim[8]]
 @level_memory
 class OverlapMemory:
     sensors: Array[OverlapEntries, Dim[33]]
-
-
-@level_memory
-class SfxMemory:
-    # Touch holds that want the riser this frame.
-    touch_hold_riser_count: int
-    # The earliest note, for the count-in. Written in preprocess.
-    first_note_time: float
 
 
 class ActivityManager(PlayArchetype):
@@ -136,13 +134,3 @@ def register_touch_overlap(sensor: int, start_time: float, index: int, kind: Tou
     entries = OverlapMemory.sensors[sensor - 1]
     if not entries.is_full():
         entries.append(OverlapEntry(start_time=start_time, index=index, kind=kind))
-
-
-def register_touch_hold_riser():
-    """A touch hold wants the riser this frame (sequential callbacks only)."""
-    SfxMemory.touch_hold_riser_count += 1
-
-
-def report_note_time(target_time: float):
-    """Preprocess only: a note at ``target_time``, for the count-in."""
-    SfxMemory.first_note_time = min(SfxMemory.first_note_time, target_time)

@@ -12,7 +12,7 @@ from sonolus.script.timing import beat_to_time
 from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib import archetype_names, buckets
-from minimai.lib.effect import emit_firework_sfx, emit_touch_sfx, is_hit, schedule_guide_sfx
+from minimai.lib.effect import emit_firework_sfx, emit_touch_sfx, is_hit, report_note_time, schedule_guide_sfx
 from minimai.lib.judge_text import spawn_judge_text, touch_slot
 from minimai.lib.layout import layout_sensor_firework_center, layout_touch_effect, layout_touch_judge_text
 from minimai.lib.particle import spawn_touch_effect
@@ -21,7 +21,7 @@ from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration, is_break_touch, is_ex_touch
 from minimai.lib.game import ArcadeJudgment, apply_sensor_mirror_option
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
-from minimai.play.activity_manager import register_touch_overlap, report_note_time
+from minimai.play.activity_manager import register_touch_overlap
 
 class BaseTouch(TouchBaseInput):
     beat: StandardImport.BEAT

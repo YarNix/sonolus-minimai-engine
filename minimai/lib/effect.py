@@ -2,6 +2,7 @@ from enum import IntEnum, auto
 from math import ceil
 
 from sonolus.script.effect import Effect, LoopedEffectHandle, StandardEffect, effect, effects
+from sonolus.script.globals import level_memory
 
 from minimai.lib.game import ArcadeJudgment
 from minimai.lib.options import Options
@@ -168,6 +169,34 @@ def emit_break_slide_end_sfx(judgment: ArcadeJudgment, at: float, scheduled: boo
 def schedule_guide_sfx(at: float):
     if Options.guide_sound and Effects.guide.is_available:
         Effects.guide.schedule(at + GUIDE_OFFSET, SFX_DISTANCE)
+
+
+@level_memory
+class SfxMemory:
+    inited: bool
+    # Touch holds that want the riser this frame.
+    touch_hold_riser_count: int
+    # The earliest note, for the count-in. Written in preprocess.
+    first_note_time: float
+
+
+def init_sfx_memory():
+    """Preprocess only. Runs once, whichever preprocess needs the values first."""
+    if SfxMemory.inited:
+        return
+    SfxMemory.inited = True
+    SfxMemory.first_note_time = 1e9
+
+
+def report_note_time(target_time: float):
+    """Preprocess only: a note at ``target_time``, for the count-in."""
+    init_sfx_memory()
+    SfxMemory.first_note_time = min(SfxMemory.first_note_time, target_time)
+
+
+def register_touch_hold_riser():
+    """A touch hold wants the riser this frame (sequential callbacks only)."""
+    SfxMemory.touch_hold_riser_count += 1
 
 
 def schedule_count_in(bpm: float, first_note_time: float):
