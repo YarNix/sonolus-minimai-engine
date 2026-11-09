@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 from sonolus.script.archetype import PlayArchetype, callback, entity_memory
-from sonolus.script.array import Array, Dim
-from sonolus.script.containers import VarArray
 from sonolus.script.effect import LoopedEffectHandle
-from sonolus.script.globals import level_memory
-from sonolus.script.record import Record
 from sonolus.script.runtime import offset_adjusted_time, time
 
 from minimai.lib import archetype_names
@@ -19,29 +15,7 @@ from minimai.lib.effect import (
 from minimai.lib.options import Options
 from minimai.lib.scoring import ScoreSnapshot, get_score_snapshot
 from minimai.lib.streams import STREAM_START_TIME, Streams
-from minimai.lib.touch import TouchKind, draw_touch_overlap
-
-
-class OverlapEntry(Record):
-    """A touch visible on a sensor this frame."""
-    start_time: float
-    # Breaks ties between touches that appear together.
-    index: int
-    kind: TouchKind
-
-    def is_before(self, other: OverlapEntry) -> bool:
-        return self.start_time < other.start_time or (
-            self.start_time == other.start_time and self.index < other.index
-        )
-
-
-# Per sensor; only the 2nd and 3rd touch to appear are drawn.
-OverlapEntries = VarArray[OverlapEntry, Dim[8]]
-
-
-@level_memory
-class OverlapMemory:
-    sensors: Array[OverlapEntries, Dim[33]]
+from minimai.lib.touch_overlap import clear_touch_overlaps, draw_touch_overlaps
 
 
 class ActivityManager(PlayArchetype):
@@ -66,8 +40,7 @@ class ActivityManager(PlayArchetype):
     # Before the touches and touch holds register.
     @callback(order=-1)
     def update_sequential(self):
-        for entries in OverlapMemory.sensors:
-            entries.clear()
+        clear_touch_overlaps()
         SfxMemory.touch_hold_riser_count = 0
 
     def update_parallel(self):
@@ -75,18 +48,7 @@ class ActivityManager(PlayArchetype):
         # After every judgment of the frame is reported.
         self.record_score()
         self.update_riser()
-        for i, entries in enumerate(OverlapMemory.sensors):
-            if len(entries) < 2:
-                continue
-            for entry in entries:
-                rank = 1
-                # Can't sort entries in update_parallel
-                # Loop is cheapest
-                for other in entries:
-                    if other.is_before(entry):
-                        rank += 1
-                if rank == 2 or rank == 3:
-                    draw_touch_overlap(entry.kind, i + 1, rank)
+        draw_touch_overlaps()
 
     def terminate(self):
         stop_looped_sfx(self.charge_handle)
@@ -127,10 +89,3 @@ class ActivityManager(PlayArchetype):
         sustain = first_available_effect(Effects.touch_hold_sustain, Effects.touch_hold_sustain_fallback)
         if sustain.is_available:
             self.sustain_handle @= sustain.loop()
-
-
-def register_touch_overlap(sensor: int, start_time: float, index: int, kind: TouchKind):
-    """A touch is visible on ``sensor`` this frame."""
-    entries = OverlapMemory.sensors[sensor - 1]
-    if not entries.is_full():
-        entries.append(OverlapEntry(start_time=start_time, index=index, kind=kind))

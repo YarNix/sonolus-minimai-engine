@@ -20,8 +20,8 @@ from minimai.lib.firework import spawn_firework
 from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration, is_break_touch, is_ex_touch
 from minimai.lib.game import ArcadeJudgment, apply_sensor_mirror_option
+from minimai.lib.touch_overlap import register_touch_overlap
 from minimai.play.base_input import BaseInputMemory, TouchBaseInput
-from minimai.play.activity_manager import register_touch_overlap
 
 class BaseTouch(TouchBaseInput):
     beat: StandardImport.BEAT
