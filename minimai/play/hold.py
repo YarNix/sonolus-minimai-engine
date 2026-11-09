@@ -141,6 +141,8 @@ class BaseHold(ButtonBaseInput):
         # Releases are read here: touch() isn't called in frames without touches.
         if self.hold_input_interval.length > 0 and time() in self.hold_input_interval:
             self.check_body(self.is_pressed())
+        elif self.is_head_judged and self.is_released and self.is_pressed():
+            self.hold_state = HoldState.PRESSED
         if self.is_head_judged and not self.head_text_shown:
             self.head_text_shown = True
             if Options.hold_head_judge:
@@ -252,6 +254,10 @@ class BaseHold(ButtonBaseInput):
     def export_judgment(self):
         self.judged_time = offset_adjusted_time()
         self.arcade_judgment = self.judgment
+
+    @property
+    def is_released(self) -> bool:
+        return self.hold_state == HoldState.RELEASED or self.hold_state == HoldState.RELEASED_GRACE
 
     @property
     def is_glowing(self) -> bool:

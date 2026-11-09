@@ -261,6 +261,8 @@ class BaseTouchHold(TouchBaseInput):
         # No body check when the touch hold is 27 frames or shorter (empty or zero-length interval).
         if self.hold_input_interval.length > 0 and time() in self.hold_input_interval:
             self.check_body(self.pressed or self.is_body_group_held)
+        elif self.is_head_judged and self.is_released and (self.pressed or self.is_body_group_held):
+            self.hold_state = HoldState.PRESSED
         if self.is_scored and self.is_head_judged and time() >= self.end_time + input_offset():
             self.finish()
             return
@@ -296,6 +298,10 @@ class BaseTouchHold(TouchBaseInput):
     def export_judgment(self):
         self.judged_time = offset_adjusted_time()
         self.arcade_judgment = self.judgment
+
+    @property
+    def is_released(self) -> bool:
+        return self.hold_state == HoldState.RELEASED or self.hold_state == HoldState.RELEASED_GRACE
 
     @property
     def is_glowing(self) -> bool:

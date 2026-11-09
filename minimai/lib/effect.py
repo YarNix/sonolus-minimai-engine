@@ -225,6 +225,21 @@ def schedule_count_in(bpm: float, first_note_time: float):
         ticks -= 1
 
 
+def schedule_touch_hold_riser(start: float, end: float):
+    """The riser from ``start`` to ``end``, scheduled (preprocess): the charge loops until it reaches
+    its end, then the sustain loops."""
+    if not Options.touch_sound or end <= start:
+        return
+    sustain_start = start
+    if Effects.touch_hold_start.is_available:
+        sustain_start = start + TOUCH_HOLD_CHARGE_DURATION
+        Effects.touch_hold_start.schedule_loop(start).stop(min(end, sustain_start))
+    if sustain_start < end:
+        sustain = first_available_effect(Effects.touch_hold_sustain, Effects.touch_hold_sustain_fallback)
+        if sustain.is_available:
+            sustain.schedule_loop(sustain_start).stop(end)
+
+
 def stop_looped_sfx(handle: LoopedEffectHandle):
     if handle.id != 0:
         handle.stop()
