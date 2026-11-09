@@ -6,10 +6,12 @@ from minimai.lib.effect import SfxMemory, init_sfx_memory, schedule_count_in
 from minimai.lib.hitbox import init_hitboxes
 from minimai.lib.layout import init_layout
 from minimai.lib.level_config import init_level_config
+from minimai.lib.note import init_note_life, init_note_score
 from minimai.lib.particle import init_particles
 from minimai.lib.scoring import init_life_challenge, init_score_multiplier
 from minimai.lib.skin import init_skin
 from minimai.lib.ui import init_ui
+from minimai.watch.note import WATCH_NOTE_ARCHETYPES
 from minimai.watch.ring import WatchRing
 
 
@@ -31,9 +33,9 @@ class WatchInitialization(WatchArchetype):
         init_buckets()
         init_life_challenge()
         init_score_multiplier()
-        # The notes' score and life, once they have watch archetypes:
-        # init_note_score(WATCH_NOTE_ARCHETYPES)
-        # init_note_life(WATCH_NOTE_ARCHETYPES)
+        init_note_score(WATCH_NOTE_ARCHETYPES)
+        init_note_life(WATCH_NOTE_ARCHETYPES)
+        # The other notes' score and life, once they have watch archetypes.
         WatchRing.spawn()
         init_sfx_memory()
         schedule_count_in(self.count_in_bpm, SfxMemory.first_note_time)

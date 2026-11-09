@@ -15,6 +15,7 @@ from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
 from minimai.lib.note import (
+    FAKE_ROTATION_SPEED,
     NoteKind,
     get_tap_appear_duration,
     draw_note,
@@ -31,9 +32,6 @@ from minimai.lib.particle import spawn_tap_effect
 from minimai.lib.firework import spawn_firework
 from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.play.base_input import BaseInputMemory, ButtonBaseInput
-
-# Fake-rotate star (simai ``$$``): -440 deg/s, in half-turns per second.
-FAKE_ROTATION_SPEED = 440 / 180
 
 
 class BaseNote(ButtonBaseInput):

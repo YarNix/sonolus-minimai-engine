@@ -71,6 +71,10 @@ def is_star(kind: NoteKind):
     }
     return kind in star_kinds
 
+# Fake-rotate star (simai ``$$``): -440 deg/s, in half-turns per second.
+FAKE_ROTATION_SPEED = 440 / 180
+
+
 def get_note_angle(speed: float):
     return time() * -pi * speed
 
