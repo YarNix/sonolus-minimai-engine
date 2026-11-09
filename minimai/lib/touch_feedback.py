@@ -5,7 +5,7 @@ from random import random
 from sonolus.script.array import Array, Dim
 from sonolus.script.globals import level_memory
 from sonolus.script.interval import remap_clamped
-from sonolus.script.runtime import time
+from sonolus.script.runtime import offset_adjusted_time, time
 from sonolus.script.vec import Vec2
 
 from minimai.lib.game import Button, Sensor, SensorGroup, sensor_to_group
@@ -22,6 +22,7 @@ from minimai.lib.layout import (
 )
 from minimai.lib.options import Options
 from minimai.lib.skin import ActiveSkin
+from minimai.lib.streams import Streams, TouchFeedbackEvents
 
 # A press within this long of a hit note there shows no feedback.
 TOUCH_FEEDBACK_COOLDOWN = 0.4167
@@ -68,6 +69,8 @@ class TouchFeedbackMemory:
     has_hit: SlotFlags
     # The petals' turn, different for every feedback.
     rotation: SlotTimes
+    # This frame's, for the replay.
+    events: TouchFeedbackEvents
 
 
 def has_feedback(sensor: Sensor) -> bool:
@@ -83,10 +86,11 @@ def has_feedback(sensor: Sensor) -> bool:
 
 def start_feedback(sensor: Sensor):
     slot = sensor - 1
-    if not has_feedback(sensor):
-        return
     last_feedback_time = time() - TouchFeedbackMemory.last_hit_time[slot]
     if TouchFeedbackMemory.has_hit[slot] and last_feedback_time < TOUCH_FEEDBACK_COOLDOWN:
+        return
+    TouchFeedbackMemory.events.started.add(sensor)
+    if not has_feedback(sensor):
         return
     TouchFeedbackMemory.start_time[slot] = time()
     TouchFeedbackMemory.started[slot] = True
@@ -94,7 +98,7 @@ def start_feedback(sensor: Sensor):
 
 
 def update_touch_feedback():
-    """Starts feedback for this frame's presses that no note took."""
+    """Starts feedback for this frame's presses that no note took, and records the frame."""
     for i in range(8):
         if InputState.button_started[i]:
             start_feedback(Sensor.A1 + i)
@@ -105,12 +109,16 @@ def update_touch_feedback():
     else:
         for pressed in InputState.processing_sensor_touch:
             start_feedback(pressed.second)
+    if TouchFeedbackMemory.events != +TouchFeedbackEvents:
+        Streams.touch_feedback[offset_adjusted_time()] = TouchFeedbackMemory.events
+        TouchFeedbackMemory.events @= +TouchFeedbackEvents
 
 
 def mark_touch_feedback_hit(sensor: Sensor):
     """A note took a press there: its feedback stops, and the next presses for a while show none."""
     TouchFeedbackMemory.last_hit_time[sensor - 1] = time()
     TouchFeedbackMemory.has_hit[sensor - 1] = True
+    TouchFeedbackMemory.events.hit.add(sensor)
 
 
 def mark_button_feedback_hit(button: Button):

@@ -5,10 +5,11 @@ from sonolus.script.archetype import (
     StandardImport,
     entity_data,
     entity_memory,
+    exported,
     imported,
     shared_memory,
 )
-from sonolus.script.runtime import input_offset, time, touches
+from sonolus.script.runtime import input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 from sonolus.script.bucket import Bucket, Judgment
 
@@ -49,6 +50,10 @@ class BaseNote(ButtonBaseInput):
     slide_rotate_speed: float = shared_memory()
 
     judgment: ArcadeJudgment = entity_memory()
+
+    # When the judgment was made, and what it was. Unjudged (NONE) if play never got there.
+    judged_time: float = exported(name="judgedTime")
+    arcade_judgment: ArcadeJudgment = exported(name="arcadeJudgment")
 
     @classmethod
     def score_weight(cls) -> float:
@@ -153,6 +158,7 @@ class BaseNote(ButtonBaseInput):
             self.result.bucket_value = bucket_val
         self.emit_hit_sfx(judgment, actual_time, scheduled=False)
         self.judgment = judgment
+        self.export_judgment()
         report_score(self.score_weight(), is_break(self.kind), judgment)
         self.despawn = True
 
@@ -169,6 +175,11 @@ class BaseNote(ButtonBaseInput):
         self.result.accuracy = self.judgment_window.good.end
         self.result.bucket = Bucket(-1)
         self.judgment = ArcadeJudgment.MISS
+        self.export_judgment()
+
+    def export_judgment(self):
+        self.judged_time = offset_adjusted_time()
+        self.arcade_judgment = self.judgment
 
     def terminate(self):
         # Spawned here rather than at judgment, so every way of despawning is covered.

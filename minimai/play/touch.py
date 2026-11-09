@@ -4,9 +4,10 @@ from sonolus.script.archetype import (
     StandardImport,
     entity_data,
     entity_memory,
+    exported,
     imported,
 )
-from sonolus.script.runtime import input_offset, time, touches
+from sonolus.script.runtime import input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 from sonolus.script.bucket import Bucket, Judgment
 
@@ -30,6 +31,10 @@ class BaseTouch(TouchBaseInput):
     start_time: float = entity_data()
 
     judgment: ArcadeJudgment = entity_memory()
+
+    # When the judgment was made, and what it was. NONE if never judged.
+    judged_time: float = exported(name="judgedTime")
+    arcade_judgment: ArcadeJudgment = exported(name="arcadeJudgment")
 
     @classmethod
     def score_weight(cls) -> float:
@@ -132,6 +137,7 @@ class BaseTouch(TouchBaseInput):
             self.result.bucket_value = bucket_value
         self.emit_hit_sfx(judgment, time(), scheduled=False)
         self.judgment = judgment
+        self.export_judgment()
 
     def emit_hit_sfx(self, judgment: ArcadeJudgment, at: float, scheduled: bool):
         emit_touch_sfx(is_break_touch(self.kind), judgment, at, scheduled)
@@ -150,6 +156,11 @@ class BaseTouch(TouchBaseInput):
         self.result.accuracy = self.judgment_window.good.end
         self.result.bucket = Bucket(-1)
         self.judgment = ArcadeJudgment.MISS
+        self.export_judgment()
+
+    def export_judgment(self):
+        self.judged_time = offset_adjusted_time()
+        self.arcade_judgment = self.judgment
 
     def terminate(self):
         if self.is_scored and self.is_judged:

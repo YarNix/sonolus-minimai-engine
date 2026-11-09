@@ -5,6 +5,7 @@ from math import floor
 from typing import Protocol, ClassVar
 
 from sonolus.script.globals import level_memory
+from sonolus.script.record import Record
 from sonolus.script.runtime import level_score, level_life
 from sonolus.script.archetype import LifeInfo
 
@@ -56,6 +57,33 @@ class ScoreMemory:
     grade: Grade
     # Life Challenge lives left.
     life: int
+
+
+class ScoreSnapshot(Record):
+    """The running values of ``ScoreMemory`` for watch mode."""
+    base_earned: float
+    base_lost: float
+    bonus_earned: float
+    bonus_lost: float
+    dx_earned: float
+    dx_lost: float
+    combo: int
+    grade: Grade
+    life: int
+
+
+def get_score_snapshot() -> ScoreSnapshot:
+    return ScoreSnapshot(
+        base_earned=ScoreMemory.base_earned,
+        base_lost=ScoreMemory.base_lost,
+        bonus_earned=ScoreMemory.bonus_earned,
+        bonus_lost=ScoreMemory.bonus_lost,
+        dx_earned=ScoreMemory.dx_earned,
+        dx_lost=ScoreMemory.dx_lost,
+        combo=ScoreMemory.combo,
+        grade=ScoreMemory.grade,
+        life=ScoreMemory.life,
+    )
 
 
 def add_note_to_total(weight: float, is_break: bool):

@@ -10,6 +10,7 @@ from minimai.lib.hold import init_hold_life, init_hold_score
 from minimai.lib.note import init_note_life, init_note_score
 from minimai.lib.scoring import init_score_multiplier, init_life_challenge
 from minimai.lib.slide import init_slide_life, init_slide_score
+from minimai.lib.streams import REPLAY_VERSION
 from minimai.lib.touch import init_touch_life, init_touch_score
 from minimai.lib.touch_hold import init_touch_hold_life, init_touch_hold_score
 from minimai.lib.particle import init_particles
@@ -47,6 +48,8 @@ class Initialization(PlayArchetype):
 
     count_in_bpm: float = imported(name="countInBpm", default=0)
 
+    replay_version: int = exported(name="replayVersion")
+
     @callback(order=-1)
     def preprocess(self):
         SfxMemory.first_note_time = 1e9
@@ -63,6 +66,7 @@ class Initialization(PlayArchetype):
         # init_play_common()
 
     def initialize(self):
+        self.replay_version = REPLAY_VERSION
         schedule_count_in(self.count_in_bpm, SfxMemory.first_note_time)
         InputManager.spawn()
         ActivityManager.spawn()

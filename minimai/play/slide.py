@@ -6,6 +6,7 @@ from sonolus.script.archetype import (
     PlayArchetype,
     StandardImport,
     entity_data,
+    exported,
     imported,
     entity_memory,
     shared_memory,
@@ -15,7 +16,7 @@ from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
 from sonolus.script.interval import Interval
-from sonolus.script.runtime import input_offset, time
+from sonolus.script.runtime import input_offset, offset_adjusted_time, time
 from sonolus.script.timing import beat_to_time
 
 from minimai.typing import override_archetype
@@ -26,6 +27,7 @@ from minimai.lib.slide_ok import spawn_slide_ok
 from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.lib.game import ArcadeJudgment, Button, apply_button_mirror_option, is_mirror_option_reflection
 from minimai.lib.options import Options
+from minimai.lib.streams import STREAM_START_TIME, Streams
 from minimai.lib.layout import SLIDE_TRACK_POINTS, layout_button_firework_center, layout_slide_ok
 from minimai.lib.slide import (
     SLIDE_JUDGMENT_CONST,
@@ -92,6 +94,13 @@ class BaseSlide(PlayArchetype):
     judgment: ArcadeJudgment = entity_memory()
     is_judgment_reported: bool = entity_memory()
     despawn_time: float = entity_memory()
+    recorded_path_hidden: int = entity_memory()
+
+    # When the judgment was made, and what it was. NONE if never judged.
+    judged_time: float = exported(name="judgedTime")
+    arcade_judgment: ArcadeJudgment = exported(name="arcadeJudgment")
+    # When the end effects played, after the judgment.
+    effect_time: float = exported(name="effectTime")
 
     @classmethod
     def score_weight(cls) -> float:
@@ -202,6 +211,7 @@ class BaseSlide(PlayArchetype):
             add_note_to_total(self.score_weight(), is_break_slide(self.kind))
 
     def initialize(self):
+        Streams.slide_path_hidden[self.index][STREAM_START_TIME] = 0
         if is_challenge_over():
             return
         # The slide sound when the star starts moving; auto SFX: the break end on arrival.
@@ -238,12 +248,16 @@ class BaseSlide(PlayArchetype):
             self.update_connection()
         if self.despawn:
             return
+        path_hidden = self.path_hidden_count if not self.is_judged else SLIDE_PATH_ALL_HIDDEN
+        if path_hidden != self.recorded_path_hidden:
+            Streams.slide_path_hidden[self.index][offset_adjusted_time()] = path_hidden
+            self.recorded_path_hidden = path_hidden
         draw_slide(
             self.kind,
             self.track,
             self.start_button,
             self.is_mirrored,
-            self.path_hidden_count if not self.is_judged else SLIDE_PATH_ALL_HIDDEN,
+            path_hidden,
             self.start_time,
             self.target_time,
             self.segment_slide_time,
@@ -254,6 +268,7 @@ class BaseSlide(PlayArchetype):
 
     def terminate(self):
         if self.is_chain_final and self.is_judged:
+            self.effect_time = offset_adjusted_time()
             self.play_end_effects()
 
     def update_final(self):
@@ -381,6 +396,7 @@ class BaseSlide(PlayArchetype):
         if self.result.bucket.id != -1:
             self.result.bucket_value = self.judgment_window.normalize_error(error)
         self.judgment = judgment
+        self.export_judgment()
         self.despawn_time = time() + self.get_despawn_wait_duration(actual_time)
         if is_break_slide(self.kind):
             emit_break_slide_end_sfx(judgment, actual_time, scheduled=False)
@@ -412,8 +428,13 @@ class BaseSlide(PlayArchetype):
             self.result.accuracy = 0
             self.result.bucket = Bucket(-1)
             self.judgment = ArcadeJudgment.MISS
+        self.export_judgment()
         # Despawns (with the arrive SFX) in the next update_parallel, after the score is reported.
         self.despawn_time = time()
+
+    def export_judgment(self):
+        self.judged_time = offset_adjusted_time()
+        self.arcade_judgment = self.judgment
 
 
 def is_single_entity(slide: BaseSlide) -> bool:

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from sonolus.script.archetype import PlayArchetype, callback
+from sonolus.script.archetype import PlayArchetype, callback, entity_memory
 from sonolus.script.array import Array, Dim
 from sonolus.script.iterator import maybe_next
 from sonolus.script.containers import ArraySet, Pair, VarArray
-from sonolus.script.runtime import Touch, touches
+from sonolus.script.runtime import Touch, offset_adjusted_time, touches
 
 from minimai.lib import archetype_names
 from minimai.lib.game import Button, Sensor
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib.input_state import InputState
 from minimai.lib.layout import get_sensor_pos_from_center, layout_px_size, to_view
+from minimai.lib.streams import STREAM_START_TIME, InputSnapshot, Streams
 from minimai.lib.touch_feedback import (
     draw_input_feedbacks,
     draw_touch_feedbacks,
@@ -84,12 +85,18 @@ def touch_test_sensors(touch: Touch):
 class InputManager(PlayArchetype):
     name = archetype_names.INPUT_MANAGER
 
+    recorded_input: InputSnapshot = entity_memory()
+
+    def initialize(self):
+        Streams.input[STREAM_START_TIME] = self.recorded_input
+
     @callback(order=-1)
     def update_sequential(self):
         BaseInputMemory.active_tap_inputs.clear()
         BaseInputMemory.active_touch_inputs.clear()
         SlideMemory.active_slide_inputs.clear()
         self.update_current_input()
+        self.record_input()
 
     @callback(order=-1)
     def touch(self):
@@ -100,6 +107,20 @@ class InputManager(PlayArchetype):
     def update_parallel(self):
         draw_touch_feedbacks()
         draw_input_feedbacks()
+
+    def record_input(self):
+        snapshot = +InputSnapshot
+        for i, touch_id in enumerate(InputState.button_down):
+            if touch_id != 0:
+                snapshot.buttons += 2**i
+        for i in range(33):
+            if InputState.sensor_touch_down[i]:
+                snapshot.touch.add(i + 1)
+            if InputState.sensor_note_down[i]:
+                snapshot.note.add(i + 1)
+        if snapshot != self.recorded_input:
+            Streams.input[offset_adjusted_time()] = snapshot
+            self.recorded_input @= snapshot
 
     @staticmethod
     def update_current_input():

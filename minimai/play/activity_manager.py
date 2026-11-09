@@ -6,11 +6,13 @@ from sonolus.script.containers import VarArray
 from sonolus.script.effect import LoopedEffectHandle
 from sonolus.script.globals import level_memory
 from sonolus.script.record import Record
-from sonolus.script.runtime import time
+from sonolus.script.runtime import offset_adjusted_time, time
 
 from minimai.lib import archetype_names
 from minimai.lib.effect import TOUCH_HOLD_CHARGE_DURATION, Effects, first_available_effect, stop_looped_sfx
 from minimai.lib.options import Options
+from minimai.lib.scoring import ScoreSnapshot, get_score_snapshot
+from minimai.lib.streams import STREAM_START_TIME, Streams
 from minimai.lib.touch import TouchKind, draw_touch_overlap
 
 
@@ -45,7 +47,8 @@ class SfxMemory:
 
 
 class ActivityManager(PlayArchetype):
-    """Per-frame state shared between entities: touch overlaps and the touch hold riser."""
+    """Per-frame state shared between entities: touch overlaps, the touch hold riser and the score
+    stream."""
     name = archetype_names.ACTIVITY_MANAGER
 
     # One riser however many touch holds want it.
@@ -53,6 +56,14 @@ class ActivityManager(PlayArchetype):
     riser_start_time: float = entity_memory()
     charge_handle: LoopedEffectHandle = entity_memory()
     sustain_handle: LoopedEffectHandle = entity_memory()
+
+    recorded_riser: bool = entity_memory()
+    recorded_score: ScoreSnapshot = entity_memory()
+
+    def initialize(self):
+        Streams.touch_hold_riser[STREAM_START_TIME] = False
+        self.recorded_score @= get_score_snapshot()
+        Streams.score[STREAM_START_TIME] = self.recorded_score
 
     # Before the touches and touch holds register.
     @callback(order=-1)
@@ -62,6 +73,9 @@ class ActivityManager(PlayArchetype):
         SfxMemory.touch_hold_riser_count = 0
 
     def update_parallel(self):
+        self.record_riser()
+        # After every judgment of the frame is reported.
+        self.record_score()
         self.update_riser()
         for i, entries in enumerate(OverlapMemory.sensors):
             if len(entries) < 2:
@@ -98,6 +112,18 @@ class ActivityManager(PlayArchetype):
         elif self.charge_handle.id != 0 and time() - self.riser_start_time >= TOUCH_HOLD_CHARGE_DURATION:
             stop_looped_sfx(self.charge_handle)
             self.start_sustain()
+
+    def record_riser(self):
+        wanted = SfxMemory.touch_hold_riser_count > 0
+        if wanted != self.recorded_riser:
+            Streams.touch_hold_riser[offset_adjusted_time()] = wanted
+            self.recorded_riser = wanted
+
+    def record_score(self):
+        score = get_score_snapshot()
+        if score != self.recorded_score:
+            Streams.score[offset_adjusted_time()] = score
+            self.recorded_score @= score
 
     def start_sustain(self):
         sustain = first_available_effect(Effects.touch_hold_sustain, Effects.touch_hold_sustain_fallback)

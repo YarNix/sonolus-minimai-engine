@@ -2,11 +2,19 @@ from __future__ import annotations
 
 from typing import cast
 
-from sonolus.script.archetype import EntityRef, StandardImport, entity_data, entity_memory, imported, shared_memory
+from sonolus.script.archetype import (
+    EntityRef,
+    StandardImport,
+    entity_data,
+    entity_memory,
+    exported,
+    imported,
+    shared_memory,
+)
 from sonolus.script.bucket import Bucket
 from sonolus.script.interval import Interval, clamp
 from sonolus.script.particle import ParticleHandle
-from sonolus.script.runtime import delta_time, input_offset, time, touches
+from sonolus.script.runtime import delta_time, input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
@@ -22,6 +30,7 @@ from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hol
 from minimai.lib.firework import spawn_firework
 from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.lib.options import Options
+from minimai.lib.streams import STREAM_START_TIME, Streams
 from minimai.lib.game import ArcadeJudgment, apply_sensor_mirror_option
 from minimai.lib.input_state import InputState
 from minimai.lib.hold import HoldState
@@ -54,11 +63,17 @@ class BaseTouchHold(TouchBaseInput):
 
     release_time: float = entity_memory()
     pending_release: float = entity_memory()
-    hold_state: HoldState = entity_memory()
+    _hold_state: HoldState = entity_memory()
     pressed: bool = entity_memory()
 
     judgment: ArcadeJudgment = entity_memory()
     glow: ParticleHandle = entity_memory()
+
+    # When the head and the final judgments were made, and what they were. NONE if never judged.
+    head_judged_time: float = exported(name="headJudgedTime")
+    head_arcade_judgment: ArcadeJudgment = exported(name="headArcadeJudgment")
+    judged_time: float = exported(name="judgedTime")
+    arcade_judgment: ArcadeJudgment = exported(name="arcadeJudgment")
 
     # Body group state, kept on the leader: how many members were held in the frame at
     # ``body_group_time``.
@@ -94,6 +109,7 @@ class BaseTouchHold(TouchBaseInput):
             add_note_to_total(self.score_weight(), is_break_touch_hold(self.kind))
 
     def initialize(self):
+        Streams.hold_states[self.index][STREAM_START_TIME] = HoldState.DEFAULT
         if is_challenge_over():
             return
         self.hold_state = HoldState.DEFAULT
@@ -103,6 +119,16 @@ class BaseTouchHold(TouchBaseInput):
                 schedule_guide_sfx(self.end_time)
             # The head has no sound; the riser plays instead.
             self.emit_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.end_time, scheduled=True)
+
+    @property
+    def hold_state(self) -> HoldState:
+        return self._hold_state
+
+    @hold_state.setter
+    def hold_state(self, state: HoldState):
+        if state != self._hold_state:
+            Streams.hold_states[self.index][offset_adjusted_time()] = state
+        self._hold_state = state
 
     @property
     def judgment_window(self):
@@ -206,6 +232,11 @@ class BaseTouchHold(TouchBaseInput):
             self.head_error = error
         self.head_bucket_value = error * buckets.WINDOW_SCALE
         self.hold_state = HoldState.PRESSED
+        self.export_head_judgment()
+
+    def export_head_judgment(self):
+        self.head_judged_time = offset_adjusted_time()
+        self.head_arcade_judgment = self.head_judgment
 
     def update_parallel(self):
         if self.despawn or self.is_judged:
@@ -217,6 +248,7 @@ class BaseTouchHold(TouchBaseInput):
             if time() > self.input_interval.end:
                 self.head_judgment = ArcadeJudgment.MISS
                 self.head_error = self.judgment_window.good.end
+                self.export_head_judgment()
             elif self.is_group_judged:
                 self.judge_head(self.group_result, self.group_result_error)
         # No body check when the touch hold is 27 frames or shorter (empty or zero-length interval).
@@ -252,6 +284,11 @@ class BaseTouchHold(TouchBaseInput):
             self.result.bucket_value = self.head_bucket_value
         self.emit_end_sfx(final, time(), scheduled=False)
         self.judgment = final
+        self.export_judgment()
+
+    def export_judgment(self):
+        self.judged_time = offset_adjusted_time()
+        self.arcade_judgment = self.judgment
 
     @property
     def is_glowing(self) -> bool:
