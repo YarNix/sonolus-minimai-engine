@@ -1,8 +1,9 @@
 from collections.abc import Iterable
 from enum import IntEnum, auto
 from math import pi
-from typing import TypeAlias, assert_never
+from typing import Any, Protocol, TypeAlias, assert_never, cast
 
+from sonolus.script.archetype import EntityRef, get_archetype_by_name
 from sonolus.script.array import Array, Dim
 from sonolus.script.containers import VarArray
 from sonolus.script.debug import assert_true
@@ -10,14 +11,15 @@ from sonolus.script.record import Record
 from sonolus.script.vec import Vec2
 from sonolus.script.quad import Quad
 from sonolus.script.runtime import time
-from sonolus.script.interval import clamp, lerp, unlerp, unlerp_clamped
+from sonolus.script.interval import clamp, lerp, remap, unlerp, unlerp_clamped
+from sonolus.script.timing import beat_to_time
 
+from minimai.lib import archetype_names
 from minimai.lib.layer import ZIndexes, get_z, LAYER_SLIDE_NOTE, LAYER_SLIDE_PATH
 from minimai.lib.layout import (
     SLIDE_TRACK_POINTS,
     build_slide_star_points,
     from_skin_px,
-    get_slide_path_alpha,
     layout_slide_head,
     layout_slide_path,
     layout_wifi_slide_path,
@@ -484,6 +486,27 @@ def get_wifi_star_angle(star_track: SlideTrackKind, button: Button, is_mirrored:
     return -pi / 8 * (8 + side + 2 * (button - 1))
 
 
+def get_fade_in_end_time(target_time: float) -> float:
+    """When a slide's path is fully shown; its input window opens then too."""
+    return target_time - 3 / 60
+
+
+SLIDE_FADE_IN_MAX_ALPHA = 0.5
+
+def get_slide_path_alpha(start_time: float, target_time: float, current_time: float) -> float:
+    if current_time < start_time:
+        return 0.0
+    end_time = get_fade_in_end_time(target_time)
+    if current_time > end_time:
+        return 1.0
+    fade_in_duration = clamp(end_time - start_time, 0, 0.2)
+    fade_in_cutoff = start_time + fade_in_duration
+    if current_time > fade_in_cutoff:
+        return SLIDE_FADE_IN_MAX_ALPHA
+    alpha = remap(start_time, fade_in_cutoff, 0, SLIDE_FADE_IN_MAX_ALPHA, current_time)
+    return alpha
+
+
 def draw_slide(
     kind: SlideKind,
     track: SlideTrackKind,
@@ -595,3 +618,284 @@ def init_slide_life(archetypes: Iterable[type[WeightedArchetype]]):
             continue
         weight = MAX_BREAK_WEIGHT if is_break_slide(archetype.key) else archetype.score_weight()
         init_life_loss(archetype, weight)
+
+
+## Connection chains. The helpers read imported data only, so they're safe in any preprocess order,
+## and find the current mode's archetypes by name, so play and watch share them.
+
+# Upper bound on chain walks; guards against malformed (cyclic) level data.
+MAX_CHAIN_LENGTH = 32
+
+SlideRef: TypeAlias = int | EntityRef[Any]
+
+
+class ChainSlide(Protocol):
+    """What every slide archetype imports, in play and watch."""
+    key: int | float
+    beat: float
+    track: SlideTrackKind
+    wait_duration: float
+    slide_duration: float
+    prev_slide_ref: EntityRef[Any]
+
+
+class SingleConnSlide(ChainSlide, Protocol):
+    next_slide_ref: EntityRef[Any]
+
+
+class WifiConnSlide(SingleConnSlide, Protocol):
+    next_slide_l_ref: EntityRef[Any]
+    next_slide_r_ref: EntityRef[Any]
+
+
+def get_slide_index(slide: SlideRef) -> int:
+    if isinstance(slide, EntityRef):
+        return slide.index
+    return slide
+
+
+def slide_at(slide: SlideRef) -> ChainSlide:
+    """Any slide: every slide archetype starts with the same fields."""
+    archetype = get_archetype_by_name(archetype_names.NORMAL_SLIDE_NOTE)
+    return cast(ChainSlide, archetype.at(get_slide_index(slide), check=False))
+
+
+def single_conn_slide_at(slide: SlideRef) -> SingleConnSlide:
+    archetype = get_archetype_by_name(archetype_names.CONN_SLIDE_NOTE)
+    return cast(SingleConnSlide, archetype.at(get_slide_index(slide), check=False))
+
+
+def wifi_conn_slide_at(slide: SlideRef) -> WifiConnSlide:
+    archetype = get_archetype_by_name(archetype_names.CONN_WIFI_SLIDE_NOTE)
+    return cast(WifiConnSlide, archetype.at(get_slide_index(slide), check=False))
+
+
+def is_single_conn_slide_at(slide: SlideRef) -> bool:
+    return get_archetype_by_name(archetype_names.CONN_SLIDE_NOTE).is_at(get_slide_index(slide))
+
+
+def is_wifi_conn_slide_at(slide: SlideRef) -> bool:
+    return get_archetype_by_name(archetype_names.CONN_WIFI_SLIDE_NOTE).is_at(get_slide_index(slide))
+
+
+def is_wifi_slide_at(slide: SlideRef) -> bool:
+    index = get_slide_index(slide)
+    return (
+        is_wifi_conn_slide_at(index)
+        or get_archetype_by_name(archetype_names.NORMAL_WIFI_SLIDE_NOTE).is_at(index)
+        or get_archetype_by_name(archetype_names.EACH_WIFI_SLIDE_NOTE).is_at(index)
+        or get_archetype_by_name(archetype_names.BREAK_WIFI_SLIDE_NOTE).is_at(index)
+    )
+
+
+def get_next_slide_index(slide: SlideRef, branch: SlideBranch) -> int:
+    """Index of the slide continuing from ``index`` on ``branch`` (0 if none)."""
+    index = get_slide_index(slide)
+    result = 0
+    if is_single_conn_slide_at(index):
+        if branch == SlideBranch.BRANCH_C:
+            result = single_conn_slide_at(index).next_slide_ref.index
+    elif is_wifi_conn_slide_at(index):
+        wifi = wifi_conn_slide_at(index)
+        match branch:
+            case SlideBranch.BRANCH_C:
+                result = wifi.next_slide_ref.index
+            case SlideBranch.BRANCH_L:
+                result = wifi.next_slide_l_ref.index
+            case SlideBranch.BRANCH_R:
+                result = wifi.next_slide_r_ref.index
+            case _:
+                assert_never(branch)
+    return max(result, 0)
+
+
+def get_first_next_slide_index(slide: SlideRef) -> int:
+    """C, then L, then R."""
+    index = get_slide_index(slide)
+    result = get_next_slide_index(index, SlideBranch.BRANCH_C)
+    if result <= 0:
+        result = get_next_slide_index(index, SlideBranch.BRANCH_L)
+    if result <= 0:
+        result = get_next_slide_index(index, SlideBranch.BRANCH_R)
+    return result
+
+
+def get_slide_entity_area_count(slide: SlideRef) -> int:
+    index = get_slide_index(slide)
+    count = 0
+    if is_wifi_slide_at(index):
+        count = get_slide_area_count(SlideTrackKind.FAN_C)
+    else:
+        count = get_slide_area_count(slide_at(index).track)
+    return count
+
+
+def is_conn_slide_at(slide: SlideRef) -> bool:
+    index = get_slide_index(slide)
+    return is_single_conn_slide_at(index) or is_wifi_conn_slide_at(index)
+
+
+def get_slide_bar_count(slide: SlideRef) -> int:
+    index = get_slide_index(slide)
+    return len(SLIDE_TRACK_POINTS[slide_at(index).track])
+
+
+def get_primary_final_index(slide: SlideRef) -> int:
+    """Final slide reached by following C, then L, then R."""
+    index = get_slide_index(slide)
+    current = index
+    steps = 0
+    while current > 0 and is_conn_slide_at(current) and steps < MAX_CHAIN_LENGTH:
+        current = get_first_next_slide_index(current)
+        steps += 1
+    return current
+
+
+def get_path_bar_count(slide: SlideRef) -> int:
+    """Bars from the chain head to ``final_index`` (inclusive)."""
+    final_index = get_slide_index(slide)
+    bars = 0
+    current = final_index
+    steps = 0
+    while current > 0 and steps < MAX_CHAIN_LENGTH:
+        bars += get_slide_bar_count(current)
+        current = slide_at(current).prev_slide_ref.index
+        steps += 1
+    return bars
+
+
+def get_path_total_beats(slide: SlideRef) -> float:
+    """Sum of imported slide durations from the chain head to ``final_index`` (inclusive)."""
+    final_index = get_slide_index(slide)
+    total = 0.0
+    current = final_index
+    steps = 0
+    while current > 0 and steps < MAX_CHAIN_LENGTH:
+        part = slide_at(current)
+        total += part.slide_duration
+        current = part.prev_slide_ref.index
+        steps += 1
+    return total
+
+
+def get_conn_segment_beats(slide: SlideRef) -> float:
+    """Constant star speed: the primary final's total, split by bar count."""
+    index = get_slide_index(slide)
+    final_index = get_primary_final_index(index)
+    beats = 0.0
+    if final_index > 0 and not is_conn_slide_at(final_index):
+        beats = get_path_total_beats(final_index) * get_slide_bar_count(index) / get_path_bar_count(final_index)
+    return beats
+
+
+def get_segment_beats(slide: SlideRef) -> float:
+    index = get_slide_index(slide)
+    MIN_SEGMENT_BEATS = 1 / 64
+    beats = 0.0
+    if is_conn_slide_at(index):
+        beats = get_conn_segment_beats(index)
+    else:
+        preceding = 0.0
+        current = slide_at(index).prev_slide_ref.index
+        steps = 0
+        while current > 0 and steps < MAX_CHAIN_LENGTH:
+            preceding += get_conn_segment_beats(current)
+            current = slide_at(current).prev_slide_ref.index
+            steps += 1
+        beats = max(get_path_total_beats(index) - preceding, MIN_SEGMENT_BEATS)
+    return beats
+
+
+def get_chain_max_total(slide: SlideRef) -> float:
+    """Longest path total among the finals reachable from ``index``."""
+    index = get_slide_index(slide)
+    stack = VarArray[int, Dim[16]].new()
+    stack.append(index)
+    result = 0.0
+    steps = 0
+    while len(stack) > 0 and steps < MAX_CHAIN_LENGTH:
+        current = stack.pop()
+        if is_conn_slide_at(current):
+            for branch in range(3):
+                next_index = get_next_slide_index(current, branch)
+                if next_index > 0 and not stack.is_full():
+                    stack.append(next_index)
+        else:
+            result = max(result, get_path_total_beats(current))
+        steps += 1
+    return result
+
+
+def get_chain_total_areas(slide: SlideRef) -> int:
+    """Total judge areas along the first-branch path:
+    Σ(areas - 1) over non-final parts + areas of the final part."""
+    head_index = get_slide_index(slide)
+    total = 0
+    current = head_index
+    steps = 0
+    while current > 0 and steps < MAX_CHAIN_LENGTH:
+        next_index = get_first_next_slide_index(current)
+        count = get_slide_entity_area_count(current)
+        if next_index > 0:
+            total += count - 1
+        else:
+            total += count
+        current = next_index
+        steps += 1
+    return total
+
+
+def get_conn_slide_kind(slide: SlideRef, wifi: bool) -> SlideKind:
+    index = get_slide_index(slide)
+    current = index
+    steps = 0
+    while current > 0 and (is_single_conn_slide_at(current) or is_wifi_conn_slide_at(current)) and steps < MAX_CHAIN_LENGTH:
+        current = get_first_next_slide_index(current)
+        steps += 1
+    final_kind = SlideKind.NORMAL_SLIDE
+    if current > 0 and not is_single_conn_slide_at(current) and not is_wifi_conn_slide_at(current):
+        final_kind = cast(SlideKind, slide_at(current).key)
+    return get_slide_kind_variant(final_kind, wifi)
+
+
+def get_chain_star_rotate_speed(slide: SlideRef, start_beat: float) -> float:
+    """Star spin for the chain starting at ``head_index``, along its primary path."""
+    head_index = get_slide_index(slide)
+    STAR_ROTATE_SPEED_PER_LENGTH = 68.54838709677419 * 0.47 / 1000 / 0.0034803742562305 / 180
+    STAR_ROTATE_SPEED_MAX = 1080 / 180
+    slide_length = 0
+    current = head_index
+    steps = 0
+    while current > 0 and steps < MAX_CHAIN_LENGTH:
+        if is_wifi_slide_at(current):
+            # Wifi length is the same as a straight 1 to 5 slide
+            slide_length += len(SLIDE_TRACK_POINTS[SlideTrackKind.LINE_5]) + 1
+        else:
+            slide_length += get_slide_bar_count(current) + 1
+        current = get_first_next_slide_index(current)
+        steps += 1
+    final_index = get_primary_final_index(head_index)
+    total = 0.0
+    if final_index > 0:
+        total = get_path_total_beats(final_index)
+    duration = beat_to_time(start_beat + total) - beat_to_time(start_beat)
+    speed = STAR_ROTATE_SPEED_MAX
+    if duration > 0:
+        # speed_deg = max(-68.548 * ratio, -1080) deg/s
+        # ratio = (L * 0.47 / (T * 1000)) / 0.0034803742562305
+        speed = min(STAR_ROTATE_SPEED_PER_LENGTH * slide_length / duration, STAR_ROTATE_SPEED_MAX)
+    return speed
+
+
+def get_chain_start_beat(slide: SlideRef) -> float:
+    """When the chain through ``index`` starts sliding: its head's beat and wait."""
+    index = get_slide_index(slide)
+    head_index = index
+    prev_index = slide_at(index).prev_slide_ref.index
+    steps = 0
+    while prev_index > 0 and steps < MAX_CHAIN_LENGTH:
+        head_index = prev_index
+        prev_index = slide_at(prev_index).prev_slide_ref.index
+        steps += 1
+    head = slide_at(head_index)
+    return head.beat + head.wait_duration

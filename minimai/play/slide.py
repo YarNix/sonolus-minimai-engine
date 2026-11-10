@@ -28,26 +28,28 @@ from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_
 from minimai.lib.game import ArcadeJudgment, Button, apply_button_mirror_option, is_mirror_option_reflection
 from minimai.lib.options import Options
 from minimai.lib.streams import STREAM_START_TIME, Streams
-from minimai.lib.layout import SLIDE_TRACK_POINTS, layout_button_firework_center, layout_slide_ok
+from minimai.lib.layout import layout_button_firework_center, layout_slide_ok
 from minimai.lib.slide import (
-    SLIDE_JUDGMENT_CONST,
+    MAX_CHAIN_LENGTH,
     SLIDE_PATH_ALL_HIDDEN,
+    SlideBranch,
     SlideChainInfo,
     SlideKind,
     SlideQueueState,
     SlideTrackKind,
-    SlideBranch,
     draw_slide,
+    get_chain_max_total,
+    get_chain_star_rotate_speed,
+    get_chain_total_areas,
+    get_fade_in_end_time,
+    get_conn_slide_kind,
+    get_next_slide_index,
+    get_segment_beats,
     get_slide_appear_duration,
-    get_slide_area_count,
     get_slide_end_button,
-    get_slide_kind_variant,
     is_break_slide,
 )
 from minimai.play import note
-
-# Upper bound on chain walks; guards against malformed (cyclic) level data.
-MAX_CHAIN_LENGTH = 32
 
 
 class BaseSlide(PlayArchetype):
@@ -343,37 +345,19 @@ class BaseSlide(PlayArchetype):
         input_end = self.segment_end_time + 36 / 60
         if not self.is_chain_final:
             input_end = self.chain_end_time + 36 / 60
-        return Interval(self.target_time - 0.05, input_end)
+        return Interval(get_fade_in_end_time(self.target_time), input_end)
 
     ## Judgment (final slides only)
 
     @property
     def judgment_time(self) -> float:
         """Expected timing of the final judgment area for this slide."""
-        travel_duration = self.segment_end_time - self.segment_slide_time
-        remaining_duration = travel_duration * SLIDE_JUDGMENT_CONST[self.track]
-        return self.segment_end_time - remaining_duration
+        return buckets.slide_judgment_time(self.track, self.segment_slide_time, self.segment_end_time)
 
     @property
     def judgment_window(self) -> buckets.ArcadeWindow:
-        travel_duration = self.segment_end_time - self.segment_slide_time
-        remaining_duration = travel_duration * SLIDE_JUDGMENT_CONST[self.track]
-        extension = min(remaining_duration / 4, 22 / 60)
-        third_perfect = 14 / 60 + extension
-        first_perfect = third_perfect / 3
-        second_perfect = third_perfect * 2 / 3
-
-        good_start = self.target_time - 0.05 - self.judgment_time
-        good_end = self.segment_end_time + 36 / 60 - self.judgment_time
-
-        return buckets.ArcadeWindow(
-            critical_perfect=Interval(-first_perfect, first_perfect),
-            high_perfect=Interval(-second_perfect, second_perfect),
-            low_perfect=Interval(-third_perfect, third_perfect),
-            critical_great=Interval(-21 / 60, 21 / 60),
-            high_great=Interval(-25 / 60, 25 / 60),
-            low_great=Interval(-29 / 60, 29 / 60),
-            good=Interval(good_start, good_end),
+        return buckets.slide_judgment_window(
+            self.track, self.target_time, self.segment_slide_time, self.segment_end_time
         )
 
     def handle_finished(self):
@@ -572,193 +556,6 @@ class ConnWifiSlide(BaseWifiSlide):
 @level_memory
 class SlideMemory:
     active_slide_inputs: VarArray[EntityRef[BaseSlide], Dim[64]]
-
-
-## Chain helpers (imported data only; safe in any preprocess order)
-
-def get_next_slide_index(index: int, branch: SlideBranch) -> int:
-    """Index of the slide continuing from ``index`` on ``branch`` (0 if none)."""
-    result = 0
-    if ConnSlide.is_at(index):
-        if branch == SlideBranch.BRANCH_C:
-            result = ConnSlide.at(index).next_slide_ref.index
-    elif ConnWifiSlide.is_at(index):
-        wifi = ConnWifiSlide.at(index)
-        match branch:
-            case SlideBranch.BRANCH_C:
-                result = wifi.next_slide_ref.index
-            case SlideBranch.BRANCH_L:
-                result = wifi.next_slide_l_ref.index
-            case SlideBranch.BRANCH_R:
-                result = wifi.next_slide_r_ref.index
-            case _:
-                assert_never(branch)
-    return max(result, 0)
-
-
-def get_first_next_slide_index(index: int) -> int:
-    """C, then L, then R."""
-    result = get_next_slide_index(index, SlideBranch.BRANCH_C)
-    if result <= 0:
-        result = get_next_slide_index(index, SlideBranch.BRANCH_L)
-    if result <= 0:
-        result = get_next_slide_index(index, SlideBranch.BRANCH_R)
-    return result
-
-
-def get_slide_entity_area_count(index: int) -> int:
-    count = 0
-    if BaseWifiSlide.is_at(index):
-        count = get_slide_area_count(SlideTrackKind.FAN_C)
-    else:
-        count = get_slide_area_count(BaseSlide.at(index).track)
-    return count
-
-
-def is_conn_slide_at(index: int) -> bool:
-    return ConnSlide.is_at(index) or ConnWifiSlide.is_at(index)
-
-
-def get_slide_bar_count(index: int) -> int:
-    return len(SLIDE_TRACK_POINTS[BaseSlide.at(index).track])
-
-
-def get_primary_final_index(index: int) -> int:
-    """Final slide reached by following C, then L, then R."""
-    current = index
-    steps = 0
-    while current > 0 and is_conn_slide_at(current) and steps < MAX_CHAIN_LENGTH:
-        current = get_first_next_slide_index(current)
-        steps += 1
-    return current
-
-
-def get_path_bar_count(final_index: int) -> int:
-    """Bars from the chain head to ``final_index`` (inclusive)."""
-    bars = 0
-    current = final_index
-    steps = 0
-    while current > 0 and steps < MAX_CHAIN_LENGTH:
-        bars += get_slide_bar_count(current)
-        current = BaseSlide.at(current).prev_slide_ref.index
-        steps += 1
-    return bars
-
-
-def get_path_total_beats(final_index: int) -> float:
-    """Sum of imported slide durations from the chain head to ``final_index`` (inclusive)."""
-    total = 0.0
-    current = final_index
-    steps = 0
-    while current > 0 and steps < MAX_CHAIN_LENGTH:
-        slide = BaseSlide.at(current)
-        total += slide.slide_duration
-        current = slide.prev_slide_ref.index
-        steps += 1
-    return total
-
-
-def get_conn_segment_beats(index: int) -> float:
-    """Constant star speed: the primary final's total, split by bar count."""
-    final_index = get_primary_final_index(index)
-    beats = 0.0
-    if final_index > 0 and not is_conn_slide_at(final_index):
-        beats = get_path_total_beats(final_index) * get_slide_bar_count(index) / get_path_bar_count(final_index)
-    return beats
-
-
-def get_segment_beats(index: int) -> float:
-    MIN_SEGMENT_BEATS = 1 / 64
-    beats = 0.0
-    if is_conn_slide_at(index):
-        beats = get_conn_segment_beats(index)
-    else:
-        preceding = 0.0
-        current = BaseSlide.at(index).prev_slide_ref.index
-        steps = 0
-        while current > 0 and steps < MAX_CHAIN_LENGTH:
-            preceding += get_conn_segment_beats(current)
-            current = BaseSlide.at(current).prev_slide_ref.index
-            steps += 1
-        beats = max(get_path_total_beats(index) - preceding, MIN_SEGMENT_BEATS)
-    return beats
-
-
-def get_chain_max_total(index: int) -> float:
-    """Longest path total among the finals reachable from ``index``."""
-    stack = VarArray[int, Dim[16]].new()
-    stack.append(index)
-    result = 0.0
-    steps = 0
-    while len(stack) > 0 and steps < MAX_CHAIN_LENGTH:
-        current = stack.pop()
-        if is_conn_slide_at(current):
-            for branch in range(3):
-                next_index = get_next_slide_index(current, branch)
-                if next_index > 0 and not stack.is_full():
-                    stack.append(next_index)
-        else:
-            result = max(result, get_path_total_beats(current))
-        steps += 1
-    return result
-
-
-def get_chain_total_areas(head_index: int) -> int:
-    """Total judge areas along the first-branch path:
-    Σ(areas - 1) over non-final parts + areas of the final part."""
-    total = 0
-    current = head_index
-    steps = 0
-    while current > 0 and steps < MAX_CHAIN_LENGTH:
-        next_index = get_first_next_slide_index(current)
-        count = get_slide_entity_area_count(current)
-        if next_index > 0:
-            total += count - 1
-        else:
-            total += count
-        current = next_index
-        steps += 1
-    return total
-
-
-def get_conn_slide_kind(index: int, wifi: bool) -> SlideKind:
-    current = index
-    steps = 0
-    while current > 0 and (ConnSlide.is_at(current) or ConnWifiSlide.is_at(current)) and steps < MAX_CHAIN_LENGTH:
-        current = get_first_next_slide_index(current)
-        steps += 1
-    final_kind = SlideKind.NORMAL_SLIDE
-    if current > 0 and not ConnSlide.is_at(current) and not ConnWifiSlide.is_at(current):
-        final_kind = cast(SlideKind, BaseSlide.at(current).key)
-    return get_slide_kind_variant(final_kind, wifi)
-
-
-def get_chain_star_rotate_speed(head_index: int, start_beat: float) -> float:
-    """Star spin for the chain starting at ``head_index``, along its primary path."""
-    STAR_ROTATE_SPEED_PER_LENGTH = 68.54838709677419 * 0.47 / 1000 / 0.0034803742562305 / 180
-    STAR_ROTATE_SPEED_MAX = 1080 / 180
-    slide_length = 0
-    current = head_index
-    steps = 0
-    while current > 0 and steps < MAX_CHAIN_LENGTH:
-        if BaseWifiSlide.is_at(current):
-            # Wifi length is the same as a straight 1 to 5 slide
-            slide_length += len(SLIDE_TRACK_POINTS[SlideTrackKind.LINE_5]) + 1
-        else:
-            slide_length += get_slide_bar_count(current) + 1
-        current = get_first_next_slide_index(current)
-        steps += 1
-    final_index = get_primary_final_index(head_index)
-    total = 0.0
-    if final_index > 0:
-        total = get_path_total_beats(final_index)
-    duration = beat_to_time(start_beat + total) - beat_to_time(start_beat)
-    speed = STAR_ROTATE_SPEED_MAX
-    if duration > 0:
-        # speed_deg = max(-68.548 * ratio, -1080) deg/s
-        # ratio = (L * 0.47 / (T * 1000)) / 0.0034803742562305
-        speed = min(STAR_ROTATE_SPEED_PER_LENGTH * slide_length / duration, STAR_ROTATE_SPEED_MAX)
-    return speed
 
 
 NormalSlideNote = BaseSingleSlide.derive(archetype_names.NORMAL_SLIDE_NOTE, is_scored=True, key=SlideKind.NORMAL_SLIDE)

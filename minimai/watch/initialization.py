@@ -11,6 +11,7 @@ from minimai.lib.note import init_note_life, init_note_score
 from minimai.lib.particle import init_particles
 from minimai.lib.scoring import init_life_challenge, init_score_multiplier
 from minimai.lib.skin import init_skin
+from minimai.lib.slide import init_slide_life, init_slide_score
 from minimai.lib.touch import init_touch_life, init_touch_score
 from minimai.lib.touch_hold import init_touch_hold_life, init_touch_hold_score
 from minimai.lib.ui import init_ui
@@ -18,6 +19,7 @@ from minimai.watch.activity_manager import WatchActivityManager
 from minimai.watch.hold import WATCH_HOLD_ARCHETYPES
 from minimai.watch.note import WATCH_NOTE_ARCHETYPES
 from minimai.watch.ring import WatchRing
+from minimai.watch.slide import WATCH_SLIDE_ARCHETYPES
 from minimai.watch.touch import WATCH_TOUCH_ARCHETYPES
 from minimai.watch.touch_hold import WATCH_TOUCH_HOLD_ARCHETYPES, schedule_riser
 
@@ -48,7 +50,8 @@ class WatchInitialization(WatchArchetype):
         init_touch_life(WATCH_TOUCH_ARCHETYPES)
         init_touch_hold_score(WATCH_TOUCH_HOLD_ARCHETYPES)
         init_touch_hold_life(WATCH_TOUCH_HOLD_ARCHETYPES)
-        # The other notes' score and life, once they have watch archetypes.
+        init_slide_score(WATCH_SLIDE_ARCHETYPES)
+        init_slide_life(WATCH_SLIDE_ARCHETYPES)
         WatchRing.spawn()
         WatchActivityManager.spawn()
         init_sfx_memory()

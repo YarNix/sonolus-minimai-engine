@@ -17,7 +17,7 @@ from minimai.lib.layout import (
 from minimai.lib.note import NoteKind
 from minimai.lib.skin import BaseSkin
 from minimai.lib.game import ArcadeJudgment
-from minimai.lib.slide import SlideKind
+from minimai.lib.slide import SLIDE_JUDGMENT_CONST, SlideKind, SlideTrackKind, get_fade_in_end_time
 from minimai.lib.touch import TouchKind
 from minimai.lib.touch_hold import TouchHoldKind
 
@@ -524,6 +524,36 @@ def note_interval(frames: int):
 
 def touch_interval(frames: float):
     return Interval(-9 / 60, frames / 60)
+
+def slide_judgment_time(track: SlideTrackKind, slide_time: float, end_time: float) -> float:
+    """When a slide's final judgment area is expected."""
+    travel_duration = end_time - slide_time
+    return end_time - travel_duration * SLIDE_JUDGMENT_CONST[track]
+
+
+def slide_judgment_window(track: SlideTrackKind, target_time: float, slide_time: float, end_time: float) -> ArcadeWindow:
+    """Around ``slide_judgment_time``."""
+    travel_duration = end_time - slide_time
+    remaining_duration = travel_duration * SLIDE_JUDGMENT_CONST[track]
+    judgment_time = end_time - remaining_duration
+    extension = min(remaining_duration / 4, 22 / 60)
+    third_perfect = 14 / 60 + extension
+    first_perfect = third_perfect / 3
+    second_perfect = third_perfect * 2 / 3
+
+    good_start = get_fade_in_end_time(target_time) - judgment_time
+    good_end = end_time + 36 / 60 - judgment_time
+
+    return ArcadeWindow(
+        critical_perfect=Interval(-first_perfect, first_perfect),
+        high_perfect=Interval(-second_perfect, second_perfect),
+        low_perfect=Interval(-third_perfect, third_perfect),
+        critical_great=Interval(-21 / 60, 21 / 60),
+        high_great=Interval(-25 / 60, 25 / 60),
+        low_great=Interval(-29 / 60, 29 / 60),
+        good=Interval(good_start, good_end),
+    )
+
 
 def hold_interval(start: float, end: float):
     return Interval(start + 6 / 60, end - 12 / 60)

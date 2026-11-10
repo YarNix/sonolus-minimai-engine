@@ -895,21 +895,6 @@ def build_slide_star_points(track_points: SlideTrackPointArray, end_button: Butt
     ))
     return star_points
 
-SLIDE_FADE_IN_MAX_ALPHA = 0.5
-
-def get_slide_path_alpha(start_time: float, target_time: float, current_time: float) -> float:
-    if current_time < start_time:
-        return 0.0
-    end_time = target_time - 0.05
-    if current_time > end_time:
-        return 1.0
-    fade_in_duration = clamp(end_time - start_time, 0, 0.2)
-    fade_in_cutoff = start_time + fade_in_duration
-    if current_time > fade_in_cutoff:
-        return SLIDE_FADE_IN_MAX_ALPHA
-    alpha = remap(start_time, fade_in_cutoff, 0, SLIDE_FADE_IN_MAX_ALPHA, current_time)
-    return alpha
-
 def slide_point_transform(point: SlidePoint, button: Button, is_mirrored: bool) -> SlidePoint:
     angle_offset = get_button_angle_horizontal(button) - get_button_angle_horizontal(1)
     new_position = +point.position
