@@ -14,6 +14,7 @@ from sonolus.script.timing import beat_to_time
 from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
+from minimai.lib.initialization import init_common
 from minimai.lib.note import (
     FAKE_ROTATION_SPEED,
     NoteKind,
@@ -63,6 +64,7 @@ class BaseNote(ButtonBaseInput):
         return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
+        init_common()
         self.kind = cast(NoteKind, self.key)
         self.result.bucket = buckets.get_note_bucket(self.kind)
 

@@ -5,6 +5,7 @@ from sonolus.script.archetype import EntityRef, WatchArchetype, callback, entity
 from minimai.lib import archetype_names
 from minimai.lib.each_line import draw_each_line
 from minimai.lib.game import Button
+from minimai.lib.initialization import init_common
 from minimai.watch.base import WatchButtonBase
 
 
@@ -25,6 +26,7 @@ class WatchEachLine(WatchArchetype):
     # After the notes' preprocess (their times and mirrored buttons).
     @callback(order=1)
     def preprocess(self):
+        init_common()
         left = self.left_ref.get()
         right = self.right_ref.get()
         # The shorter way round: from left clockwise, or from right clockwise.

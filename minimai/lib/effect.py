@@ -174,7 +174,6 @@ def schedule_guide_sfx(at: float):
 
 @level_memory
 class SfxMemory:
-    inited: bool
     # Touch holds that want the riser this frame.
     touch_hold_riser_count: int
     # The earliest note, for the count-in. Written in preprocess.
@@ -182,16 +181,11 @@ class SfxMemory:
 
 
 def init_sfx_memory():
-    """Preprocess only. Runs once, whichever preprocess needs the values first."""
-    if SfxMemory.inited:
-        return
-    SfxMemory.inited = True
     SfxMemory.first_note_time = 1e9
 
 
 def report_note_time(target_time: float):
     """Preprocess only: a note at ``target_time``, for the count-in."""
-    init_sfx_memory()
     SfxMemory.first_note_time = min(SfxMemory.first_note_time, target_time)
 
 

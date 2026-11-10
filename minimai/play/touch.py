@@ -13,6 +13,7 @@ from sonolus.script.bucket import Bucket, Judgment
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_firework_sfx, emit_touch_sfx, is_hit, report_note_time, schedule_guide_sfx
+from minimai.lib.initialization import init_common
 from minimai.lib.judge_text import spawn_judge_text, touch_slot
 from minimai.lib.layout import layout_sensor_firework_center, layout_touch_effect, layout_touch_judge_text
 from minimai.lib.particle import spawn_touch_effect
@@ -47,6 +48,7 @@ class BaseTouch(TouchBaseInput):
         return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
+        init_common()
         self.kind = cast(TouchKind, self.key)
         self.result.bucket = buckets.get_touch_bucket(self.kind)
 

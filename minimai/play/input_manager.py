@@ -11,6 +11,7 @@ from minimai.lib.game import Button, Sensor
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib.input_state import InputState
 from minimai.lib.layout import get_sensor_pos_from_center, layout_px_size, to_view
+from minimai.lib.options import Options
 from minimai.lib.streams import STREAM_START_TIME, InputSnapshot, Streams
 from minimai.lib.touch_feedback import (
     draw_input_feedbacks,
@@ -88,7 +89,8 @@ class InputManager(PlayArchetype):
     recorded_input: InputSnapshot = entity_memory()
 
     def initialize(self):
-        Streams.input[STREAM_START_TIME] = self.recorded_input
+        if Options.record_input:
+            Streams.input[STREAM_START_TIME] = self.recorded_input
 
     @callback(order=-1)
     def update_sequential(self):
@@ -96,7 +98,8 @@ class InputManager(PlayArchetype):
         BaseInputMemory.active_touch_inputs.clear()
         SlideMemory.active_slide_inputs.clear()
         self.update_current_input()
-        self.record_input()
+        if Options.record_input:
+            self.record_input()
 
     @callback(order=-1)
     def touch(self):

@@ -27,6 +27,7 @@ from minimai.lib.effect import (
     report_note_time,
     schedule_guide_sfx,
 )
+from minimai.lib.initialization import init_common
 from minimai.lib.judge_text import spawn_judge_text, touch_hold_slot
 from minimai.lib.layout import (
     layout_sensor_firework_center,
@@ -98,6 +99,7 @@ class BaseTouchHold(TouchBaseInput):
         return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
+        init_common()
         self.kind = cast(TouchHoldKind, self.key)
         self.result.bucket = buckets.get_touch_hold_bucket(self.kind)
         self.sensor = apply_sensor_mirror_option(self.sensor)

@@ -25,6 +25,7 @@ from minimai.lib.effect import (
     schedule_slide_sfx,
 )
 from minimai.lib.game import ArcadeJudgment, Button, apply_button_mirror_option, is_mirror_option_reflection
+from minimai.lib.initialization import init_common
 from minimai.lib.layout import SLIDE_TRACK_POINTS
 from minimai.lib.options import Options
 from minimai.lib.scoring import BaseWeight, add_note_to_total
@@ -128,6 +129,7 @@ class WatchBaseSlide(WatchArchetype):
         self.chain_start_beat = head_start_beat
 
     def preprocess(self):
+        init_common()
         self.start_button = apply_button_mirror_option(self.start_button)
         if is_mirror_option_reflection():
             self.is_mirrored = not self.is_mirrored

@@ -22,6 +22,7 @@ from minimai.lib.effect import (
 )
 from minimai.lib.game import ArcadeJudgment, Sensor, apply_sensor_mirror_option
 from minimai.lib.hold import HoldState
+from minimai.lib.initialization import init_common
 from minimai.lib.options import Options
 from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.lib.streams import STREAM_START_TIME, Streams
@@ -56,6 +57,7 @@ class WatchBaseTouchHold(WatchArchetype):
         return BaseWeight.HOLD
 
     def preprocess(self):
+        init_common()
         self.kind = cast(TouchHoldKind, self.key)
         self.result.bucket = buckets.get_touch_hold_bucket(self.kind)
         self.sensor = apply_sensor_mirror_option(self.sensor)

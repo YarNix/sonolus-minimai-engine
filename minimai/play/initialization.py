@@ -2,11 +2,10 @@ from sonolus.script.archetype import EntityRef, PlayArchetype, callback, exporte
 
 from minimai.lib import archetype_names
 from minimai.lib.buckets import init_buckets
-from minimai.lib.effect import SfxMemory, init_sfx_memory, schedule_count_in
-from minimai.lib.layout import init_layout
+from minimai.lib.effect import SfxMemory, schedule_count_in
 from minimai.lib.hitbox import init_hitboxes
-from minimai.lib.level_config import init_level_config
 from minimai.lib.hold import init_hold_life, init_hold_score
+from minimai.lib.initialization import init_common
 from minimai.lib.note import init_note_life, init_note_score
 from minimai.lib.scoring import init_score_multiplier, init_life_challenge
 from minimai.lib.slide import init_slide_life, init_slide_score
@@ -52,8 +51,7 @@ class Initialization(PlayArchetype):
 
     @callback(order=1)
     def preprocess(self):
-        init_level_config()
-        init_layout()
+        init_common()
         init_hitboxes()
         init_skin()
         init_particles()
@@ -63,7 +61,6 @@ class Initialization(PlayArchetype):
         init_score()
         init_life()
         # init_play_common()
-        init_sfx_memory()
         schedule_count_in(self.count_in_bpm, SfxMemory.first_note_time)
 
     def initialize(self):

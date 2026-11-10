@@ -6,6 +6,7 @@ from sonolus.script.runtime import time
 from minimai.lib import archetype_names
 from minimai.lib.each_line import draw_each_line
 from minimai.lib.game import Button
+from minimai.lib.initialization import init_common
 from minimai.lib.scoring import is_challenge_over
 from minimai.play.base_input import ButtonBaseInput
 
@@ -29,6 +30,7 @@ class EachLine(PlayArchetype):
     # After the notes' preprocess (their start / target times).
     @callback(order=1)
     def preprocess(self):
+        init_common()
         left = self.left_ref.get()
         right = self.right_ref.get()
         # The shorter way round: from left clockwise, or from right clockwise.

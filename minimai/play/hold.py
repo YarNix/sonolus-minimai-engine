@@ -12,6 +12,7 @@ from sonolus.script.timing import beat_to_time
 from minimai.lib import archetype_names, buckets
 from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
 from minimai.lib.effect import emit_firework_sfx, emit_hold_end_sfx, emit_tap_sfx, report_note_time, schedule_guide_sfx
+from minimai.lib.initialization import init_common
 from minimai.lib.judge_text import button_slot, spawn_judge_text
 from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_hold_effect, layout_tap_effect
 from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
@@ -66,6 +67,7 @@ class BaseHold(ButtonBaseInput):
         return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
+        init_common()
         self.kind = cast(HoldKind, self.key)
         self.result.bucket = buckets.get_hold_bucket(self.kind)
         self.button = apply_button_mirror_option(self.button)

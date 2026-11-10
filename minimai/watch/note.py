@@ -9,6 +9,7 @@ from sonolus.script.timing import beat_to_time
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_firework_sfx, emit_tap_sfx, is_hit, report_note_time, schedule_guide_sfx
 from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
+from minimai.lib.initialization import init_common
 from minimai.lib.note import (
     FAKE_ROTATION_SPEED,
     NoteKind,
@@ -46,6 +47,7 @@ class WatchBaseNote(WatchButtonBase):
         return BaseWeight.TAP
 
     def preprocess(self):
+        init_common()
         self.kind = cast(NoteKind, self.key)
         self.result.bucket = buckets.get_note_bucket(self.kind)
 

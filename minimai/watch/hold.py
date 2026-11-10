@@ -17,6 +17,7 @@ from minimai.lib.effect import (
 )
 from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
 from minimai.lib.hold import HoldKind, HoldState, draw_hold, is_break_hold, is_ex_hold
+from minimai.lib.initialization import init_common
 from minimai.lib.note import get_tap_appear_duration
 from minimai.lib.options import Options
 from minimai.lib.scoring import BaseWeight, add_note_to_total
@@ -46,6 +47,7 @@ class WatchBaseHold(WatchButtonBase):
         return BaseWeight.HOLD
 
     def preprocess(self):
+        init_common()
         self.kind = cast(HoldKind, self.key)
         self.result.bucket = buckets.get_hold_bucket(self.kind)
         self.button = apply_button_mirror_option(self.button)

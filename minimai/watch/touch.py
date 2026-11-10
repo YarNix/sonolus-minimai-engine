@@ -9,6 +9,7 @@ from sonolus.script.timing import beat_to_time
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_firework_sfx, emit_touch_sfx, is_hit, report_note_time, schedule_guide_sfx
 from minimai.lib.game import ArcadeJudgment, Sensor, apply_sensor_mirror_option
+from minimai.lib.initialization import init_common
 from minimai.lib.options import Options
 from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration, is_break_touch
@@ -37,6 +38,7 @@ class WatchBaseTouch(WatchArchetype):
         return BaseWeight.TAP
 
     def preprocess(self):
+        init_common()
         self.kind = cast(TouchKind, self.key)
         self.result.bucket = buckets.get_touch_bucket(self.kind)
 

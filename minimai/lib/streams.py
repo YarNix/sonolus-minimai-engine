@@ -58,6 +58,7 @@ class Streams:
     score: Stream[ScoreSnapshot]
     touch_hold_riser: Stream[bool]
     touch_feedback: Stream[TouchFeedbackEvents]
+    # Only with Record touch input; otherwise empty, which reads as nothing pressed.
     input: Stream[InputSnapshot]
     # By entity index: holds and touch holds.
     hold_states: StreamGroup[HoldState, Dim[1_000_000]]

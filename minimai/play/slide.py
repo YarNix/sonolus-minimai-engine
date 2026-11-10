@@ -23,6 +23,7 @@ from minimai.typing import override_archetype
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_break_slide_end_sfx, emit_firework_sfx, report_note_time, schedule_slide_sfx
 from minimai.lib.firework import spawn_firework
+from minimai.lib.initialization import init_common
 from minimai.lib.slide_ok import spawn_slide_ok
 from minimai.lib.scoring import BaseWeight, add_note_to_total, report_score, is_challenge_over
 from minimai.lib.game import ArcadeJudgment, Button, apply_button_mirror_option, is_mirror_option_reflection
@@ -179,6 +180,7 @@ class BaseSlide(PlayArchetype):
         return time() >= self.start_time or is_challenge_over()
 
     def preprocess(self):
+        init_common()
         # A reflected slide is the same track from the mirrored button, reflected the other way.
         self.start_button = apply_button_mirror_option(self.start_button)
         if is_mirror_option_reflection():

@@ -373,7 +373,18 @@ class Options:
     )
     show_input: bool = toggle_option(
         name="Show touch input.",
-        description="Highlight hitbox when triggered by touches",
+        description="Highlight hitbox when triggered by touches. Does not work on replays if it was made without [Record touch input]",
+        category=miscellaneous,
+        scope="Maimai",
+        advanced=True,
+        default=False,
+    )
+    record_input: bool = toggle_option(
+        name="Record touch input",
+        description=(
+            "Record touch input to show in replays.\n"
+            "Could cause performance issue! Only turn this on if you want to [Show touch input] to work in your replays."
+        ),
         category=miscellaneous,
         scope="Maimai",
         advanced=True,

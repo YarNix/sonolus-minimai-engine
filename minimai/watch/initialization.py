@@ -2,11 +2,10 @@ from sonolus.script.archetype import WatchArchetype, callback, imported
 
 from minimai.lib import archetype_names
 from minimai.lib.buckets import init_buckets
-from minimai.lib.effect import SfxMemory, init_sfx_memory, schedule_count_in
+from minimai.lib.effect import SfxMemory, schedule_count_in
 from minimai.lib.hitbox import init_hitboxes
 from minimai.lib.hold import init_hold_life, init_hold_score
-from minimai.lib.layout import init_layout
-from minimai.lib.level_config import init_level_config
+from minimai.lib.initialization import init_common
 from minimai.lib.note import init_note_life, init_note_score
 from minimai.lib.particle import init_particles
 from minimai.lib.scoring import init_life_challenge, init_score_multiplier
@@ -33,8 +32,7 @@ class WatchInitialization(WatchArchetype):
 
     @callback(order=1)
     def preprocess(self):
-        init_level_config()
-        init_layout()
+        init_common()
         init_hitboxes()
         init_skin()
         init_particles()
@@ -54,6 +52,5 @@ class WatchInitialization(WatchArchetype):
         init_slide_life(WATCH_SLIDE_ARCHETYPES)
         WatchRing.spawn()
         WatchActivityManager.spawn()
-        init_sfx_memory()
         schedule_count_in(self.count_in_bpm, SfxMemory.first_note_time)
         schedule_riser()
