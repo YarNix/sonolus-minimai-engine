@@ -392,13 +392,14 @@ class BaseSlide(PlayArchetype):
     def play_end_effects(self):
         # A Wi-Fi's track ends at its center.
         end_button = get_slide_end_button(self.track, self.start_button, self.is_mirrored)
-        spawn_firework(self.firework, self.judgment, layout_button_firework_center(end_button))
+        spawn_firework(self.firework, self.judgment, layout_button_firework_center(end_button), time())
         spawn_slide_ok(
             self.judgment,
             self.result.accuracy,
             layout_slide_ok(self.track, self.start_button, self.is_mirrored, end_button),
             self.target_time,
             self.index,
+            time(),
         )
 
     def handle_miss(self):

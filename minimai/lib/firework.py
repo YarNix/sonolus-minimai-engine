@@ -1,4 +1,5 @@
 from math import floor, pi, sin
+from random import random
 
 from sonolus.script.archetype import get_archetype_by_name
 from sonolus.script.interval import lerp, remap_clamped
@@ -65,13 +66,13 @@ Z_PALE_BALL = 2
 Z_SPARKLE = 3
 
 
-def spawn_firework(firework: bool, judgment: ArcadeJudgment, center: Vec2):
-    """For a hit note with the firework flag (play only)."""
+def spawn_firework(firework: bool, judgment: ArcadeJudgment, center: Vec2, start_time: float):
+    """For a hit note with the firework flag: in play when judged, in watch from preprocess."""
     if not firework or not Options.note_effect:
         return
     if judgment == ArcadeJudgment.NONE or judgment == ArcadeJudgment.MISS:
         return
-    get_archetype_by_name(archetype_names.FIREWORK).spawn(center=center, start_time=time())
+    get_archetype_by_name(archetype_names.FIREWORK).spawn(center=center, start_time=start_time, seed=random())
 
 
 def get_firework_end_time(start_time: float) -> float:

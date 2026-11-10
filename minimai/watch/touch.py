@@ -3,14 +3,18 @@ from typing import cast
 
 from sonolus.script.archetype import StandardImport, WatchArchetype, entity_data, imported
 from sonolus.script.bucket import Bucket, Judgment
-from sonolus.script.runtime import is_replay
+from sonolus.script.runtime import is_replay, is_skip
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_firework_sfx, emit_touch_sfx, is_hit, report_note_time, schedule_guide_sfx
+from minimai.lib.firework import spawn_firework
 from minimai.lib.game import ArcadeJudgment, Sensor, apply_sensor_mirror_option
 from minimai.lib.initialization import init_common
+from minimai.lib.judge_text import spawn_judge_text, touch_slot
+from minimai.lib.layout import layout_sensor_firework_center, layout_touch_effect, layout_touch_judge_text
 from minimai.lib.options import Options
+from minimai.lib.particle import spawn_touch_effect
 from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration, is_break_touch
 from minimai.lib.touch_overlap import register_touch_overlap
@@ -72,6 +76,17 @@ class WatchBaseTouch(WatchArchetype):
             self.emit_hit_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time)
         else:
             self.emit_hit_sfx(self.arcade_judgment, self.judged_time)
+        spawn_firework(
+            self.firework, self.arcade_judgment, layout_sensor_firework_center(self.sensor), self.judged_time
+        )
+        spawn_judge_text(
+            self.arcade_judgment,
+            is_break_touch(self.kind),
+            self.accuracy,
+            touch_slot(self.sensor),
+            layout_touch_judge_text(self.sensor),
+            self.judged_time,
+        )
 
     def spawn_time(self) -> float:
         return self.start_time
@@ -84,6 +99,11 @@ class WatchBaseTouch(WatchArchetype):
 
     def update_parallel(self):
         draw_touch(self.kind, self.sensor, self.start_time, self.target_time)
+
+    def terminate(self):
+        # Not when a seek despawns it.
+        if self.is_scored and not is_skip():
+            spawn_touch_effect(self.arcade_judgment, layout_touch_effect(self.sensor))
 
     def emit_hit_sfx(self, judgment: ArcadeJudgment, at: float):
         emit_touch_sfx(is_break_touch(self.kind), judgment, at, scheduled=True)

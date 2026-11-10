@@ -154,6 +154,7 @@ class BaseHold(ButtonBaseInput):
                     self.head_error,
                     button_slot(self.button),
                     layout_button_judge_text(self.button),
+                    time(),
                 )
 
     def is_pressed(self) -> bool:
@@ -275,13 +276,14 @@ class BaseHold(ButtonBaseInput):
 
     def play_end_effects(self):
         spawn_tap_effect(is_break_hold(self.kind), self.judgment, layout_tap_effect(self.button))
-        spawn_firework(self.firework, self.judgment, layout_button_firework_center(self.button))
+        spawn_firework(self.firework, self.judgment, layout_button_firework_center(self.button), time())
         spawn_judge_text(
             self.judgment,
             is_break_hold(self.kind),
             self.head_error,
             button_slot(self.button),
             layout_button_judge_text(self.button),
+            time(),
         )
 
 

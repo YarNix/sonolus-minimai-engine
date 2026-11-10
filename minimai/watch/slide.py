@@ -24,10 +24,12 @@ from minimai.lib.effect import (
     report_note_time,
     schedule_slide_sfx,
 )
+from minimai.lib.firework import spawn_firework
 from minimai.lib.game import ArcadeJudgment, Button, apply_button_mirror_option, is_mirror_option_reflection
 from minimai.lib.initialization import init_common
-from minimai.lib.layout import SLIDE_TRACK_POINTS
+from minimai.lib.layout import SLIDE_TRACK_POINTS, layout_button_firework_center, layout_slide_ok
 from minimai.lib.options import Options
+from minimai.lib.slide_ok import spawn_slide_ok
 from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.lib.slide import (
     MAX_CHAIN_LENGTH,
@@ -43,6 +45,7 @@ from minimai.lib.slide import (
     get_path_total_beats,
     get_segment_beats,
     get_slide_appear_duration,
+    get_slide_end_button,
     is_break_slide,
     is_conn_slide_at,
 )
@@ -169,6 +172,7 @@ class WatchBaseSlide(WatchArchetype):
             self.emit_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.segment_end_time, self.segment_end_time)
         else:
             self.emit_end_sfx(self.arcade_judgment, self.judged_time, self.effect_time)
+        self.spawn_end_effects()
 
     def spawn_time(self) -> float:
         return self.start_time
@@ -204,6 +208,19 @@ class WatchBaseSlide(WatchArchetype):
             progress = unlerp(self.segment_slide_time, self.segment_end_time, time())
             result = clamp(floor(progress * (count + 1)), 0, count)
         return result
+
+    def spawn_end_effects(self):
+        # A Wi-Fi's track ends at its center.
+        end_button = get_slide_end_button(self.track, self.start_button, self.is_mirrored)
+        spawn_firework(self.firework, self.arcade_judgment, layout_button_firework_center(end_button), self.effect_time)
+        spawn_slide_ok(
+            self.arcade_judgment,
+            self.accuracy,
+            layout_slide_ok(self.track, self.start_button, self.is_mirrored, end_button),
+            self.target_time,
+            self.index,
+            self.effect_time,
+        )
 
     def emit_end_sfx(self, judgment: ArcadeJudgment, judged_at: float, arrive_at: float):
         if is_break_slide(self.kind):

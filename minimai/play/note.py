@@ -187,13 +187,14 @@ class BaseNote(ButtonBaseInput):
 
     def play_hit_effects(self):
         spawn_tap_effect(is_break(self.kind), self.judgment, layout_tap_effect(self.button))
-        spawn_firework(self.firework, self.judgment, layout_button_firework_center(self.button))
+        spawn_firework(self.firework, self.judgment, layout_button_firework_center(self.button), time())
         spawn_judge_text(
             self.judgment,
             is_break(self.kind),
             self.result.accuracy,
             button_slot(self.button),
             layout_button_judge_text(self.button),
+            time(),
         )
 
 NormalTapNote = BaseNote.derive(archetype_names.NORMAL_TAP_NOTE, is_scored=True, key=NoteKind.NORM_TAP)

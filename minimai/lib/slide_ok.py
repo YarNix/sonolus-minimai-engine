@@ -78,14 +78,13 @@ def get_slide_ok_sort_group(judgment: ArcadeJudgment) -> int:
     return result
 
 
-def spawn_slide_ok(judgment: ArcadeJudgment, error: float, layout: SlideOkLayout, chart_time: float, index: int):
-    """For a judged final slide (play only).
+def spawn_slide_ok(
+    judgment: ArcadeJudgment, error: float, layout: SlideOkLayout, chart_time: float, index: int, start_time: float
+):
+    """For a judged final slide: in play when judged, in watch from preprocess.
     ``error`` is as for the judge text;
     ``chart_time`` and ``index`` order slide OKs of the same sort group (Slide OK Order)."""
     if Options.sonolus_judgment or judgment == ArcadeJudgment.NONE or not passes_filter(Options.judge_text, judgment):
-        return
-    sprite = get_slide_ok_sprite(layout, judgment, error)
-    if not sprite.is_available:
         return
     order = chart_time
     tie = index
@@ -93,9 +92,10 @@ def spawn_slide_ok(judgment: ArcadeJudgment, error: float, layout: SlideOkLayout
         order = -chart_time
         tie = -index
     get_archetype_by_name(archetype_names.SLIDE_OK).spawn(
-        sprite=sprite,
-        quad=layout.quad,
-        start_time=time(),
+        judgment=judgment,
+        error=error,
+        layout=layout,
+        start_time=start_time,
         z=ZIndexes(z1=LAYER_SLIDE_OK, z2=get_slide_ok_sort_group(judgment), z3=order, z4=tie),
     )
 
@@ -107,5 +107,5 @@ def get_slide_ok_end_time(start_time: float) -> float:
 def draw_slide_ok(sprite: Sprite, quad: Quad, start_time: float, z: ZIndexes):
     elapsed = (time() - start_time) * Options.effect_animation_speed
     alpha = remap_clamped(0, SLIDE_OK_FADE_IN, 0, 1, elapsed) * remap_clamped(*SLIDE_OK_FADE_OUT, 1, 0, elapsed)
-    if alpha > 0:
+    if alpha > 0 and sprite.is_available:
         sprite.draw(quad, z.tuple, alpha)

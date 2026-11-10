@@ -2,8 +2,10 @@ from enum import IntEnum, auto
 from math import floor
 
 from sonolus.script.archetype import get_archetype_by_name
+from sonolus.script.array import Array, Dim
+from sonolus.script.globals import level_memory
 from sonolus.script.interval import remap_clamped
-from sonolus.script.quad import Quad
+from sonolus.script.record import Record
 from sonolus.script.runtime import runtime_ui, time
 from sonolus.script.sprite import Sprite
 from sonolus.script.vec import Vec2
@@ -158,14 +160,37 @@ def get_judge_text_shine(is_break: bool, judgment: ArcadeJudgment) -> Sprite:
     return result
 
 
-def spawn_judge_text(judgment: ArcadeJudgment, is_break: bool, error: float, slot: int, layout: JudgeTextLayout):
-    """The judge text and fast/late of a judged note (play only).
-    ``error`` is the hit time minus the target time; a hit off by nothing has no fast/late."""
+def spawn_judge_text(
+    judgment: ArcadeJudgment, is_break: bool, error: float, slot: int, layout: JudgeTextLayout, start_time: float
+):
+    """The judge text and fast/late of a judged note: in play when judged, in watch from preprocess.
+    ``error`` is the hit time minus the target time; a hit off by nothing has no fast/late.
+    The sprites are picked when it spawns (``get_judge_text_sprites``)."""
     if Options.sonolus_judgment or Options.judge_text_distance <= 0 or judgment == ArcadeJudgment.NONE:
         return
     # The Judge Text filter hides fast/late too, whatever the style.
     if not passes_filter(Options.judge_text, judgment):
         return
+    get_archetype_by_name(archetype_names.JUDGE_TEXT).spawn(
+        judgment=judgment,
+        is_break=is_break,
+        error=error,
+        slot=slot,
+        layout=layout,
+        start_time=start_time,
+    )
+
+
+class JudgeTextSprites(Record):
+    text: Sprite
+    shine: Sprite
+    fast_late: Sprite
+
+    def is_visible(self) -> bool:
+        return self.text.is_available or self.fast_late.is_available
+
+
+def get_judge_text_sprites(judgment: ArcadeJudgment, is_break: bool, error: float) -> JudgeTextSprites:
     style = Options.fast_late_style
     text = +get_judge_text_sprite(judgment)
     shine = +get_judge_text_shine(is_break, judgment)
@@ -184,27 +209,48 @@ def spawn_judge_text(judgment: ArcadeJudgment, is_break: bool, error: float, slo
     if style == FastLateStyle.FAST_LATE_ONLY and fast_late.is_available:
         text @= EMPTY_SPRITE
         shine @= EMPTY_SPRITE
-    if not text.is_available and not fast_late.is_available:
-        return
-    fast_late_quad = +layout.fast_late_alone
-    if text.is_available:
-        fast_late_quad @= layout.fast_late
-    get_archetype_by_name(archetype_names.JUDGE_TEXT).spawn(
-        text=text,
-        shine=shine,
-        text_quad=layout.text,
-        fast_late=fast_late,
-        fast_late_quad=fast_late_quad,
-        start_time=time(),
-        slot=slot,
-    )
+    return JudgeTextSprites(text=text, shine=shine, fast_late=fast_late)
+
+
+IndexMemory = Array[int, Dim[74]]
+TimingMemory = Array[float, Dim[74]]
+# Pylance complains if we use variable instead of a literal number so this check is here
+assert JUDGE_TEXT_SLOT_COUNT == IndexMemory.size()
+assert JUDGE_TEXT_SLOT_COUNT == TimingMemory.size()
+
+
+@level_memory
+class JudgeTextMemory:
+    # The newest text per slot (0 = none yet).
+    latest_index: IndexMemory
+    latest_start_time: TimingMemory
+
+
+def register_judge_text(slot: int, index: int, start_time: float):
+    """Update sequential: a newer text in the slot replaces the older."""
+    if (
+        JudgeTextMemory.latest_index[slot] == 0
+        or start_time >= JudgeTextMemory.latest_start_time[slot]
+    ):
+        JudgeTextMemory.latest_index[slot] = index
+        JudgeTextMemory.latest_start_time[slot] = start_time
+
+
+def is_latest_judge_text(slot: int, index: int) -> bool:
+    return JudgeTextMemory.latest_index[slot] == index
+
+
+def clear_judge_text_slots():
+    """Watch: each frame, before the texts on screen register."""
+    for slot in range(JUDGE_TEXT_SLOT_COUNT):
+        JudgeTextMemory.latest_index[slot] = 0
 
 
 def get_judge_text_end_time(start_time: float) -> float:
     return start_time + JUDGE_TEXT_DURATION / Options.effect_animation_speed
 
 
-def draw_judge_text(text: Sprite, shine: Sprite, text_quad: Quad, fast_late: Sprite, fast_late_quad: Quad, start_time: float):
+def draw_judge_text(sprites: JudgeTextSprites, layout: JudgeTextLayout, start_time: float):
     ui = runtime_ui().judgment_config # Scale with player's judgment config
     elapsed = (time() - start_time) * Options.effect_animation_speed
     scale = remap_clamped(0, JUDGE_TEXT_POP_DURATION, JUDGE_TEXT_POP_SCALE, 1, elapsed) * ui.scale
@@ -213,13 +259,15 @@ def draw_judge_text(text: Sprite, shine: Sprite, text_quad: Quad, fast_late: Spr
         return
     factor = Vec2(scale, scale)
     # Newer texts on top.
-    if text.is_available:
-        layout = text_quad.scale_centered(factor)
-        text.draw(layout, get_z(LAYER_JUDGE_TEXT, start_time, 0, invert_time=True).tuple, alpha)
-        if shine.is_available and floor(elapsed * JUDGE_TEXT_SHINE_RATE) % 2 == 1:
-            shine.draw(layout, get_z(LAYER_JUDGE_TEXT, start_time, 1, invert_time=True).tuple, alpha)
-    if fast_late.is_available:
-        fast_late.draw(
+    fast_late_quad = +layout.fast_late_alone
+    if sprites.text.is_available:
+        fast_late_quad @= layout.fast_late
+        text_quad = layout.text.scale_centered(factor)
+        sprites.text.draw(text_quad, get_z(LAYER_JUDGE_TEXT, start_time, 0, invert_time=True).tuple, alpha)
+        if sprites.shine.is_available and floor(elapsed * JUDGE_TEXT_SHINE_RATE) % 2 == 1:
+            sprites.shine.draw(text_quad, get_z(LAYER_JUDGE_TEXT, start_time, 1, invert_time=True).tuple, alpha)
+    if sprites.fast_late.is_available:
+        sprites.fast_late.draw(
             fast_late_quad.scale_centered(factor),
             get_z(LAYER_JUDGE_TEXT, start_time, 2, invert_time=True).tuple,
             alpha,

@@ -319,9 +319,14 @@ class BaseTouchHold(TouchBaseInput):
     def play_end_effects(self):
         is_break = is_break_touch_hold(self.kind)
         spawn_tap_effect(is_break, self.judgment, layout_touch_hold_effect(self.sensor))
-        spawn_firework(self.firework, self.judgment, layout_sensor_firework_center(self.sensor))
+        spawn_firework(self.firework, self.judgment, layout_sensor_firework_center(self.sensor), time())
         spawn_judge_text(
-            self.judgment, is_break, self.head_error, touch_hold_slot(self.sensor), layout_touch_hold_judge_text(self.sensor)
+            self.judgment,
+            is_break,
+            self.head_error,
+            touch_hold_slot(self.sensor),
+            layout_touch_hold_judge_text(self.sensor),
+            time(),
         )
 
     def emit_end_sfx(self, judgment: ArcadeJudgment, at: float, scheduled: bool):

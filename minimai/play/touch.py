@@ -170,13 +170,14 @@ class BaseTouch(TouchBaseInput):
 
     def play_hit_effects(self):
         spawn_touch_effect(self.judgment, layout_touch_effect(self.sensor))
-        spawn_firework(self.firework, self.judgment, layout_sensor_firework_center(self.sensor))
+        spawn_firework(self.firework, self.judgment, layout_sensor_firework_center(self.sensor), time())
         spawn_judge_text(
             self.judgment,
             is_break_touch(self.kind),
             self.result.accuracy,
             touch_slot(self.sensor),
             layout_touch_judge_text(self.sensor),
+            time(),
         )
 
 NormalTouchNote = BaseTouch.derive(archetype_names.NORMAL_TOUCH_NOTE, is_scored=True, key=TouchKind.NORM_TOUCH)

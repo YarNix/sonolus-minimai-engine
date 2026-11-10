@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import cast
 
-from sonolus.script.archetype import StandardImport, entity_data, imported
+from sonolus.script.archetype import StandardImport, entity_data, entity_memory, imported
 from sonolus.script.bucket import Bucket, Judgment
-from sonolus.script.runtime import is_replay, time
+from sonolus.script.particle import ParticleHandle
+from sonolus.script.runtime import is_replay, is_skip, time
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
@@ -15,11 +16,20 @@ from minimai.lib.effect import (
     report_note_time,
     schedule_guide_sfx,
 )
+from minimai.lib.firework import spawn_firework
 from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
 from minimai.lib.hold import HoldKind, HoldState, draw_hold, is_break_hold, is_ex_hold
 from minimai.lib.initialization import init_common
+from minimai.lib.judge_text import button_slot, spawn_judge_text
+from minimai.lib.layout import (
+    layout_button_firework_center,
+    layout_button_judge_text,
+    layout_hold_effect,
+    layout_tap_effect,
+)
 from minimai.lib.note import get_tap_appear_duration
 from minimai.lib.options import Options
+from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
 from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.lib.streams import Streams
 from minimai.watch.base import WatchButtonBase
@@ -41,6 +51,8 @@ class WatchBaseHold(WatchButtonBase):
 
     kind: HoldKind = entity_data()
     end_time: float = entity_data()
+
+    glow: ParticleHandle = entity_memory()
 
     @classmethod
     def score_weight(cls) -> float:
@@ -90,6 +102,7 @@ class WatchBaseHold(WatchButtonBase):
         else:
             self.emit_head_sfx(self.head_arcade_judgment, self.head_judged_time)
             self.emit_end_sfx(self.arcade_judgment, self.judged_time)
+        self.spawn_effects()
 
     def spawn_time(self) -> float:
         return self.start_time
@@ -97,8 +110,54 @@ class WatchBaseHold(WatchButtonBase):
     def despawn_time(self) -> float:
         return self.exit_time
 
+    def spawn_effects(self):
+        if Options.hold_head_judge:
+            spawn_judge_text(
+                self.head_arcade_judgment,
+                is_break_hold(self.kind),
+                self.accuracy,
+                button_slot(self.button),
+                layout_button_judge_text(self.button),
+                self.head_judged_time,
+            )
+        if self.arcade_judgment == ArcadeJudgment.NONE:
+            return
+        spawn_firework(
+            self.firework, self.arcade_judgment, layout_button_firework_center(self.button), self.judged_time
+        )
+        spawn_judge_text(
+            self.arcade_judgment,
+            is_break_hold(self.kind),
+            self.accuracy,
+            button_slot(self.button),
+            layout_button_judge_text(self.button),
+            self.judged_time,
+        )
+
     def update_parallel(self):
-        draw_hold(self.kind, self.button, self.start_time, self.target_time, self.end_time, self.hold_state)
+        hold_state = self.hold_state
+        # After a seek, the looped glow starts over.
+        if is_skip():
+            destroy_hold_glow(self.glow)
+        update_hold_glow(
+            self.glow, self.is_glowing(hold_state), self.head_arcade_judgment, layout_hold_effect(self.button)
+        )
+        draw_hold(self.kind, self.button, self.start_time, self.target_time, self.end_time, hold_state)
+
+    def is_glowing(self, hold_state: HoldState) -> bool:
+        """Held after the head is judged (the release grace included)."""
+        return (
+            self.is_scored
+            and self.head_arcade_judgment != ArcadeJudgment.NONE
+            and time() >= self.head_judged_time
+            and (hold_state == HoldState.PRESSED or hold_state == HoldState.RELEASED_GRACE)
+        )
+
+    def terminate(self):
+        destroy_hold_glow(self.glow)
+        # Not when a seek despawns it.
+        if self.is_scored and not is_skip():
+            spawn_tap_effect(is_break_hold(self.kind), self.arcade_judgment, layout_tap_effect(self.button))
 
     @property
     def hold_state(self) -> HoldState:

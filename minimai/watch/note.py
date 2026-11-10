@@ -3,13 +3,16 @@ from typing import cast
 
 from sonolus.script.archetype import StandardImport, entity_data, entity_memory, imported, shared_memory
 from sonolus.script.bucket import Bucket, Judgment
-from sonolus.script.runtime import is_replay
+from sonolus.script.runtime import is_replay, is_skip
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
 from minimai.lib.effect import emit_firework_sfx, emit_tap_sfx, is_hit, report_note_time, schedule_guide_sfx
+from minimai.lib.firework import spawn_firework
 from minimai.lib.game import ArcadeJudgment, apply_button_mirror_option
 from minimai.lib.initialization import init_common
+from minimai.lib.judge_text import button_slot, spawn_judge_text
+from minimai.lib.layout import layout_button_firework_center, layout_button_judge_text, layout_tap_effect
 from minimai.lib.note import (
     FAKE_ROTATION_SPEED,
     NoteKind,
@@ -21,6 +24,7 @@ from minimai.lib.note import (
     is_star,
 )
 from minimai.lib.options import Options
+from minimai.lib.particle import spawn_tap_effect
 from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.watch.base import WatchButtonBase
 
@@ -84,6 +88,17 @@ class WatchBaseNote(WatchButtonBase):
             self.emit_hit_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.target_time)
         else:
             self.emit_hit_sfx(self.arcade_judgment, self.judged_time)
+        spawn_firework(
+            self.firework, self.arcade_judgment, layout_button_firework_center(self.button), self.judged_time
+        )
+        spawn_judge_text(
+            self.arcade_judgment,
+            is_break(self.kind),
+            self.accuracy,
+            button_slot(self.button),
+            layout_button_judge_text(self.button),
+            self.judged_time,
+        )
 
     def spawn_time(self) -> float:
         return self.start_time
@@ -99,6 +114,11 @@ class WatchBaseNote(WatchButtonBase):
 
     def update_parallel(self):
         draw_note(self.kind, self.button, self.start_time, self.target_time, get_note_angle(self.rotate_speed))
+
+    def terminate(self):
+        # Not when a seek despawns it.
+        if self.is_scored and not is_skip():
+            spawn_tap_effect(is_break(self.kind), self.arcade_judgment, layout_tap_effect(self.button))
 
     def emit_hit_sfx(self, judgment: ArcadeJudgment, at: float):
         emit_tap_sfx(is_break(self.kind), is_ex(self.kind), judgment, at, scheduled=True)

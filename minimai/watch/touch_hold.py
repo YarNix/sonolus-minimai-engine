@@ -1,13 +1,14 @@
 from __future__ import annotations
 from typing import cast
 
-from sonolus.script.archetype import StandardImport, WatchArchetype, entity_data, imported
+from sonolus.script.archetype import StandardImport, WatchArchetype, entity_data, entity_memory, imported
 from sonolus.script.array import Dim
 from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
 from sonolus.script.interval import Interval
-from sonolus.script.runtime import is_replay, time
+from sonolus.script.particle import ParticleHandle
+from sonolus.script.runtime import is_replay, is_skip, time
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names, buckets
@@ -20,10 +21,19 @@ from minimai.lib.effect import (
     schedule_guide_sfx,
     schedule_touch_hold_riser,
 )
+from minimai.lib.firework import spawn_firework
 from minimai.lib.game import ArcadeJudgment, Sensor, apply_sensor_mirror_option
 from minimai.lib.hold import HoldState
 from minimai.lib.initialization import init_common
+from minimai.lib.judge_text import spawn_judge_text, touch_hold_slot
+from minimai.lib.layout import (
+    layout_sensor_firework_center,
+    layout_touch_hold_effect,
+    layout_touch_hold_glow,
+    layout_touch_hold_judge_text,
+)
 from minimai.lib.options import Options
+from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
 from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.lib.streams import STREAM_START_TIME, Streams
 from minimai.lib.touch import get_touch_appear_duration
@@ -51,6 +61,8 @@ class WatchBaseTouchHold(WatchArchetype):
     target_time: float = entity_data()
     end_time: float = entity_data()
     exit_time: float = entity_data()
+
+    glow: ParticleHandle = entity_memory()
 
     @classmethod
     def score_weight(cls) -> float:
@@ -99,6 +111,18 @@ class WatchBaseTouchHold(WatchArchetype):
             self.emit_end_sfx(ArcadeJudgment.CRITICAL_PERFECT, self.end_time)
         else:
             self.emit_end_sfx(self.arcade_judgment, self.judged_time)
+        if self.arcade_judgment != ArcadeJudgment.NONE:
+            spawn_firework(
+                self.firework, self.arcade_judgment, layout_sensor_firework_center(self.sensor), self.judged_time
+            )
+            spawn_judge_text(
+                self.arcade_judgment,
+                is_break_touch_hold(self.kind),
+                self.accuracy,
+                touch_hold_slot(self.sensor),
+                layout_touch_hold_judge_text(self.sensor),
+                self.judged_time,
+            )
 
     def spawn_time(self) -> float:
         return self.start_time
@@ -107,7 +131,31 @@ class WatchBaseTouchHold(WatchArchetype):
         return self.exit_time
 
     def update_parallel(self):
-        draw_touch_hold(self.kind, self.sensor, self.start_time, self.target_time, self.end_time, self.hold_state)
+        hold_state = self.hold_state
+        # After a seek, the looped glow starts over.
+        if is_skip():
+            destroy_hold_glow(self.glow)
+        update_hold_glow(
+            self.glow, self.is_glowing(hold_state), self.head_arcade_judgment, layout_touch_hold_glow(self.sensor)
+        )
+        draw_touch_hold(self.kind, self.sensor, self.start_time, self.target_time, self.end_time, hold_state)
+
+    def is_glowing(self, hold_state: HoldState) -> bool:
+        """Held after the head is judged (the release grace included)."""
+        return (
+            self.is_scored
+            and self.head_arcade_judgment != ArcadeJudgment.NONE
+            and time() >= self.head_judged_time
+            and (hold_state == HoldState.PRESSED or hold_state == HoldState.RELEASED_GRACE)
+        )
+
+    def terminate(self):
+        destroy_hold_glow(self.glow)
+        # Not when a seek despawns it.
+        if self.is_scored and not is_skip():
+            spawn_tap_effect(
+                is_break_touch_hold(self.kind), self.arcade_judgment, layout_touch_hold_effect(self.sensor)
+            )
 
     @property
     def hold_state(self) -> HoldState:
