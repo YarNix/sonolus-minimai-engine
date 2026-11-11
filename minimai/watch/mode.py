@@ -6,6 +6,7 @@ from minimai.lib.particle import BaseParticles
 from minimai.lib.skin import BaseSkin
 from minimai.watch.activity_manager import WatchActivityManager
 from minimai.watch.bpm_change import WatchBpmChange
+from minimai.watch.center_counter import WatchCenterCounter
 from minimai.watch.each_line import WatchEachLine
 from minimai.watch.firework import WatchFirework
 from minimai.watch.hold import WATCH_HOLD_ARCHETYPES
@@ -24,6 +25,7 @@ watch_mode = WatchMode(
         WatchInitialization,
         WatchRing,
         WatchActivityManager,
+        WatchCenterCounter,
         WatchBpmChange,
         *WATCH_NOTE_ARCHETYPES,
         *WATCH_HOLD_ARCHETYPES,

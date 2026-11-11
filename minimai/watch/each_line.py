@@ -6,7 +6,7 @@ from minimai.lib import archetype_names
 from minimai.lib.each_line import draw_each_line
 from minimai.lib.game import Button
 from minimai.lib.initialization import init_common
-from minimai.watch.base import WatchButtonBase
+from minimai.watch.base import WatchButtonBase, get_challenge_end_time
 
 
 class WatchEachLine(WatchArchetype):
@@ -53,7 +53,7 @@ class WatchEachLine(WatchArchetype):
         return self.start_time
 
     def despawn_time(self) -> float:
-        return self.exit_time
+        return min(self.exit_time, get_challenge_end_time())
 
     def update_parallel(self):
         draw_each_line(self.start_button, self.steps, self.start_time, self.target_time, self.stops_at_ring)

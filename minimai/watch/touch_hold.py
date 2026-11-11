@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import cast
 
-from sonolus.script.archetype import StandardImport, WatchArchetype, entity_data, entity_memory, imported
+from sonolus.script.archetype import StandardImport, entity_data, entity_memory, imported
 from sonolus.script.array import Dim
 from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.containers import VarArray
@@ -38,9 +38,10 @@ from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.lib.streams import STREAM_START_TIME, Streams
 from minimai.lib.touch import get_touch_appear_duration
 from minimai.lib.touch_hold import TouchHoldKind, draw_touch_hold, is_break_touch_hold, is_ex_touch_hold
+from minimai.watch.base import WatchScoredBase, get_challenge_end_time
 
 
-class WatchBaseTouchHold(WatchArchetype):
+class WatchBaseTouchHold(WatchScoredBase):
     sensor: Sensor = imported()
     firework: bool = imported(default=False)
     beat: StandardImport.BEAT
@@ -90,6 +91,7 @@ class WatchBaseTouchHold(WatchArchetype):
             self.arcade_judgment = ArcadeJudgment.CRITICAL_PERFECT
             self.judged_time = self.end_time
             self.standard_judgment = Judgment.PERFECT
+            self.add_to_score_timeline(self.judged_time, self.score_weight(), is_break_touch_hold(self.kind))
             add_riser_period(self.target_time, self.end_time)
         if not is_hit(self.head_arcade_judgment):
             self.result.bucket = Bucket(-1)
@@ -128,7 +130,7 @@ class WatchBaseTouchHold(WatchArchetype):
         return self.start_time
 
     def despawn_time(self) -> float:
-        return self.exit_time
+        return min(self.exit_time, get_challenge_end_time())
 
     def update_parallel(self):
         hold_state = self.hold_state

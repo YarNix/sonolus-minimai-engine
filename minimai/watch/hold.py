@@ -32,7 +32,7 @@ from minimai.lib.options import Options
 from minimai.lib.particle import destroy_hold_glow, spawn_tap_effect, update_hold_glow
 from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.lib.streams import Streams
-from minimai.watch.base import WatchButtonBase
+from minimai.watch.base import WatchButtonBase, get_challenge_end_time
 
 
 class WatchBaseHold(WatchButtonBase):
@@ -81,6 +81,7 @@ class WatchBaseHold(WatchButtonBase):
             self.arcade_judgment = ArcadeJudgment.CRITICAL_PERFECT
             self.judged_time = self.end_time
             self.standard_judgment = Judgment.PERFECT
+            self.add_to_score_timeline(self.judged_time, self.score_weight(), is_break_hold(self.kind))
         if not is_hit(self.head_arcade_judgment):
             self.result.bucket = Bucket(-1)
         elif self.result.bucket.id != -1:
@@ -108,7 +109,7 @@ class WatchBaseHold(WatchButtonBase):
         return self.start_time
 
     def despawn_time(self) -> float:
-        return self.exit_time
+        return min(self.exit_time, get_challenge_end_time())
 
     def spawn_effects(self):
         if Options.hold_head_judge:

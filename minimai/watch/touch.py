@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import cast
 
-from sonolus.script.archetype import StandardImport, WatchArchetype, entity_data, imported
+from sonolus.script.archetype import StandardImport, entity_data, imported
 from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.runtime import is_replay, is_skip
 from sonolus.script.timing import beat_to_time
@@ -18,9 +18,10 @@ from minimai.lib.particle import spawn_touch_effect
 from minimai.lib.scoring import BaseWeight, add_note_to_total
 from minimai.lib.touch import TouchKind, draw_touch, get_touch_appear_duration, is_break_touch
 from minimai.lib.touch_overlap import register_touch_overlap
+from minimai.watch.base import WatchScoredBase, get_challenge_end_time
 
 
-class WatchBaseTouch(WatchArchetype):
+class WatchBaseTouch(WatchScoredBase):
     sensor: Sensor = imported()
     firework: bool = imported(default=False)
     beat: StandardImport.BEAT
@@ -61,6 +62,7 @@ class WatchBaseTouch(WatchArchetype):
             self.arcade_judgment = ArcadeJudgment.CRITICAL_PERFECT
             self.judged_time = self.target_time
             self.standard_judgment = Judgment.PERFECT
+            self.add_to_score_timeline(self.judged_time, self.score_weight(), is_break_touch(self.kind))
         if not is_hit(self.arcade_judgment):
             self.result.bucket = Bucket(-1)
         elif self.result.bucket.id != -1:
@@ -92,7 +94,7 @@ class WatchBaseTouch(WatchArchetype):
         return self.start_time
 
     def despawn_time(self) -> float:
-        return self.exit_time
+        return min(self.exit_time, get_challenge_end_time())
 
     def update_sequential(self):
         register_touch_overlap(self.sensor, self.start_time, self.index, self.kind)

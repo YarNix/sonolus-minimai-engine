@@ -26,7 +26,7 @@ from minimai.lib.note import (
 from minimai.lib.options import Options
 from minimai.lib.particle import spawn_tap_effect
 from minimai.lib.scoring import BaseWeight, add_note_to_total
-from minimai.watch.base import WatchButtonBase
+from minimai.watch.base import WatchButtonBase, get_challenge_end_time
 
 
 class WatchBaseNote(WatchButtonBase):
@@ -73,6 +73,7 @@ class WatchBaseNote(WatchButtonBase):
             self.arcade_judgment = ArcadeJudgment.CRITICAL_PERFECT
             self.judged_time = self.target_time
             self.standard_judgment = Judgment.PERFECT
+            self.add_to_score_timeline(self.judged_time, self.score_weight(), is_break(self.kind))
         if not is_hit(self.arcade_judgment):
             self.result.bucket = Bucket(-1)
         elif self.result.bucket.id != -1:
@@ -104,7 +105,7 @@ class WatchBaseNote(WatchButtonBase):
         return self.start_time
 
     def despawn_time(self) -> float:
-        return self.exit_time
+        return min(self.exit_time, get_challenge_end_time())
 
     def initialize(self):
         if not self.has_custom_rotation and self.slide_rotate_speed != 0:

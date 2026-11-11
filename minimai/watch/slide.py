@@ -5,7 +5,6 @@ from typing import cast
 from sonolus.script.archetype import (
     EntityRef,
     StandardImport,
-    WatchArchetype,
     entity_data,
     imported,
 )
@@ -50,10 +49,11 @@ from minimai.lib.slide import (
     is_conn_slide_at,
 )
 from minimai.lib.streams import Streams
+from minimai.watch.base import WatchScoredBase, get_challenge_end_time
 from minimai.watch.note import WatchBaseNote
 
 
-class WatchBaseSlide(WatchArchetype):
+class WatchBaseSlide(WatchScoredBase):
     beat: StandardImport.BEAT
     track: SlideTrackKind = imported()
     start_button: Button = imported(name="button", default=1)
@@ -160,6 +160,7 @@ class WatchBaseSlide(WatchArchetype):
             self.judged_time = self.judgment_time
             self.effect_time = self.segment_end_time
             self.standard_judgment = Judgment.PERFECT
+            self.add_to_score_timeline(self.judged_time, self.score_weight(), is_break_slide(self.kind))
         if not is_hit(self.arcade_judgment):
             self.result.bucket = Bucket(-1)
         elif self.result.bucket.id != -1:
@@ -178,7 +179,7 @@ class WatchBaseSlide(WatchArchetype):
         return self.start_time
 
     def despawn_time(self) -> float:
-        return self.exit_time
+        return min(self.exit_time, get_challenge_end_time())
 
     def update_parallel(self):
         draw_slide(

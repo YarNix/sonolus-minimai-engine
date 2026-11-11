@@ -2,11 +2,13 @@ from sonolus.script.archetype import WatchArchetype, callback, imported
 
 from minimai.lib import archetype_names
 from minimai.lib.buckets import init_buckets
+from minimai.lib.counter import CenterDisplay
 from minimai.lib.effect import SfxMemory, schedule_count_in
 from minimai.lib.hitbox import init_hitboxes
 from minimai.lib.hold import init_hold_life, init_hold_score
 from minimai.lib.initialization import init_common
 from minimai.lib.note import init_note_life, init_note_score
+from minimai.lib.options import Options
 from minimai.lib.particle import init_particles
 from minimai.lib.scoring import init_life_challenge, init_score_multiplier
 from minimai.lib.skin import init_skin
@@ -15,6 +17,7 @@ from minimai.lib.touch import init_touch_life, init_touch_score
 from minimai.lib.touch_hold import init_touch_hold_life, init_touch_hold_score
 from minimai.lib.ui import init_ui
 from minimai.watch.activity_manager import WatchActivityManager
+from minimai.watch.center_counter import WatchCenterCounter, build_score_timeline
 from minimai.watch.hold import WATCH_HOLD_ARCHETYPES
 from minimai.watch.note import WATCH_NOTE_ARCHETYPES
 from minimai.watch.ring import WatchRing
@@ -52,5 +55,8 @@ class WatchInitialization(WatchArchetype):
         init_slide_life(WATCH_SLIDE_ARCHETYPES)
         WatchRing.spawn()
         WatchActivityManager.spawn()
+        if Options.center_display != CenterDisplay.OFF or Options.life_challenge > 0:
+            WatchCenterCounter.spawn()
+        build_score_timeline()
         schedule_count_in(self.count_in_bpm, SfxMemory.first_note_time)
         schedule_riser()

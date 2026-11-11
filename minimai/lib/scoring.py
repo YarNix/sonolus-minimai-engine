@@ -86,6 +86,19 @@ def get_score_snapshot() -> ScoreSnapshot:
     )
 
 
+def set_score_snapshot(snapshot: ScoreSnapshot):
+    """Watch: the running values to show (sequential callbacks only)."""
+    ScoreMemory.base_earned = snapshot.base_earned
+    ScoreMemory.base_lost = snapshot.base_lost
+    ScoreMemory.bonus_earned = snapshot.bonus_earned
+    ScoreMemory.bonus_lost = snapshot.bonus_lost
+    ScoreMemory.dx_earned = snapshot.dx_earned
+    ScoreMemory.dx_lost = snapshot.dx_lost
+    ScoreMemory.combo = snapshot.combo
+    ScoreMemory.grade = snapshot.grade
+    ScoreMemory.life = snapshot.life
+
+
 def add_note_to_total(weight: float, is_break: bool):
     """For a scored note (preprocess)."""
     if is_break:
