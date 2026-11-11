@@ -22,6 +22,8 @@ class Effects:
     touch_hold_sustain_fallback: StandardEffect.HOLD
 
     break_hit: Effect = effect("Mai Break Hit")
+    break_critical: Effect = effect("Mai Break Critical")
+    # Mai Break Hit and Mai Break Critical mixed, so a live play doesn't cut one off with the other.
     break_critical_hit: Effect = effect("Mai Break Critical Hit")
     touch_hit: Effect = effect("Mai Touch Hit")
     firework: Effect = effect("Mai Firework")
@@ -31,12 +33,18 @@ class Effects:
     slide: Effect = effect("Mai Slide")
     break_slide: Effect = effect("Mai Break Slide")
     break_slide_end: Effect = effect("Mai Break Slide End")
+    # Mai Break Slide End and Mai Break Critical mixed.
+    break_slide_end_critical: Effect = effect("Mai Break Slide End Critical")
     guide: Effect = effect("Mai Guide")
     count_in: Effect = effect("Mai Count In")
 
 
 # Same clip within this many seconds plays once (each pairs, touch groups).
 SFX_DISTANCE = 0.02
+# The same for scheduled sounds (watch, Auto SFX, the slide sound), other than the guide and count-in.
+SCHEDULED_SFX_DISTANCE = 0.08
+# A scheduled Mai Break Critical this soon after the last one is skipped.
+BREAK_CRITICAL_DISTANCE = 0.3
 # When Mai Touch Hold Start hands over to the sustain loop; the riser is cut at this point.
 TOUCH_HOLD_CHARGE_DURATION = 10.0
 # The guide plays a frame early.
@@ -68,13 +76,13 @@ def is_hit(judgment: ArcadeJudgment) -> bool:
     return judgment != ArcadeJudgment.NONE and judgment != ArcadeJudgment.MISS
 
 
-def emit_sfx(sfx: Effect, at: float, scheduled: bool):
+def emit_sfx(sfx: Effect, at: float, scheduled: bool, scheduled_distance: float = SCHEDULED_SFX_DISTANCE):
     """A hit sound: played now, or with auto SFX scheduled ``at`` (from preprocess).
     Each path only runs in its own mode, so the archetypes can call both. Watch only schedules."""
     if sfx.is_available:
         if scheduled:
             if Options.auto_sfx or is_watch():
-                sfx.schedule(at, SFX_DISTANCE)
+                sfx.schedule(at, scheduled_distance)
         elif not Options.auto_sfx:
             sfx.play(SFX_DISTANCE)
 
@@ -105,14 +113,21 @@ def get_plain_tap_sfx(judgment: ArcadeJudgment) -> Effect:
     return result
 
 
+def uses_break_critical_mix(mix: Effect, scheduled: bool) -> bool:
+    """The mixed clip when the pack has it, except when scheduled: a scheduled clip can't cut the one
+    before, so Mai Break Critical is scheduled on its own (when the pack has it) and doesn't pile up."""
+    return mix.is_available and not (scheduled and Effects.break_critical.is_available)
+
+
 def emit_break_hit_sfx(judgment: ArcadeJudgment, at: float, scheduled: bool):
-    if is_hit(judgment) and Options.break_sound:
-        sfx = +EMPTY_EFFECT
-        if judgment == ArcadeJudgment.CRITICAL_PERFECT:
-            sfx @= first_available_effect(Effects.break_critical_hit, Effects.break_hit, Effects.break_hit_fallback)
-        else:
-            sfx @= first_available_effect(Effects.break_hit, Effects.break_hit_fallback)
-        emit_sfx(sfx, at, scheduled)
+    if not is_hit(judgment) or not Options.break_sound:
+        return
+    if judgment == ArcadeJudgment.CRITICAL_PERFECT and uses_break_critical_mix(Effects.break_critical_hit, scheduled):
+        emit_sfx(Effects.break_critical_hit, at, scheduled)
+        return
+    emit_sfx(first_available_effect(Effects.break_hit, Effects.break_hit_fallback), at, scheduled)
+    if judgment == ArcadeJudgment.CRITICAL_PERFECT:
+        emit_sfx(Effects.break_critical, at, scheduled, BREAK_CRITICAL_DISTANCE)
 
 
 def emit_ex_sfx(judgment: ArcadeJudgment, at: float, scheduled: bool):
@@ -158,13 +173,21 @@ def schedule_slide_sfx(is_break: bool, start_time: float):
     else:
         sfx @= Effects.slide
     if sfx.is_available:
-        sfx.schedule(start_time, SFX_DISTANCE)
+        sfx.schedule(start_time, SCHEDULED_SFX_DISTANCE)
 
 
 def emit_break_slide_end_sfx(judgment: ArcadeJudgment, at: float, scheduled: bool):
     """Only a critical perfect break slide."""
-    if judgment == ArcadeJudgment.CRITICAL_PERFECT and Options.slide_sound:
+    if judgment != ArcadeJudgment.CRITICAL_PERFECT:
+        return
+    if uses_break_critical_mix(Effects.break_slide_end_critical, scheduled):
+        if Options.slide_sound:
+            emit_sfx(Effects.break_slide_end_critical, at, scheduled)
+        return
+    if Options.slide_sound:
         emit_sfx(Effects.break_slide_end, at, scheduled)
+    if Options.break_sound:
+        emit_sfx(Effects.break_critical, at, scheduled, BREAK_CRITICAL_DISTANCE)
 
 
 def schedule_guide_sfx(at: float):

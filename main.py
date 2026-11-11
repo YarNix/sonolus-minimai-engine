@@ -12,11 +12,11 @@ CLIP_GAINS = {
     "slide_break_start": 0.5,
     "slide_break_slide": 0.5,
 }
-# Clips mixed into one (after the gains), so fewer sounds play at once. Sources that aren't clips of
-# their own (break, slide_break_slide) are dropped.
+# Clips mixed into one (after the gains), so fewer sounds play at once. The sources are kept as clips
+# of their own too: scheduled sounds play them apart.
 CLIP_MIXES = {
     "break_critical_hit": ("break_tap", "break"),
-    "slide_break_end": ("slide_break_slide", "break"),
+    "slide_break_end_critical": ("slide_break_slide", "break"),
 }
 
 
