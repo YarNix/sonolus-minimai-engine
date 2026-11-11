@@ -2,7 +2,7 @@ from sonolus.script.array import Dim
 from sonolus.script.record import Record
 from sonolus.script.stream import Stream, StreamGroup, streams
 
-from minimai.lib.game import Sensor
+from minimai.lib.game import Button, Sensor
 from minimai.lib.hold import HoldState
 from minimai.lib.scoring import ScoreSnapshot
 
@@ -34,9 +34,19 @@ class SensorMask(Record):
             if (self.high // bit) % 2 == 0:
                 self.high += bit
 
+    def has(self, sensor: Sensor) -> bool:
+        slot = sensor - 1
+        result = False
+        if slot < SENSOR_MASK_SPLIT:
+            result = (self.low // 2**slot) % 2 == 1
+        else:
+            result = (self.high // 2 ** (slot - SENSOR_MASK_SPLIT)) % 2 == 1
+        return result
+
 
 class TouchFeedbackEvents(Record):
-    """One frame's touch feedback changes. A button uses its A sensor."""
+    """One frame's touch feedback changes. A button uses its A sensor.
+    Sensors value are the chart's sensor not a mirrored version of the chart."""
     # Presses past the cooldown, before the Touch Feedback option.
     started: SensorMask
     # A note took a press there: the feedback stops.
@@ -49,6 +59,14 @@ class InputSnapshot(Record):
     # Sensors down within the touch radius, and within the note radius.
     touch: SensorMask
     note: SensorMask
+
+    def add_button(self, button: Button):
+        bit = 2 ** (button - 1)
+        if (self.buttons // bit) % 2 == 0:
+            self.buttons += bit
+
+    def has_button(self, button: Button) -> bool:
+        return (self.buttons // 2 ** (button - 1)) % 2 == 1
 
 
 @streams

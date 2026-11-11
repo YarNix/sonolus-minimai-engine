@@ -7,7 +7,7 @@ from sonolus.script.containers import ArraySet, Pair, VarArray
 from sonolus.script.runtime import Touch, offset_adjusted_time, touches
 
 from minimai.lib import archetype_names
-from minimai.lib.game import Button, Sensor
+from minimai.lib.game import Button, Sensor, apply_button_mirror_option, apply_sensor_mirror_option
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib.input_state import InputState
 from minimai.lib.layout import get_sensor_pos_from_center, layout_px_size, to_view
@@ -115,12 +115,12 @@ class InputManager(PlayArchetype):
         snapshot = +InputSnapshot
         for i, touch_id in enumerate(InputState.button_down):
             if touch_id != 0:
-                snapshot.buttons += 2**i
+                snapshot.add_button(apply_button_mirror_option(i + 1))
         for i in range(33):
             if InputState.sensor_touch_down[i]:
-                snapshot.touch.add(i + 1)
+                snapshot.touch.add(apply_sensor_mirror_option(i + 1))
             if InputState.sensor_note_down[i]:
-                snapshot.note.add(i + 1)
+                snapshot.note.add(apply_sensor_mirror_option(i + 1))
         if snapshot != self.recorded_input:
             Streams.input[offset_adjusted_time()] = snapshot
             self.recorded_input @= snapshot

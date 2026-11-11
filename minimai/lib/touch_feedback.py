@@ -8,7 +8,15 @@ from sonolus.script.interval import remap_clamped
 from sonolus.script.runtime import offset_adjusted_time, time
 from sonolus.script.vec import Vec2
 
-from minimai.lib.game import Button, Sensor, SensorGroup, sensor_to_group
+from minimai.lib.game import (
+    Button,
+    Sensor,
+    SensorGroup,
+    apply_button_mirror_option,
+    apply_sensor_mirror_option,
+    get_button_range,
+    sensor_to_group,
+)
 from minimai.lib.input_state import InputState
 from minimai.lib.hitbox import Hitboxes
 from minimai.lib.layer import LAYER_DEBUG_LOW, LAYER_TOUCH_FEEDBACK, get_z
@@ -89,7 +97,7 @@ def start_feedback(sensor: Sensor):
     last_feedback_time = time() - TouchFeedbackMemory.last_hit_time[slot]
     if TouchFeedbackMemory.has_hit[slot] and last_feedback_time < TOUCH_FEEDBACK_COOLDOWN:
         return
-    TouchFeedbackMemory.events.started.add(sensor)
+    TouchFeedbackMemory.events.started.add(apply_sensor_mirror_option(sensor))
     if not has_feedback(sensor):
         return
     TouchFeedbackMemory.start_time[slot] = time()
@@ -118,11 +126,53 @@ def mark_touch_feedback_hit(sensor: Sensor):
     """A note took a press there: its feedback stops, and the next presses for a while show none."""
     TouchFeedbackMemory.last_hit_time[sensor - 1] = time()
     TouchFeedbackMemory.has_hit[sensor - 1] = True
-    TouchFeedbackMemory.events.hit.add(sensor)
+    TouchFeedbackMemory.events.hit.add(apply_sensor_mirror_option(sensor))
 
 
 def mark_button_feedback_hit(button: Button):
     mark_touch_feedback_hit(Sensor.A1 + button - 1)
+
+
+def replay_touch_feedback():
+    """Watch: the feedback showing now in the replay, under the viewer's Touch Feedback option."""
+    window_start = time() - TOUCH_FEEDBACK_DURATION / Options.effect_animation_speed
+    found = +SlotFlags
+    cut = +SlotFlags
+    # By the chart's sensor - 1: where it is on screen.
+    screen_sensors = +Array[int, Dim[33]]
+    for slot in range(33):
+        TouchFeedbackMemory.started[slot] = False
+        screen_sensors[slot] = apply_sensor_mirror_option(slot + 1)
+    # Newest first: a press shows unless a note took a press there since (or in the same frame).
+    for at, events in Streams.touch_feedback.iter_items_from_desc(time()):
+        if at < window_start:
+            break
+        for chart_sensor in range(Sensor.A1, Sensor.E8 + 1):
+            sensor = screen_sensors[chart_sensor - 1]
+            slot = sensor - 1
+            if not found[slot] and events.hit.has(chart_sensor):
+                cut[slot] = True
+            if not found[slot] and events.started.has(chart_sensor):
+                found[slot] = True
+                if not cut[slot] and has_feedback(sensor):
+                    TouchFeedbackMemory.started[slot] = True
+                    TouchFeedbackMemory.start_time[slot] = at
+                    TouchFeedbackMemory.rotation[slot] = (at * 7.31 + slot * 0.618) % 1 * 2 * pi / PETALS
+
+
+def replay_input():
+    """Watch: what was held in the replay (nothing when it was played without Record touch input)."""
+    if not Options.show_input:
+        return
+    snapshot = Streams.input.get_previous_inclusive(time())
+    for button in get_button_range():
+        InputState.button_down[button - 1] = 0
+        if snapshot.has_button(apply_button_mirror_option(button)):
+            InputState.button_down[button - 1] = 1
+    for sensor in range(Sensor.A1, Sensor.E8 + 1):
+        chart_sensor = apply_sensor_mirror_option(sensor)
+        InputState.sensor_touch_down[sensor - 1] = snapshot.touch.has(chart_sensor)
+        InputState.sensor_note_down[sensor - 1] = snapshot.note.has(chart_sensor)
 
 
 def draw_touch_feedbacks():
