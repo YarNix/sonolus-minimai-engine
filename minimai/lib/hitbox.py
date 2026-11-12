@@ -141,6 +141,13 @@ class NQuadHitBox[Size](Record):
             point @= corner
             yield point
 
+def get_polygon_quad_count(vertex_count: int) -> int:
+    """Quads ``PolygonHitBox`` splits a polygon into: pairs of fan triangles, and three for a triangle left over."""
+    if vertex_count % 2 == 1:
+        return (vertex_count - 3) // 2 + 3
+    return (vertex_count - 2) // 2
+
+
 class PolygonHitBox[VertexCount, QuadCount](Record):
     "A hitbox represent by a polygon, vertices in outline order"
     vertices: Array[Vec2, VertexCount]
@@ -161,11 +168,13 @@ class PolygonHitBox[VertexCount, QuadCount](Record):
             vertices=vertices,
             bound_center=center,
             bound_radius=radius,
-            quads=+Array[Quad, (count - 1) // 2],
+            quads=+Array[Quad, get_polygon_quad_count(count)],
         )
 
         # Fan triangulation, with pairs of triangles merged into quads.
         # The fan starts from the reflex vertex if there is one, so it stays inside the polygon.
+        # A triangle left over (an odd number of them) is split into three quads around its centroid:
+        # a quad with three corners in a line doesn't draw reliably.
         area = 0.0
         for i in range(count):
             area += cross(vertices[i], vertices[(i + 1) % count])
@@ -176,15 +185,23 @@ class PolygonHitBox[VertexCount, QuadCount](Record):
             after = vertices[(i + 1) % count]
             if cross(here - prev, after - here) * area < 0:
                 start = i
-        for q in range(len(hitbox.quads)):
-            origin = vertices[start]
-            first = vertices[(start + 2 * q + 1) % count]
-            second = vertices[(start + 2 * q + 2) % count]
-            if 2 * q + 3 < count:
-                hitbox.quads[q] = Quad(origin, first, second, vertices[(start + 2 * q + 3) % count])
-            else:
-                # A triangle left over: split its outer edge in two.
-                hitbox.quads[q] = Quad(origin, first, (first + second) / 2, second)
+        origin = vertices[start]
+        for q in range((count - 2) // 2):
+            hitbox.quads[q] = Quad(
+                origin,
+                vertices[(start + 2 * q + 1) % count],
+                vertices[(start + 2 * q + 2) % count],
+                vertices[(start + 2 * q + 3) % count],
+            )
+        if count % 2 == 1:
+            a = origin
+            b = vertices[(start + count - 2) % count]
+            c = vertices[(start + count - 1) % count]
+            centroid = (a + b + c) / 3
+            q = (count - 2) // 2
+            hitbox.quads[q] = Quad(a, (a + b) / 2, centroid, (c + a) / 2)
+            hitbox.quads[q + 1] = Quad(b, (b + c) / 2, centroid, (a + b) / 2)
+            hitbox.quads[q + 2] = Quad(c, (c + a) / 2, centroid, (b + c) / 2)
         return hitbox
 
     def contains_point(self, point: Vec2) -> bool:
@@ -220,13 +237,18 @@ class PolygonHitBox[VertexCount, QuadCount](Record):
         for v in self.vertices:
             yield v
 
+# The quad counts below, as PolygonHitBox.new makes them.
+assert get_polygon_quad_count(7) == 5
+assert get_polygon_quad_count(6) == 2
+
+
 @level_data
 class Hitboxes:
     touch_radius: float
     note_radius: float
     button: Array[CircTrapHitBox, Dim[8]]
-    group_a: Array[PolygonHitBox[7, 3], Dim[8]]
-    group_b: Array[PolygonHitBox[7, 3], Dim[8]]
+    group_a: Array[PolygonHitBox[7, 5], Dim[8]]
+    group_b: Array[PolygonHitBox[7, 5], Dim[8]]
     group_c: CircTrapHitBox
     group_d: Array[PolygonHitBox[6, 2], Dim[8]]
     group_e: Array[NQuadHitBox[1], Dim[8]]
