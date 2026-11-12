@@ -33,6 +33,7 @@ from minimai.preview.layout import (
     PreviewData,
     get_column_bottom,
     get_column_end_time,
+    get_combo_at_column_end,
     init_preview_layout,
     layout_horizontal_line,
     layout_vertical_line,
@@ -62,6 +63,7 @@ class PreviewInitialization(PreviewArchetype):
             draw_beat_lines(col)
             draw_lane_labels(col)
             print_column_time(col)
+            print_column_combo(col)
 
 
 def draw_lanes(col: int):
@@ -106,6 +108,20 @@ def print_column_time(col: int):
         decimal_places=2,
         color=PrintColor.CYAN,
         horizontal_align=HorizontalAlign.LEFT,
+    )
+
+
+def print_column_combo(col: int):
+    """The combo at the column's end (all notes hit), above its top right corner."""
+    end_time = get_column_end_time(col)
+    print_in_view(
+        get_combo_at_column_end(col),
+        Vec2(lane_to_x(LANE_MAX, col), time_to_y(end_time, col) + COLUMN_MARGIN_TOP / 4),
+        Vec2(1, 0),
+        fmt=PrintFormat.ENTITY_COUNT,
+        decimal_places=0,
+        color=PrintColor.RED,
+        horizontal_align=HorizontalAlign.RIGHT,
     )
 
 

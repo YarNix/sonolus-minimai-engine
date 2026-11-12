@@ -1,9 +1,10 @@
-from math import degrees
+from math import degrees, floor, pi
 
 from sonolus.script.array import Array, Dim
 from sonolus.script.globals import level_data
+from sonolus.script.interval import clamp
 from sonolus.script.printing import PrintColor, PrintFormat, print_number
-from sonolus.script.quad import Rect
+from sonolus.script.quad import Quad, Rect
 from sonolus.script.runtime import (
     HorizontalAlign,
     ScrollDirection,
@@ -65,11 +66,40 @@ PREVIEW_LABEL_ASPECT = 0.75
 # Width per unit of height of a slide shape label sprite; its shape is left-aligned in it.
 PREVIEW_SHAPE_LABEL_ASPECT = 1.6
 
+# Taps, stars and holds: 1.09 lanes across; a hold is 0.64 of that wide.
+NOTE_SIZE = 0.95 * 1.15 * LANE_W
+HOLD_WIDTH = 0.64 * NOTE_SIZE
+# Head and tail caps of the hold sprites: 58 px tall on a 122 px wide sprite.
+HOLD_CAP_H = HOLD_WIDTH * 58 / 122
+# How far a hold reaches past its head and end times, cap included: as far as a tap does.
+HOLD_OVERHANG = NOTE_SIZE * 2 / 5
+# The end point marks at a hold's head and end times: 64 px against a 180 px note.
+HOLD_END_POINT_SIZE = NOTE_SIZE * 64 / 180
+# The firework halo behind a note (``Mai Preview Firework``, its rays drawn from half its radius out).
+# The rays start 0.21 notes out, inside the star's shallowest dip, so none floats free of a star.
+FIREWORK_HALO_RADIUS = 0.42 * NOTE_SIZE
+EACH_LINE_H = 0.012
+# Touches and touch holds: their play sprites at 0.9 of a skin pixel per (unenlarged) note pixel.
+TOUCH_PX = 0.9 * 0.95 * LANE_W / 180
+TOUCH_FAN_W = 112 * TOUCH_PX
+TOUCH_FAN_H = 82 * TOUCH_PX
+# From the point to the middle of each closed fan.
+TOUCH_FAN_OFFSET = 22.6 * TOUCH_PX
+TOUCH_HOLD_FAN_OFFSET = 1.05 * TOUCH_FAN_OFFSET
+TOUCH_POINT_SIZE = 1.2 * 32 * TOUCH_PX
+# The bar from a touch hold's head to its end, in 4 equal parts coloured like its fans.
+TOUCH_HOLD_BAR_W = 0.15 * LANE_W
+TOUCH_HOLD_BAR_PARTS = 4
+
 MAX_COLUMNS = 1000
+# Combo bins, one per beat; notes judged later than this count in the last bin.
+MAX_COMBO_BEATS = 2048
 
 
 ColumnBeats = Array[int, Dim[1001]]
 assert MAX_COLUMNS + 1 == ColumnBeats.size()
+ComboBins = Array[int, Dim[2048]]
+assert MAX_COMBO_BEATS == ComboBins.size()
 
 
 @level_data
@@ -79,6 +109,8 @@ class PreviewData:
     column_count: int
     # The beat each column starts on; one more entry for the end of the last column.
     column_beats: ColumnBeats
+    # Notes judged in each beat; turned into running totals once the columns are built.
+    combo: ComboBins
 
 
 @level_data
@@ -97,6 +129,25 @@ class PreviewLayout:
 def report_end_time(time: float):
     """Preprocess: a note that lasts until ``time``."""
     PreviewData.max_time = max(PreviewData.max_time, time)
+
+
+def report_judgment_beat(beat: float):
+    """Preprocess: a scored note judged at ``beat`` (for the combo above each column)."""
+    index = clamp(floor(beat), 0, MAX_COMBO_BEATS - 1)
+    PreviewData.combo[index] += 1
+
+
+def total_combo():
+    """Preprocess, after every note: the bins become running totals."""
+    total = 0
+    for i in range(MAX_COMBO_BEATS):
+        total += PreviewData.combo[i]
+        PreviewData.combo[i] = total
+
+
+def get_combo_at_column_end(col: int) -> int:
+    """Notes judged before the column's end."""
+    return PreviewData.combo[clamp(PreviewData.column_beats[col + 1] - 1, 0, MAX_COMBO_BEATS - 1)]
 
 
 def get_scroll_direction(orientation: Orientation) -> ScrollDirection:
@@ -128,6 +179,7 @@ def init_preview_layout():
     PreviewLayout.column_top = PreviewLayout.view.t - COLUMN_MARGIN_TOP
     PreviewLayout.column_seconds = get_column_height() / UNITS_PER_SECOND
     build_columns()
+    total_combo()
     canvas().update(
         scroll_direction=get_scroll_direction(Options.orientation),
         size=COLUMN_W * PreviewData.column_count,
@@ -279,3 +331,103 @@ def print_in_view(
         color=color,
         horizontal_align=horizontal_align,
     )
+
+
+def layout_note(lane: float, time: float) -> Rect:
+    col = time_to_col(time)
+    return Rect.from_center(Vec2(lane_to_x(lane, col), time_to_y(time, col)), Vec2(NOTE_SIZE, NOTE_SIZE))
+
+
+def layout_firework(lane: float, time: float) -> Rect:
+    col = time_to_col(time)
+    return Rect.from_center(
+        Vec2(lane_to_x(lane, col), time_to_y(time, col)), Vec2(2 * FIREWORK_HALO_RADIUS, 2 * FIREWORK_HALO_RADIUS)
+    )
+
+
+def layout_each_line(left_lane: float, right_lane: float, time: float) -> Rect:
+    col = time_to_col(time)
+    y = time_to_y(time, col)
+    return Rect(
+        l=lane_to_x(min(left_lane, right_lane), col),
+        r=lane_to_x(max(left_lane, right_lane), col),
+        b=y - EACH_LINE_H / 2,
+        t=y + EACH_LINE_H / 2,
+    )
+
+
+def layout_hold_body(lane: float, start_time: float, end_time: float, col: int) -> Rect:
+    """The part of a hold body that falls in column ``col``: from its head time to its end time,
+    reaching past both up to the caps."""
+    x = lane_to_x(lane, col)
+    bottom = time_to_y(max(start_time, get_column_start_time(col)), col)
+    top = time_to_y(min(end_time, get_column_end_time(col)), col)
+    if time_to_col(start_time) == col:
+        bottom -= HOLD_OVERHANG - HOLD_CAP_H
+    if time_to_col(end_time) == col:
+        top += HOLD_OVERHANG - HOLD_CAP_H
+    return Rect(l=x - HOLD_WIDTH / 2, r=x + HOLD_WIDTH / 2, b=bottom, t=max(top, bottom))
+
+
+def layout_hold_tail_cap(lane: float, time: float) -> Rect:
+    """The v cap, its tip ``HOLD_OVERHANG`` under the head time."""
+    col = time_to_col(time)
+    x = lane_to_x(lane, col)
+    y = time_to_y(time, col) - HOLD_OVERHANG
+    return Rect(l=x - HOLD_WIDTH / 2, r=x + HOLD_WIDTH / 2, b=y, t=y + HOLD_CAP_H)
+
+
+def layout_hold_head_cap(lane: float, time: float) -> Rect:
+    """The ^ cap, its tip ``HOLD_OVERHANG`` over the end time."""
+    col = time_to_col(time)
+    x = lane_to_x(lane, col)
+    y = time_to_y(time, col) + HOLD_OVERHANG
+    return Rect(l=x - HOLD_WIDTH / 2, r=x + HOLD_WIDTH / 2, b=y - HOLD_CAP_H, t=y)
+
+
+def layout_hold_end_point(lane: float, time: float) -> Rect:
+    col = time_to_col(time)
+    return Rect.from_center(
+        Vec2(lane_to_x(lane, col), time_to_y(time, col)), Vec2(HOLD_END_POINT_SIZE, HOLD_END_POINT_SIZE)
+    )
+
+
+def get_note_center(lane: float, time: float) -> Vec2:
+    col = time_to_col(time)
+    return Vec2(lane_to_x(lane, col), time_to_y(time, col))
+
+
+def layout_touch_point(lane: float, time: float) -> Rect:
+    return Rect.from_center(get_note_center(lane, time), Vec2(TOUCH_POINT_SIZE, TOUCH_POINT_SIZE))
+
+
+def layout_touch_fan(lane: float, time: float, angle: float, offset: float) -> Quad:
+    """A closed fan, its tip toward the point: the one under the point, turned ``angle``
+    counterclockwise about it."""
+    center = get_note_center(lane, time)
+    fan = Rect.from_center(center + Vec2(0, -offset), Vec2(TOUCH_FAN_W, TOUCH_FAN_H))
+    return fan.as_quad().rotate_about(angle, pivot=center)
+
+
+def get_touch_fan_angle(index: int) -> float:
+    """Touch fans: under, right of, over and left of the point."""
+    return index * pi / 2
+
+
+def get_touch_hold_fan_angle(index: int) -> float:
+    """Touch hold fans 1..4 (index 0..3): top right, bottom right, bottom left, top left."""
+    return 3 * pi / 4 - index * pi / 2
+
+
+def layout_touch_hold_bar(lane: float, start_time: float, end_time: float, col: int, flipped: bool) -> Quad:
+    """The part of a touch hold bar (or of one of its parts) from ``start_time`` to ``end_time`` that
+    falls in column ``col``. The bar sprites are border cross-sections, so they lie on their side;
+    ``flipped`` turns one the other way."""
+    x = lane_to_x(lane, col)
+    bottom = time_to_y(max(start_time, get_column_start_time(col)), col)
+    top = time_to_y(min(end_time, get_column_end_time(col)), col)
+    left = x - TOUCH_HOLD_BAR_W / 2
+    right = x + TOUCH_HOLD_BAR_W / 2
+    if flipped:
+        left, right = right, left
+    return Quad(bl=Vec2(right, bottom), br=Vec2(right, top), tr=Vec2(left, top), tl=Vec2(left, bottom))

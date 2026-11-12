@@ -8,7 +8,7 @@ from sonolus.script.timing import beat_to_time
 from minimai.lib import archetype_names
 from minimai.lib.game import Button
 from minimai.lib.slide import SlideKind, SlideTrackKind, get_chain_start_beat, get_path_total_beats
-from minimai.preview.layout import report_end_time
+from minimai.preview.layout import report_end_time, report_judgment_beat
 from minimai.preview.note import PreviewBaseNote
 
 
@@ -32,7 +32,9 @@ class PreviewBaseSlide(PreviewArchetype):
     def preprocess(self):
         self.kind = cast(SlideKind, self.key)
         self.target_time = beat_to_time(self.beat)
-        report_end_time(beat_to_time(get_chain_start_beat(self.index) + get_path_total_beats(self.index)))
+        end_beat = get_chain_start_beat(self.index) + get_path_total_beats(self.index)
+        report_end_time(beat_to_time(end_beat))
+        report_judgment_beat(end_beat)
 
 
 class PreviewBaseWifiSlide(PreviewBaseSlide):

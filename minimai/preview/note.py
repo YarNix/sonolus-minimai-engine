@@ -1,26 +1,103 @@
-from typing import cast
+from typing import assert_never, cast
 
-from sonolus.script.archetype import PreviewArchetype, StandardImport, entity_data, imported
+from sonolus.script.archetype import entity_data
+from sonolus.script.quad import Rect
 from sonolus.script.timing import beat_to_time
 
 from minimai.lib import archetype_names
-from minimai.lib.game import Button
-from minimai.lib.note import NoteKind
-from minimai.preview.layout import report_end_time
+from minimai.lib.game import apply_button_mirror_option
+from minimai.lib.note import NoteKind, is_ex
+from minimai.lib.skin import BaseSkin
+from minimai.preview.base import PreviewButtonBase
+from minimai.preview.layout import (
+    get_button_lane,
+    layout_firework,
+    layout_note,
+    report_end_time,
+    report_judgment_beat,
+)
+
+Z_FIREWORK = 0
+Z_EACH_LINE = 0.5
+Z_HOLD = 1
+Z_HOLD_END_POINT = 2
+Z_NOTE = 3
+Z_EX_OUTLINE = 4
 
 
-class PreviewBaseNote(PreviewArchetype):
-    button: Button = imported(default=1)
-    firework: bool = imported(default=False)
-    beat: StandardImport.BEAT
-
+class PreviewBaseNote(PreviewButtonBase):
     kind: NoteKind = entity_data()
-    target_time: float = entity_data()
 
     def preprocess(self):
         self.kind = cast(NoteKind, self.key)
+        self.button = apply_button_mirror_option(self.button)
         self.target_time = beat_to_time(self.beat)
         report_end_time(self.target_time)
+        report_judgment_beat(self.beat)
+
+    def render(self):
+        lane = get_button_lane(self.button)
+        if self.firework:
+            draw_firework(lane, self.target_time)
+        layout = layout_note(lane, self.target_time)
+        draw_note_sprite(self.kind, layout)
+        if is_ex(self.kind):
+            draw_note_ex_outline(self.kind, layout)
+
+
+def draw_firework(lane: float, time: float):
+    """The halo behind a note that sets off a firework."""
+    BaseSkin.preview_firework.draw(layout_firework(lane, time), z=(Z_FIREWORK, time))
+
+
+def draw_note_sprite(kind: NoteKind, layout: Rect):
+    z = (Z_NOTE, layout.center.y)
+    match kind:
+        case NoteKind.NORM_TAP | NoteKind.EX_TAP:
+            BaseSkin.normal_note.draw(layout, z=z)
+        case NoteKind.BREAK_TAP | NoteKind.EX_BREAK_TAP:
+            BaseSkin.break_note.draw(layout, z=z)
+        case NoteKind.EACH_TAP | NoteKind.EX_EACH_TAP:
+            BaseSkin.each_note.draw(layout, z=z)
+        case NoteKind.NORM_STAR | NoteKind.EX_STAR:
+            BaseSkin.normal_star.draw(layout, z=z)
+        case NoteKind.BREAK_STAR | NoteKind.EX_BREAK_STAR:
+            BaseSkin.break_star.draw(layout, z=z)
+        case NoteKind.EACH_STAR | NoteKind.EX_EACH_STAR:
+            BaseSkin.each_star.draw(layout, z=z)
+        case NoteKind.DOUBLE_STAR | NoteKind.EX_DOUBLE_STAR:
+            BaseSkin.double_star.draw(layout, z=z)
+        case NoteKind.BREAK_DOUBLE_STAR | NoteKind.EX_BREAK_DOUBLE_STAR:
+            BaseSkin.break_double_star.draw(layout, z=z)
+        case NoteKind.EACH_DOUBLE_STAR | NoteKind.EX_EACH_DOUBLE_STAR:
+            BaseSkin.each_double_star.draw(layout, z=z)
+        case _:
+            assert_never(kind)
+
+
+def draw_note_ex_outline(kind: NoteKind, layout: Rect):
+    z = (Z_EX_OUTLINE, layout.center.y)
+    match kind:
+        case NoteKind.NORM_TAP | NoteKind.EX_TAP:
+            BaseSkin.normal_note_ex_outline.draw(layout, z=z)
+        case NoteKind.BREAK_TAP | NoteKind.EX_BREAK_TAP:
+            BaseSkin.break_note_ex_outline.draw(layout, z=z)
+        case NoteKind.EACH_TAP | NoteKind.EX_EACH_TAP:
+            BaseSkin.each_note_ex_outline.draw(layout, z=z)
+        case NoteKind.NORM_STAR | NoteKind.EX_STAR:
+            BaseSkin.normal_star_ex_outline.draw(layout, z=z)
+        case NoteKind.BREAK_STAR | NoteKind.EX_BREAK_STAR:
+            BaseSkin.break_star_ex_outline.draw(layout, z=z)
+        case NoteKind.EACH_STAR | NoteKind.EX_EACH_STAR:
+            BaseSkin.each_star_ex_outline.draw(layout, z=z)
+        case NoteKind.DOUBLE_STAR | NoteKind.EX_DOUBLE_STAR:
+            BaseSkin.double_star_ex_outline.draw(layout, z=z)
+        case NoteKind.BREAK_DOUBLE_STAR | NoteKind.EX_BREAK_DOUBLE_STAR:
+            BaseSkin.break_double_star_ex_outline.draw(layout, z=z)
+        case NoteKind.EACH_DOUBLE_STAR | NoteKind.EX_EACH_DOUBLE_STAR:
+            BaseSkin.each_double_star_ex_outline.draw(layout, z=z)
+        case _:
+            assert_never(kind)
 
 
 PreviewNormalTapNote = PreviewBaseNote.derive(archetype_names.NORMAL_TAP_NOTE, is_scored=True, key=NoteKind.NORM_TAP)
