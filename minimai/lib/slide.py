@@ -18,13 +18,13 @@ from minimai.lib import archetype_names
 from minimai.lib.layer import ZIndexes, get_z, LAYER_SLIDE_NOTE, LAYER_SLIDE_PATH
 from minimai.lib.layout import (
     SLIDE_TRACK_POINTS,
+    Layout,
     build_slide_star_points,
     from_skin_px,
     layout_slide_head,
     layout_slide_path,
     layout_wifi_slide_path,
 )
-from minimai.lib.level_config import LevelConfig
 from minimai.lib.options import Options
 from minimai.lib.skin import ActiveSkin
 from minimai.lib.note import NoteKind, _note_draw
@@ -598,7 +598,7 @@ def _wifi_slide_path_draw(
 
 def get_slide_appear_duration(speed: float):
     assert_true(speed != 0, "Speed 0 is not supported!")
-    fade_speed = max(abs(LevelConfig.noteSpeed * speed), 0.01)
+    fade_speed = max(abs(Layout.note_speed * speed), 0.01)
     fade_time = from_skin_px(392.6913) / fade_speed
     fade_time += Options.slide_fade_offset / 1000
     return fade_time
@@ -857,11 +857,23 @@ def get_conn_slide_kind(slide: SlideRef, wifi: bool) -> SlideKind:
     return get_slide_kind_variant(final_kind, wifi)
 
 
+STAR_ROTATE_SPEED_PER_LENGTH = 68.54838709677419 * 0.47 / 1000 / 0.0034803742562305 / 180
+STAR_ROTATE_SPEED_MAX = 1080 / 180
+
+
+def get_star_rotate_speed(slide_length: float, duration: float) -> float:
+    """Star spin for a slide ``slide_length`` path points long (one more per segment), taking ``duration`` seconds."""
+    speed = STAR_ROTATE_SPEED_MAX
+    if duration > 0:
+        # speed_deg = max(-68.548 * ratio, -1080) deg/s
+        # ratio = (L * 0.47 / (T * 1000)) / 0.0034803742562305
+        speed = min(STAR_ROTATE_SPEED_PER_LENGTH * slide_length / duration, STAR_ROTATE_SPEED_MAX)
+    return speed
+
+
 def get_chain_star_rotate_speed(slide: SlideRef, start_beat: float) -> float:
     """Star spin for the chain starting at ``head_index``, along its primary path."""
     head_index = get_slide_index(slide)
-    STAR_ROTATE_SPEED_PER_LENGTH = 68.54838709677419 * 0.47 / 1000 / 0.0034803742562305 / 180
-    STAR_ROTATE_SPEED_MAX = 1080 / 180
     slide_length = 0
     current = head_index
     steps = 0
@@ -878,12 +890,7 @@ def get_chain_star_rotate_speed(slide: SlideRef, start_beat: float) -> float:
     if final_index > 0:
         total = get_path_total_beats(final_index)
     duration = beat_to_time(start_beat + total) - beat_to_time(start_beat)
-    speed = STAR_ROTATE_SPEED_MAX
-    if duration > 0:
-        # speed_deg = max(-68.548 * ratio, -1080) deg/s
-        # ratio = (L * 0.47 / (T * 1000)) / 0.0034803742562305
-        speed = min(STAR_ROTATE_SPEED_PER_LENGTH * slide_length / duration, STAR_ROTATE_SPEED_MAX)
-    return speed
+    return get_star_rotate_speed(slide_length, duration)
 
 
 def get_chain_start_beat(slide: SlideRef) -> float:

@@ -1,37 +1,21 @@
-from sonolus.script.globals import level_memory
+from sonolus.script.instruction import clear_instruction
 
-# from sekai.tutorial.framework import current_phase_time, reset_phase, update_end, update_start
-# from sekai.tutorial.phases import PHASES
-
-
-# @level_memory
-# class TutorialState:
-#     current_phase: int
+from minimai.lib.ring import draw_ring
+from minimai.tutorial.framework import TutorialState, start_section
+from minimai.tutorial.sections import SECTIONS
 
 
-# def inc_phase():
-#     TutorialState.current_phase += 1
-#     TutorialState.current_phase %= len(PHASES)
-#     reset_phase()
+def next_section():
+    start_section((TutorialState.section + 1) % len(SECTIONS))
 
 
-# def dec_phase():
-#     TutorialState.current_phase -= 1
-#     TutorialState.current_phase %= len(PHASES)
-#     reset_phase()
-
-
-# def run_current_phase():
-#     for i, phase in enumerate(PHASES):
-#         if i == TutorialState.current_phase:
-#             is_done = phase(current_phase_time())
-#             if is_done:
-#                 inc_phase()
-#             return
+def previous_section():
+    start_section((TutorialState.section - 1) % len(SECTIONS))
 
 
 def update():
-    # update_start()
-    # run_current_phase()
-    # update_end()
-    pass
+    clear_instruction()
+    draw_ring()
+    for i, run_section in enumerate(SECTIONS):
+        if i == TutorialState.section and run_section():
+            next_section()

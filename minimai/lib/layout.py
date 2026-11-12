@@ -26,6 +26,14 @@ class Layout:
     ring_center: Vec2
     # Judgment ring radius in screen units: ring units (0 = center, 1 = judgment ring) to screen.
     ring_radius: float
+    # Note travel speed, ring units per second.
+    note_speed: float
+    # Touch closing speed (Touch Speed).
+    touch_speed: float
+    # Sprite size multipliers.
+    note_scale: float
+    touch_scale: float
+    slide_scale: float
 
 
 # The skin art is drawn for a judgment ring this many pixels in radius.
@@ -245,6 +253,16 @@ SONOLUS_JUDGMENT_GAP = from_skin_px(12)
 # so its digits come out about as tall and wide as the counter's.
 SONOLUS_COMBO_HEIGHT = COUNTER_LINE_HEIGHT
 
+# Tutorial instruction box, below the ring's center, clear of the notes the tutorial uses
+# (buttons 2, 7 and 8, the slides between 2 and 7, and C).
+TUTORIAL_INSTRUCTION_CENTER = Vec2(0, -0.5)
+TUTORIAL_INSTRUCTION_SIZE = Vec2(1.4, 0.3)
+# The tutorial's hand icon: its size, where its fingertip is (a part of the size from the icon's center,
+# toward the icon's top), and how far it lifts off the line between presses.
+TUTORIAL_HAND_SIZE = 0.35
+TUTORIAL_HAND_TIP_OFFSET = 0.45
+TUTORIAL_HAND_LIFT = 0.15
+
 NOTE_END_SCALING_PROGRESS = 1 / ((1 - NOTE_SPAWN_DISTANCE) * NOTE_SCALE_RATE + 1)
 TOUCH_END_SCALING_PROGGRESS = 0.2
 
@@ -293,7 +311,29 @@ def get_view_safe_area() -> Rect:
 # Judgment ring radius at 100% Ring Size, as a fraction of half the screen height.
 RING_SIZE_SCALE = 0.875
 
-def init_layout():
+def init_layout(
+    tap_speed: float | None = None,
+    touch_speed: float | None = None,
+    note_scale: float | None = None,
+    touch_scale: float | None = None,
+    slide_scale: float | None = None,
+):
+    if tap_speed is None:
+        tap_speed = Options.tap_speed
+    if touch_speed is None:
+        touch_speed = Options.touch_speed
+    if note_scale is None:
+        note_scale = Options.note_scale
+    if touch_scale is None:
+        touch_scale = Options.touch_scale
+    if slide_scale is None:
+        slide_scale = Options.slide_scale
+    # The fitted speed is in reference units per second, 1 unit = 100 skin px.
+    Layout.note_speed = 107.25 * (tap_speed + 0.9975) ** 0.985558604 / 71.4184491 * from_skin_px(100)
+    Layout.touch_speed = touch_speed
+    Layout.note_scale = note_scale
+    Layout.touch_scale = touch_scale
+    Layout.slide_scale = slide_scale
     Layout.view_angle = get_orientation_angle(Options.orientation)
     view = get_view_rect(screen())
     Layout.field_w = view.w
@@ -406,7 +446,7 @@ def layout_ring():
     return Rect.from_center(Layout.ring_center, Vec2(size, size)).as_quad()
 
 def layout_note(progress: float, button: Button):
-    note_size = layout_px_size(NOTE_SIZE, Options.note_scale)
+    note_size = layout_px_size(NOTE_SIZE, Layout.note_scale)
     pos = NOTE_SPAWN_DISTANCE
     if progress <= NOTE_END_SCALING_PROGRESS:
         note_size = note_size * clamp(unlerp(0, NOTE_END_SCALING_PROGRESS, progress), 1e-4, 1)
@@ -453,7 +493,7 @@ class HoldLayout(Record):
 
 def layout_hold(head_progress: float, tail_progress: float, button: Button) -> HoldLayout:
     # Ring units along the lane; the note scale multiplies the sprite sizes only.
-    scale = Options.note_scale
+    scale = Layout.note_scale
     appear = 1.0
     head_pos = NOTE_SPAWN_DISTANCE
     tail_pos = NOTE_SPAWN_DISTANCE
@@ -501,18 +541,18 @@ class TouchLayoutGroup(Record):
 def layout_touch(progress: float, sensor: Sensor):
     pos = get_sensor_pos_from_center(sensor)
 
-    dot_size = layout_px_size(TOUCH_POINT_SIZE, Options.touch_scale)
+    dot_size = layout_px_size(TOUCH_POINT_SIZE, Layout.touch_scale)
     dot_rect = Rect.from_center(pos, Vec2(dot_size, dot_size))
 
     dist_progress = unlerp_clamped(0.4, 0, 0.42 - e ** (4.3 * progress - 5.15))
-    fan_dist = layout_px_size(TOUCH_FAN_OFFSET + TOUCH_FAN_TRAVEL * (1 - dist_progress), Options.touch_scale)
-    fan_size = layout_px_size(TOUCH_FAN_SIZE, Options.touch_scale)
+    fan_dist = layout_px_size(TOUCH_FAN_OFFSET + TOUCH_FAN_TRAVEL * (1 - dist_progress), Layout.touch_scale)
+    fan_size = layout_px_size(TOUCH_FAN_SIZE, Layout.touch_scale)
     fan_rect = Rect.from_center(pos + Vec2(0, -fan_dist), fan_size)
 
     return TouchLayoutGroup(
         dot=dot_rect.as_quad(),
         bottom_fan=fan_rect.as_quad(),
-        border=Rect.from_center(pos, layout_px_size(Vec2.one() * TOUCH_JUST_BORDER_SIZE, Options.touch_scale)).as_quad(),
+        border=Rect.from_center(pos, layout_px_size(Vec2.one() * TOUCH_JUST_BORDER_SIZE, Layout.touch_scale)).as_quad(),
     )
 
 class TouchHoldLayoutGroup(Record):
@@ -526,16 +566,16 @@ class TouchHoldLayoutGroup(Record):
 def layout_touch_hold(progress: float, sensor: Sensor):
     pos = get_sensor_pos_from_center(sensor)
 
-    dot_size = layout_px_size(TOUCH_POINT_SIZE, Options.touch_scale)
+    dot_size = layout_px_size(TOUCH_POINT_SIZE, Layout.touch_scale)
     dot_rect = Rect.from_center(pos, Vec2(dot_size, dot_size))
 
     # Same approach as a touch.
     dist_progress = unlerp_clamped(0.4, 0, 0.42 - e ** (4.3 * progress - 5.15))
-    fan_dist = layout_px_size(TOUCH_FAN_OFFSET + TOUCH_FAN_TRAVEL * (1 - dist_progress), Options.touch_scale)
-    fan_size = layout_px_size(TOUCH_FAN_SIZE, Options.touch_scale)
+    fan_dist = layout_px_size(TOUCH_FAN_OFFSET + TOUCH_FAN_TRAVEL * (1 - dist_progress), Layout.touch_scale)
+    fan_size = layout_px_size(TOUCH_FAN_SIZE, Layout.touch_scale)
     fan_rect = Rect.from_center(pos + Vec2(0, -fan_dist), fan_size)
 
-    border_size = layout_px_size(TOUCH_HOLD_BORDER_SIZE, Options.touch_scale)
+    border_size = layout_px_size(TOUCH_HOLD_BORDER_SIZE, Layout.touch_scale)
 
     return TouchHoldLayoutGroup(
         dot=dot_rect.as_quad(),
@@ -630,7 +670,7 @@ class TouchHoldBorderLayout(Record):
         ``side`` and placed on the sensor."""
         center = get_sensor_pos_from_center(sensor)
         # Screen size of one border sprite pixel.
-        scale = layout_px_size(from_skin_px(1), Options.touch_scale)
+        scale = layout_px_size(from_skin_px(1), Layout.touch_scale)
         angle = -side * pi / 2
         self.pieces.append(TouchHoldBorderPiece(
             side=side,
@@ -916,7 +956,7 @@ def slide_point_transform(point: SlidePoint, button: Button, is_mirrored: bool) 
 def layout_slide_path(index: int, track_points: SlideTrackPointArray, button: Button, is_mirrored: bool):
     point = slide_point_transform(track_points[index], button, is_mirrored)
     center = layout_ring_point(point.position)
-    size = layout_px_size(SLIDE_PATH_SIZE, Options.slide_scale)
+    size = layout_px_size(SLIDE_PATH_SIZE, Layout.slide_scale)
     layout = Rect.from_center(center, size).as_quad().rotate_centered(point.rotation)
     return layout
 
@@ -933,7 +973,7 @@ def layout_wifi_slide_path(
         position.x = -position.x
         angle_offset -= pi / 4
     center = layout_ring_point(position.rotate(angle_offset))
-    size = layout_px_size(WIFI_SLIDE_PATH_SIZES[index], Options.slide_scale)
+    size = layout_px_size(WIFI_SLIDE_PATH_SIZES[index], Layout.slide_scale)
     layout = Rect.from_center(center, size).as_quad()
     if not is_mirrored:
         layout @= layout.scale_centered(Vec2(-1, 1))
@@ -965,7 +1005,7 @@ def layout_slide_head(
         point.rotation = lerp(point_a.rotation, point_b.rotation, fraction)
         
     center = layout_ring_point(point.position)
-    note_size = layout_px_size(NOTE_SIZE, Options.note_scale)
+    note_size = layout_px_size(NOTE_SIZE, Layout.note_scale)
     layout = Rect.from_center(center, Vec2(note_size, note_size)).as_quad()
     if rotate_head:
         layout @= layout.rotate_centered(point.rotation)
@@ -1092,6 +1132,38 @@ def layout_firework_sparkle(center: Vec2, angle: float, distance: float, scale: 
     return Rect.from_center(position, Vec2(side, side)).as_quad()
 
 
+class TutorialHandLayout(Record):
+    # On the screen (instruction icons aren't turned by the skin transform).
+    position: Vec2
+    size: float
+    # Degrees, counterclockwise from pointing up.
+    rotation: float
+
+
+def layout_tutorial_hand(tip: Vec2, pointing: float) -> TutorialHandLayout:
+    """The hand icon with its fingertip at ``tip`` (view), pointing at the view angle ``pointing``."""
+    size = layout_px_size(TUTORIAL_HAND_SIZE)
+    center = tip - Vec2.unit(pointing) * (size * TUTORIAL_HAND_TIP_OFFSET)
+    return TutorialHandLayout(
+        position=to_screen(center),
+        size=size,
+        rotation=(pointing - pi / 2 + Layout.view_angle) * 180 / pi,
+    )
+
+
+def layout_tutorial_button_hand(button: Button, lift: float) -> TutorialHandLayout:
+    """The hand pressing ``button`` from inside the ring, fingertip on the line, ``lift`` (0..1) off it."""
+    angle = get_button_angle_horizontal(button)
+    return layout_tutorial_hand(layout_ring_pos(angle, 1 - TUTORIAL_HAND_LIFT * lift), angle)
+
+
+def layout_tutorial_sensor_hand(sensor: Sensor, lift: float) -> TutorialHandLayout:
+    """The hand pressing ``sensor`` from the right (clear of the instruction box below the center),
+    fingertip on its center, ``lift`` (0..1) off it."""
+    tip = get_sensor_pos_from_center(sensor) + Vec2(layout_px_size(TUTORIAL_HAND_LIFT) * lift, 0)
+    return layout_tutorial_hand(tip, pi)
+
+
 class JudgeTextLayout(Record):
     text: Quad
     # Fast/late below the judge text, and in its place when the judge text isn't shown.
@@ -1150,7 +1222,7 @@ def layout_slide_ok(track: int, start_button: Button, is_mirrored: bool, end_but
     elif shape == SlideOkShape.WIFI:
         is_right = end_button <= 2 or end_button >= 7
     offset = get_button_angle_horizontal(start_button) - get_button_angle_horizontal(1)
-    position = pose.position.rotate(offset)
+    position = +pose.position.rotate(offset)
     rotation = pose.rotation + offset
     if shape != SlideOkShape.CURVE and is_right == pose.turn_on_right:
         rotation += pi

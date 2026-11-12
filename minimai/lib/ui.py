@@ -17,6 +17,8 @@ from minimai.lib.counter import CenterDisplay
 from minimai.lib.layout import (
     SONOLUS_COMBO_HEIGHT,
     SONOLUS_JUDGMENT_HEIGHT,
+    TUTORIAL_INSTRUCTION_CENTER,
+    TUTORIAL_INSTRUCTION_SIZE,
     Layout,
     get_sonolus_judgment_anchor,
     get_view_safe_area,
@@ -206,10 +208,10 @@ def init_ui():
         background=True,
     )
     ui.instruction.update(
-        anchor=to_screen(Vec2(0, 0.4)),
+        anchor=to_screen(layout_ring_point(TUTORIAL_INSTRUCTION_CENTER)),
         pivot=Vec2(0.5, 0.5),
         rotation=rotation,
-        dimensions=Vec2(1.2, 0.15) * ui.instruction_config.scale,
+        dimensions=layout_px_size(TUTORIAL_INSTRUCTION_SIZE) * ui.instruction_config.scale,
         alpha=ui.instruction_config.alpha,
         background=True,
     )

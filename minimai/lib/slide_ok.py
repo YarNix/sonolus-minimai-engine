@@ -78,13 +78,18 @@ def get_slide_ok_sort_group(judgment: ArcadeJudgment) -> int:
     return result
 
 
+def shows_slide_ok(judgment: ArcadeJudgment) -> bool:
+    """Whether a final slide's judgment gets a slide OK under the options."""
+    return not Options.sonolus_judgment and judgment != ArcadeJudgment.NONE and passes_filter(Options.judge_text, judgment)
+
+
 def spawn_slide_ok(
     judgment: ArcadeJudgment, error: float, layout: SlideOkLayout, chart_time: float, index: int, start_time: float
 ):
     """For a judged final slide: in play when judged, in watch from preprocess.
     ``error`` is as for the judge text;
     ``chart_time`` and ``index`` order slide OKs of the same sort group (Slide OK Order)."""
-    if Options.sonolus_judgment or judgment == ArcadeJudgment.NONE or not passes_filter(Options.judge_text, judgment):
+    if not shows_slide_ok(judgment):
         return
     order = chart_time
     tie = index

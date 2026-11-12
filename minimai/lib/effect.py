@@ -3,7 +3,7 @@ from math import ceil
 
 from sonolus.script.effect import Effect, LoopedEffectHandle, StandardEffect, effect, effects
 from sonolus.script.globals import level_memory
-from sonolus.script.runtime import is_watch
+from sonolus.script.runtime import is_tutorial, is_watch
 
 from minimai.lib.game import ArcadeJudgment
 from minimai.lib.options import Options
@@ -78,12 +78,13 @@ def is_hit(judgment: ArcadeJudgment) -> bool:
 
 def emit_sfx(sfx: Effect, at: float, scheduled: bool, scheduled_distance: float = SCHEDULED_SFX_DISTANCE):
     """A hit sound: played now, or with auto SFX scheduled ``at`` (from preprocess).
-    Each path only runs in its own mode, so the archetypes can call both. Watch only schedules."""
+    Each path only runs in its own mode, so the archetypes can call both. Watch only schedules;
+    the tutorial plays everything now, Auto SFX or not."""
     if sfx.is_available:
         if scheduled:
             if Options.auto_sfx or is_watch():
                 sfx.schedule(at, scheduled_distance)
-        elif not Options.auto_sfx:
+        elif not Options.auto_sfx or is_tutorial():
             sfx.play(SFX_DISTANCE)
 
 

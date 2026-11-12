@@ -160,16 +160,24 @@ def get_judge_text_shine(is_break: bool, judgment: ArcadeJudgment) -> Sprite:
     return result
 
 
+def shows_judge_text(judgment: ArcadeJudgment) -> bool:
+    """Whether a judgment gets a judge text (and fast/late) under the options."""
+    # The Judge Text filter hides fast/late too, whatever the style.
+    return (
+        not Options.sonolus_judgment
+        and Options.judge_text_distance > 0
+        and judgment != ArcadeJudgment.NONE
+        and passes_filter(Options.judge_text, judgment)
+    )
+
+
 def spawn_judge_text(
     judgment: ArcadeJudgment, is_break: bool, error: float, slot: int, layout: JudgeTextLayout, start_time: float
 ):
     """The judge text and fast/late of a judged note: in play when judged, in watch from preprocess.
     ``error`` is the hit time minus the target time; a hit off by nothing has no fast/late.
     The sprites are picked when it spawns (``get_judge_text_sprites``)."""
-    if Options.sonolus_judgment or Options.judge_text_distance <= 0 or judgment == ArcadeJudgment.NONE:
-        return
-    # The Judge Text filter hides fast/late too, whatever the style.
-    if not passes_filter(Options.judge_text, judgment):
+    if not shows_judge_text(judgment):
         return
     get_archetype_by_name(archetype_names.JUDGE_TEXT).spawn(
         judgment=judgment,
