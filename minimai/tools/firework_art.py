@@ -1,16 +1,22 @@
-"""Draw the firework's skin sprites: the rays in every hue and the pale ball.
+"""Draw the firework's skin sprites: the rays in every hue, the pale ball and the preview's halo.
 
 Usage: python -m minimai.tools.firework_art <folder> [--scale S]
 
 Needs Pillow (``uv sync --extra tools``). Writes ``firework_ray_1.png`` .. ``firework_ray_12.png``
-(Ray 1 is red, then every 30 degrees of hue) and ``firework_ball_pale.png``, for the skin sprites
-``Mai Firework Ray 1..12`` and ``Mai Firework Ball Pale``. ``--scale 2`` draws them twice as big.
+(Ray 1 is red, then every 30 degrees of hue), ``firework_ball_pale.png`` and
+``preview_firework.png``, for the skin sprites ``Mai Firework Ray 1..12``, ``Mai Firework Ball Pale``
+and ``Mai Preview Firework``. ``--scale 2`` draws them twice as big.
 
 A ray is a wedge, its tip at the bottom middle of the image (the firework's center) and its wide
 end at the top, sized for FIREWORK_RAY_SIZE at scale 1 (one skin pixel per pixel). As in the
 reference, the ray is a dark shade of its hue, and halftone dots of the full colour grow along it
 until they merge into a solid bright end. It fades in from the tip and out at the end (the
 reference cuts its rays off at the screen's circle; Sonolus can't).
+
+The preview's halo is all twelve rays in one square sprite, as the preview lays them out behind a
+note: ray 1 pointing up, the rest every 30 degrees clockwise, each aimed at the center but starting
+halfway out. Its rays are plain wedges in a single, slightly paler colour each: no dark shade, dots
+or fading.
 """
 
 import argparse
@@ -36,6 +42,14 @@ DOTS_MERGED = 0.82
 # neighbours.
 DOT_SPACING = 13
 DOT_MERGED_RADIUS = 0.62
+# The preview halo: its size in pixels at scale 1, and how much paler its colours are.
+PREVIEW_HALO_SIZE = 128
+# The inner part of each ray, as a part of the radius, is left out (it would show through the note).
+PREVIEW_HOLE = 0.5
+# A ray's width at the edge, as a part of the radius.
+PREVIEW_RAY_WIDTH = 0.2
+PREVIEW_SATURATION = 0.6
+PREVIEW_VALUE = 0.95
 PALE_BALL_SIZE = 512
 PALE_BALL_COLOR = (255, 238, 246)
 PALE_BALL_ALPHA = 0.9
@@ -97,6 +111,43 @@ def ray_color(index: int, value: float = 1.0) -> tuple[int, int, int]:
     return round(r * 255), round(g * 255), round(b * 255)
 
 
+def draw_preview_halo(size: int):
+    """Twelve plain wedges aimed at the center of a ``size`` square, from PREVIEW_HOLE of the way
+    out to the edge, PREVIEW_RAY_WIDTH of the radius wide there."""
+    import math
+
+    from PIL import Image, ImageDraw
+
+    big = size * SUPERSAMPLE
+    center = big / 2
+    half_width = center * PREVIEW_RAY_WIDTH / 2
+    halo = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(halo)
+    for i in range(FIREWORK_HUES):
+        r, g, b = colorsys.hsv_to_rgb(i / FIREWORK_HUES, PREVIEW_SATURATION, PREVIEW_VALUE)
+        # Clockwise from up, in image coordinates (y down).
+        angle = 2 * math.pi * i / FIREWORK_HUES
+        out = (math.sin(angle), -math.cos(angle))
+        side = (math.cos(angle), math.sin(angle))
+        end = (center + out[0] * center, center + out[1] * center)
+        draw.polygon(
+            [
+                (center, center),
+                (end[0] + side[0] * half_width, end[1] + side[1] * half_width),
+                (end[0] - side[0] * half_width, end[1] - side[1] * half_width),
+            ],
+            fill=(round(r * 255), round(g * 255), round(b * 255), 255),
+        )
+    hole = Image.new("L", (big, big), 255)
+    hole_radius = center * PREVIEW_HOLE
+    ImageDraw.Draw(hole).ellipse(
+        (center - hole_radius, center - hole_radius, center + hole_radius, center + hole_radius), fill=0
+    )
+    alpha = halo.getchannel("A")
+    halo.putalpha(Image.composite(alpha, hole, hole))
+    return halo.resize((size, size), Image.LANCZOS)
+
+
 def draw_pale_ball(size: int):
     """A soft white-pink ball, fading out from the middle to the edge."""
     from PIL import Image
@@ -130,7 +181,8 @@ def draw_art(folder: Path, scale: float = 1.0):
         ray.putalpha(alpha)
         ray.save(folder / f"firework_ray_{i + 1}.png")
     draw_pale_ball(round(PALE_BALL_SIZE * scale)).save(folder / "firework_ball_pale.png")
-    print(f"{FIREWORK_HUES} rays ({width} x {height}) and the pale ball written to {folder}")
+    draw_preview_halo(round(PREVIEW_HALO_SIZE * scale)).save(folder / "preview_firework.png")
+    print(f"{FIREWORK_HUES} rays ({width} x {height}), the pale ball and the preview halo written to {folder}")
 
 
 def main():

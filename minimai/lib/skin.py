@@ -19,6 +19,24 @@ SLIDE_OK_GRADES = (
 )
 COUNTER_COLOURS = ("Yellow", "Pink", "Green", "Silver", "Blue", "Red", "Gold")
 COUNTER_GLYPHS = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Dot", "Percent", "Plus", "Minus", "Star")
+# The preview's sensor group marks, under each column.
+PREVIEW_GROUP_LABELS = ("B", "C", "D", "E")
+# The preview's slide shape labels: sprite name, then the simai shape it shows. "^" isn't here: the
+# level data keeps it as a plain circle track, shown as ">" or "<".
+PREVIEW_SHAPE_LABELS = (
+    ("Line", "-"),
+    ("Circle R", ">"),
+    ("Circle L", "<"),
+    ("Center", "v"),
+    ("P", "p"),
+    ("Q", "q"),
+    ("PP", "pp"),
+    ("QQ", "qq"),
+    ("S", "s"),
+    ("Z", "z"),
+    ("Reflect", "V"),
+    ("Wifi", "w"),
+)
 
 @skin
 class BaseSkin:
@@ -187,6 +205,13 @@ class BaseSkin:
     )
     # The life counter's backdrop, by COUNTER_COLOURS.
     counter_lives: SpriteGroup = sprite_group(f"Mai Counter {colour} Life" for colour in COUNTER_COLOURS)
+
+    # By PREVIEW_GROUP_LABELS.
+    preview_group_labels: SpriteGroup = sprite_group(f"Mai Preview Label {label}" for label in PREVIEW_GROUP_LABELS)
+    # By PREVIEW_SHAPE_LABELS.
+    preview_shape_labels: SpriteGroup = sprite_group(f"Mai Preview Shape {name}" for name, _ in PREVIEW_SHAPE_LABELS)
+    preview_firework: Sprite = sprite("Mai Preview Firework")
+    preview_each_line: Sprite = sprite("Mai Preview Each Line")
 
 class HoldActiveSpriteSet(Record):
     light: Sprite
