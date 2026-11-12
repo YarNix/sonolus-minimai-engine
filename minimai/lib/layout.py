@@ -237,6 +237,14 @@ COUNTER_STAR_TRACKING = from_skin_px(-4)
 # The life counter's backdrop (heart, ring and button marks), centered on the counter.
 COUNTER_LIFE_SIZE = from_skin_px(276)
 
+# Sonolus' own judgment text (Sonolus Judgment option), its box height.
+SONOLUS_JUDGMENT_HEIGHT = from_skin_px(32)
+# Its gap from the ring sprite's edge.
+SONOLUS_JUDGMENT_GAP = from_skin_px(12)
+# Sonolus' own combo (Center Display: Sonolus Combo), its box height: the center counter's line height,
+# so its digits come out about as tall and wide as the counter's.
+SONOLUS_COMBO_HEIGHT = COUNTER_LINE_HEIGHT
+
 NOTE_END_SCALING_PROGRESS = 1 / ((1 - NOTE_SPAWN_DISTANCE) * NOTE_SCALE_RATE + 1)
 TOUCH_END_SCALING_PROGGRESS = 0.2
 
@@ -994,6 +1002,15 @@ def layout_counter_header_glyph(left: float, width: float, scale: float, size: f
     center = Vec2(left + width * size / 2, COUNTER_HEADER_HEIGHT)
     cell = Vec2(width, COUNTER_LINE_HEIGHT) * size
     return Rect.from_center(layout_ring_point(center * scale), layout_px_size(cell, scale)).as_quad()
+
+def get_sonolus_judgment_anchor(height: float) -> Vec2:
+    """View position of Sonolus' judgment text center, outside the ring"""
+    ring_edge = Layout.ring_radius * RING_SPRITE_SIZE / 2
+    result = Vec2(
+        Layout.ring_center.x,
+        Layout.ring_center.y - ring_edge - SONOLUS_JUDGMENT_GAP * Layout.ring_radius - height / 2,
+    )
+    return result
 
 def layout_tap_effect(button: Button) -> Quad:
     size = layout_px_size(TAP_EFFECT_SIZE, Options.effect_size)

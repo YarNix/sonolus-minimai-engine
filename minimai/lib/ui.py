@@ -13,7 +13,17 @@ from sonolus.script.ui import (
 )
 from sonolus.script.vec import Vec2
 
-from minimai.lib.layout import Layout, get_view_safe_area, to_screen
+from minimai.lib.counter import CenterDisplay
+from minimai.lib.layout import (
+    SONOLUS_COMBO_HEIGHT,
+    SONOLUS_JUDGMENT_HEIGHT,
+    Layout,
+    get_sonolus_judgment_anchor,
+    get_view_safe_area,
+    layout_px_size,
+    layout_ring_point,
+    to_screen,
+)
 from minimai.lib.options import Options
 
 ui_config = UiConfig(
@@ -74,8 +84,8 @@ def init_ui():
     box.l = -min_x_extent
     # show_ui = not Options.hide_ui
     show_ui = True
-    # The center counter (Center Display) shows it instead.
-    show_combo = False
+    # The center counter shows it, unless Center Display asks for Sonolus' (the life counter takes the center first).
+    show_combo = Options.center_display == CenterDisplay.SONOLUS_COMBO and Options.life_challenge == 0
     # The judge text at each note shows instead, unless the option asks for Sonolus'.
     show_judgment = Options.sonolus_judgment
 
@@ -129,29 +139,34 @@ def init_ui():
         horizontal_align=HorizontalAlign.RIGHT,
         background=False,
     )
+    # At the ring center, in place of the center counter, with its opacity.
+    combo_anchor = to_screen(layout_ring_point(Vec2(0, 0)))
+    combo_height = layout_px_size(SONOLUS_COMBO_HEIGHT)
+    combo_alpha = ui.combo_config.alpha * Options.center_display_opacity * show_ui * show_combo
     ui.combo_value.update(
-        anchor=to_screen(Vec2(Layout.field_w * 0.355, Layout.field_h * 0.0875)),
+        anchor=combo_anchor,
         pivot=Vec2(0.5, 0.5),
         rotation=rotation,
-        dimensions=Vec2(0, Layout.field_h * 0.14) * ui.combo_config.scale,
-        alpha=ui.combo_config.alpha * show_ui * show_combo,
+        dimensions=Vec2(0, combo_height) * ui.combo_config.scale,
+        alpha=combo_alpha,
         horizontal_align=HorizontalAlign.CENTER,
         background=False,
     )
     ui.combo_text.update(
-        anchor=to_screen(Vec2(Layout.field_w * 0.355, Layout.field_h * 0.0875)),
+        anchor=combo_anchor,
         pivot=Vec2(0.5, -2.25),
         rotation=rotation,
-        dimensions=Vec2(0, Layout.field_h * 0.14 * 0.25) * ui.combo_config.scale,
-        alpha=ui.combo_config.alpha * show_ui * show_combo,
+        dimensions=Vec2(0, combo_height * 0.25) * ui.combo_config.scale,
+        alpha=combo_alpha,
         horizontal_align=HorizontalAlign.CENTER,
         background=False,
     )
+    judgment_height = layout_px_size(SONOLUS_JUDGMENT_HEIGHT) * ui.judgment_config.scale
     ui.judgment.update(
-        anchor=to_screen(Vec2(0, Layout.field_h * -0.115)),
+        anchor=to_screen(get_sonolus_judgment_anchor(judgment_height)),
         pivot=Vec2(0.5, 0.5),
         rotation=rotation,
-        dimensions=Vec2(0, Layout.field_h * 0.0475) * ui.judgment_config.scale,
+        dimensions=Vec2(0, judgment_height),
         alpha=ui.judgment_config.alpha * show_ui * show_judgment,
         horizontal_align=HorizontalAlign.CENTER,
         background=False,

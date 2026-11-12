@@ -266,7 +266,7 @@ class Options:
         name="Sonolus Judgment",
         description="Show Sonolus' judgment text instead of the judge text and fast/late at each note.",
         scope="Maimai",
-        category=gameplay,
+        category=graphics,
         default=False,
     )
     center_display: int = select_option(
@@ -291,6 +291,7 @@ class Options:
             "S Border",
             "SS Border",
             "SSS Border",
+            "Sonolus Combo",
         ],
     )
     center_display_opacity: float = slider_option(

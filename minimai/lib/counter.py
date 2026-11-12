@@ -43,6 +43,7 @@ class CenterDisplay(IntEnum):
     S_BORDER = auto()
     SS_BORDER = auto()
     SSS_BORDER = auto()
+    SONOLUS_COMBO = auto()
 
 
 class CounterColour(IntEnum):
