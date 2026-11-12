@@ -1,10 +1,12 @@
-from math import degrees, floor, pi
+from math import atan2, degrees, floor, pi
 
 from sonolus.script.array import Array, Dim
+from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_data
 from sonolus.script.interval import clamp
 from sonolus.script.printing import PrintColor, PrintFormat, print_number
 from sonolus.script.quad import Quad, Rect
+from sonolus.script.record import Record
 from sonolus.script.runtime import (
     HorizontalAlign,
     ScrollDirection,
@@ -20,6 +22,7 @@ from sonolus.script.vec import Vec2
 
 from minimai.lib.game import Button, Sensor, SensorGroup, sensor_offset, sensor_to_group
 from minimai.lib.layout import Orientation, get_orientation_angle
+from minimai.lib.slide import SlideTrackKind, get_slide_area_count, get_slide_area_sensor
 from minimai.lib.options import Options
 
 # Lane positions, in lanes: 5 6 7 8 at 0..3, C at 4, 1 2 3 4 at 5..8. B, D and E sit 0.25, 0.5 and
@@ -90,6 +93,21 @@ TOUCH_POINT_SIZE = 1.2 * 32 * TOUCH_PX
 # The bar from a touch hold's head to its end, in 4 equal parts coloured like its fans.
 TOUCH_HOLD_BAR_W = 0.15 * LANE_W
 TOUCH_HOLD_BAR_PARTS = 4
+# Slide bars (``Mai Slide Path``, 70 x 94 px, pointing left in the sprite), at 1.1 skin pixels per
+# (unenlarged) note pixel, one every 0.33 lanes along the track. The wait's are smaller.
+SLIDE_PX = 1.1 * 0.95 * LANE_W / 180
+SLIDE_BAR_W = 70 * SLIDE_PX
+SLIDE_BAR_H = 94 * SLIDE_PX
+SLIDE_BAR_SPACING = 0.33 * LANE_W
+SLIDE_WAIT_SCALE = 0.8
+# The wait's slide bars fade in from the slide's time to the start of its travel (ease-out quad).
+SLIDE_WAIT_ALPHA_START = 0.2
+SLIDE_WAIT_ALPHA_END = 0.8
+# The wait's last slide bar is left out if it would sit closer than this (in spacings) to the travel's first.
+SLIDE_WAIT_END_GAP = 0.6
+# The shape label at the start of the travel, this far right of the wait's slide bars.
+SHAPE_LABEL_H = 0.45 * LANE_W
+SHAPE_LABEL_GAP = 0.05 * LANE_W
 
 MAX_COLUMNS = 1000
 # Combo bins, one per beat; notes judged later than this count in the last bin.
@@ -431,3 +449,211 @@ def layout_touch_hold_bar(lane: float, start_time: float, end_time: float, col: 
     if flipped:
         left, right = right, left
     return Quad(bl=Vec2(right, bottom), br=Vec2(right, top), tr=Vec2(left, top), tl=Vec2(left, bottom))
+
+
+# Slides: a track on the lanes, straight runs over every sensor of its judgment areas, turning only
+# where it turns back across the lanes or wraps round the column's edges, with one slope (lanes per
+# second) for the whole travel.
+
+class SlideTrackPoint(Record):
+    lane: float
+    time: float
+    # The track jumps here (from the other edge of the column) instead of running on from the last point.
+    jump: bool
+
+
+SlideTrackPoints = VarArray[SlideTrackPoint, Dim[40]]
+SensorList = VarArray[Sensor, Dim[16]]
+
+
+def get_sensor_ring_angle(sensor: Sensor) -> float:
+    """Degrees clockwise from the top of the ring (C has none: -1)."""
+    group = sensor_to_group(sensor)
+    result = -1.0
+    if group == SensorGroup.A or group == SensorGroup.B:
+        result = 22.5 + 45 * sensor_offset(sensor)
+    elif group == SensorGroup.D or group == SensorGroup.E:
+        result = 45.0 * sensor_offset(sensor)
+    return result
+
+
+def wrap_degrees(value: float) -> float:
+    return value - 360 * floor(value / 360)
+
+
+def crosses_bottom(a: Sensor, b: Sensor) -> bool:
+    """Whether going the short way round the ring from ``a`` to ``b`` passes the bottom (between 4
+    and 5), where the lanes are cut."""
+    angle_a = get_sensor_ring_angle(a)
+    angle_b = get_sensor_ring_angle(b)
+    result = False
+    if angle_a >= 0 and angle_b >= 0:
+        turn = wrap_degrees(angle_b - angle_a + 180) - 180
+        to_bottom = wrap_degrees(180 - angle_a)
+        if turn > 0:
+            result = 0 < to_bottom <= turn
+        elif turn < 0:
+            result = 0 < wrap_degrees(angle_a - 180) <= -turn
+    return result
+
+
+def get_wrap_distance(lane_a: float, lane_b: float) -> float:
+    """Lanes from ``lane_a`` out to its side's edge, plus in from the other edge to ``lane_b``."""
+    out = lane_a - LANE_MIN
+    if lane_a > CENTER_LANE:
+        out = LANE_MAX - lane_a
+    back = LANE_MAX - lane_b
+    if lane_b < CENTER_LANE:
+        back = lane_b - LANE_MIN
+    return out + back
+
+
+def build_slide_track(
+    track: SlideTrackKind, button: Button, is_mirrored: bool, start_time: float, end_time: float
+) -> SlideTrackPoints:
+    sensors = SensorList.new()
+    for i in range(get_slide_area_count(track)):
+        sensors.append(get_slide_area_sensor(track, i, 0, button, is_mirrored))
+    count = len(sensors)
+
+    # The turning points: the ends, where the path turns back across the lanes, and both ends of a wrap.
+    kept = VarArray[int, Dim[16]].new()
+    kept.append(0)
+    for i in range(1, count - 1):
+        before = get_sensor_lane(sensors[i]) - get_sensor_lane(sensors[i - 1])
+        after = get_sensor_lane(sensors[i + 1]) - get_sensor_lane(sensors[i])
+        if (
+            before * after < 0
+            or crosses_bottom(sensors[i - 1], sensors[i])
+            or crosses_bottom(sensors[i], sensors[i + 1])
+        ):
+            kept.append(i)
+    if count > 1:
+        kept.append(count - 1)
+
+    # One slope: time follows the lanes crossed.
+    total = 0.0
+    for k in range(1, len(kept)):
+        total += get_run_length(sensors, kept[k - 1], kept[k])
+
+    path = SlideTrackPoints.new()
+    path.append(SlideTrackPoint(lane=get_sensor_lane(sensors[0]), time=start_time, jump=False))
+    done = 0.0
+    for k in range(1, len(kept)):
+        a = kept[k - 1]
+        b = kept[k]
+        lane_a = get_sensor_lane(sensors[a])
+        lane_b = get_sensor_lane(sensors[b])
+        length = get_run_length(sensors, a, b)
+        time_a = get_track_time(start_time, end_time, done, total, k - 1, len(kept) - 1)
+        time_b = get_track_time(start_time, end_time, done + length, total, k, len(kept) - 1)
+        if b == a + 1 and crosses_bottom(sensors[a], sensors[b]):
+            out_edge = LANE_MIN
+            in_edge = LANE_MAX
+            out_length = lane_a - LANE_MIN
+            if lane_a > CENTER_LANE:
+                out_edge = LANE_MAX
+                in_edge = LANE_MIN
+                out_length = LANE_MAX - lane_a
+            edge_time = time_a + (time_b - time_a) * out_length / max(length, 1e-6)
+            path.append(SlideTrackPoint(lane=out_edge, time=edge_time, jump=False))
+            path.append(SlideTrackPoint(lane=in_edge, time=edge_time, jump=True))
+        path.append(SlideTrackPoint(lane=lane_b, time=time_b, jump=False))
+        done += length
+    return path
+
+
+def get_run_length(sensors: SensorList, a: int, b: int) -> float:
+    lane_a = get_sensor_lane(sensors[a])
+    lane_b = get_sensor_lane(sensors[b])
+    result = abs(lane_b - lane_a)
+    if b == a + 1 and crosses_bottom(sensors[a], sensors[b]):
+        result = get_wrap_distance(lane_a, lane_b)
+    return result
+
+
+def get_track_time(start_time: float, end_time: float, done: float, total: float, index: int, last: int) -> float:
+    """By the lanes crossed; evenly by turning point if the path never leaves its lane."""
+    fraction = index / max(last, 1)
+    if total > 0:
+        fraction = done / total
+    return start_time + (end_time - start_time) * fraction
+
+
+def get_slide_track_length(path: SlideTrackPoints) -> float:
+    total = 0.0
+    for i in range(1, len(path)):
+        if not path[i].jump:
+            a = path[i - 1]
+            b = path[i]
+            for col in range(time_to_col(min(a.time, b.time)), time_to_col(max(a.time, b.time)) + 1):
+                piece = clip_to_column(a, b, col)
+                if piece.inside:
+                    total += (piece.end - piece.start).magnitude
+    return total
+
+
+def get_clip_times(a: SlideTrackPoint, b: SlideTrackPoint, col: int) -> Vec2:
+    """The part of the run from ``a`` to ``b`` inside column ``col``, as fractions of the run (x to y)."""
+    lo = 0.0
+    hi = 1.0
+    duration = b.time - a.time
+    if duration > 0:
+        lo = max(0.0, (get_column_start_time(col) - a.time) / duration)
+        hi = min(1.0, (get_column_end_time(col) - a.time) / duration)
+    return Vec2(lo, hi)
+
+
+def get_piece_fraction(a: SlideTrackPoint, b: SlideTrackPoint, col: int, u: float) -> float:
+    clip = get_clip_times(a, b, col)
+    return clip.x + (clip.y - clip.x) * u
+
+
+class ColumnPiece(Record):
+    inside: bool
+    start: Vec2
+    end: Vec2
+
+
+def clip_to_column(a: SlideTrackPoint, b: SlideTrackPoint, col: int) -> ColumnPiece:
+    """The run's ends inside column ``col``, in view coordinates; not ``inside`` if no part of it is
+    (a run at a single time is in that time's column)."""
+    clip = get_clip_times(a, b, col)
+    inside = clip.x <= clip.y
+    if b.time <= a.time:
+        inside = time_to_col(a.time) == col
+    time_lo = a.time + (b.time - a.time) * clip.x
+    time_hi = a.time + (b.time - a.time) * clip.y
+    lane_lo = a.lane + (b.lane - a.lane) * clip.x
+    lane_hi = a.lane + (b.lane - a.lane) * clip.y
+    return ColumnPiece(
+        inside=inside,
+        start=Vec2(lane_to_x(lane_lo, col), time_to_y(time_lo, col)),
+        end=Vec2(lane_to_x(lane_hi, col), time_to_y(time_hi, col)),
+    )
+
+
+def layout_slide_bar(center: Vec2, direction: Vec2, scale: float) -> Quad:
+    """A slide bar pointing along ``direction`` (the sprite points left)."""
+    angle = pi / 2
+    if direction.magnitude > 0:
+        angle = atan2(direction.y, direction.x)
+    rect = Rect.from_center(center, Vec2(SLIDE_BAR_W, SLIDE_BAR_H) * scale)
+    return rect.as_quad().rotate_about(angle - pi, pivot=center)
+
+
+def build_wait_track(lane: float, start_time: float, end_time: float) -> SlideTrackPoints:
+    """A slide's wait: straight up its start lane."""
+    track = SlideTrackPoints.new()
+    track.append(SlideTrackPoint(lane=lane, time=start_time, jump=False))
+    track.append(SlideTrackPoint(lane=lane, time=end_time, jump=False))
+    return track
+
+
+def layout_shape_label(lane: float, time: float) -> Rect:
+    """Left-aligned just right of the wait's slide bars, sitting on the start of the travel: the sprite's
+    baseline is 0.32 of its height up, so even "-" stays clear of a beat line there."""
+    col = time_to_col(time)
+    left = lane_to_x(lane, col) + SLIDE_BAR_H * SLIDE_WAIT_SCALE / 2 + SHAPE_LABEL_GAP
+    y = time_to_y(time, col)
+    return Rect(l=left, r=left + SHAPE_LABEL_H * PREVIEW_SHAPE_LABEL_ASPECT, b=y - SHAPE_LABEL_H, t=y)
