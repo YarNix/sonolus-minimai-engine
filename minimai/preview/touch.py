@@ -8,6 +8,7 @@ from minimai.lib import archetype_names
 from minimai.lib.game import Sensor, apply_sensor_mirror_option
 from minimai.lib.skin import BaseSkin
 from minimai.lib.touch import TouchKind
+from minimai.preview.layer import get_touch_fan_z, get_touch_point_z
 from minimai.preview.layout import (
     TOUCH_FAN_OFFSET,
     get_sensor_lane,
@@ -17,7 +18,7 @@ from minimai.preview.layout import (
     report_end_time,
     report_judgment_beat,
 )
-from minimai.preview.note import Z_NOTE, draw_firework
+from minimai.preview.note import draw_firework
 
 
 class PreviewBaseTouch(PreviewArchetype):
@@ -45,14 +46,14 @@ class PreviewBaseTouch(PreviewArchetype):
                 self.kind,
                 False,
                 layout_touch_fan(lane, self.target_time, get_touch_fan_angle(i), TOUCH_FAN_OFFSET),
-                self.target_time,
-                i,
+                get_touch_fan_z(lane, self.target_time, i),
             )
-        draw_touch_part(self.kind, True, layout_touch_point(lane, self.target_time), self.target_time, 4)
+        draw_touch_part(
+            self.kind, True, layout_touch_point(lane, self.target_time), get_touch_point_z(lane, self.target_time)
+        )
 
 
-def draw_touch_part(kind: TouchKind, is_point: bool, layout: QuadLike, time: float, order: int):
-    z = (Z_NOTE, time, order)
+def draw_touch_part(kind: TouchKind, is_point: bool, layout: QuadLike, z: tuple):
     match kind:
         case TouchKind.NORM_TOUCH | TouchKind.EX_TOUCH:
             if is_point:

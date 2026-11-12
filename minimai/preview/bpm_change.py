@@ -5,7 +5,7 @@ from sonolus.script.timing import beat_to_time
 from sonolus.script.vec import Vec2
 
 from minimai.lib import archetype_names
-from minimai.preview.layout import LANE_MAX, lane_to_x, print_in_view, time_to_col, time_to_y
+from minimai.preview.layout import BPM_LABEL_SHIFT, LANE_MAX, lane_to_x, print_in_view, time_to_col, time_to_y
 
 
 class PreviewBpmChange(PreviewArchetype):
@@ -19,7 +19,7 @@ class PreviewBpmChange(PreviewArchetype):
         col = time_to_col(time)
         print_in_view(
             self.bpm,
-            Vec2(lane_to_x(LANE_MAX, col), time_to_y(time, col)),
+            Vec2(lane_to_x(LANE_MAX, col) + BPM_LABEL_SHIFT, time_to_y(time, col)),
             Vec2(1, 0),
             fmt=PrintFormat.BPM,
             color=PrintColor.YELLOW,

@@ -8,6 +8,7 @@ from minimai.lib import archetype_names
 from minimai.lib.game import apply_button_mirror_option
 from minimai.lib.note import NoteKind, is_ex
 from minimai.lib.skin import BaseSkin
+from minimai.preview.layer import LAYER_EX_OUTLINE, LAYER_FIREWORK, LAYER_NOTE, get_z
 from minimai.preview.base import PreviewButtonBase
 from minimai.preview.layout import (
     get_button_lane,
@@ -17,12 +18,6 @@ from minimai.preview.layout import (
     report_judgment_beat,
 )
 
-Z_FIREWORK = 0
-Z_EACH_LINE = 0.5
-Z_HOLD = 1
-Z_HOLD_END_POINT = 2
-Z_NOTE = 3
-Z_EX_OUTLINE = 4
 
 
 class PreviewBaseNote(PreviewButtonBase):
@@ -40,18 +35,17 @@ class PreviewBaseNote(PreviewButtonBase):
         if self.firework:
             draw_firework(lane, self.target_time)
         layout = layout_note(lane, self.target_time)
-        draw_note_sprite(self.kind, layout)
+        draw_note_sprite(self.kind, layout, get_z(LAYER_NOTE, lane, self.target_time))
         if is_ex(self.kind):
-            draw_note_ex_outline(self.kind, layout)
+            draw_note_ex_outline(self.kind, layout, get_z(LAYER_EX_OUTLINE, lane, self.target_time))
 
 
 def draw_firework(lane: float, time: float):
     """The halo behind a note that sets off a firework."""
-    BaseSkin.preview_firework.draw(layout_firework(lane, time), z=(Z_FIREWORK, time))
+    BaseSkin.preview_firework.draw(layout_firework(lane, time), z=get_z(LAYER_FIREWORK, lane, time))
 
 
-def draw_note_sprite(kind: NoteKind, layout: Rect):
-    z = (Z_NOTE, layout.center.y)
+def draw_note_sprite(kind: NoteKind, layout: Rect, z: tuple):
     match kind:
         case NoteKind.NORM_TAP | NoteKind.EX_TAP:
             BaseSkin.normal_note.draw(layout, z=z)
@@ -75,8 +69,7 @@ def draw_note_sprite(kind: NoteKind, layout: Rect):
             assert_never(kind)
 
 
-def draw_note_ex_outline(kind: NoteKind, layout: Rect):
-    z = (Z_EX_OUTLINE, layout.center.y)
+def draw_note_ex_outline(kind: NoteKind, layout: Rect, z: tuple):
     match kind:
         case NoteKind.NORM_TAP | NoteKind.EX_TAP:
             BaseSkin.normal_note_ex_outline.draw(layout, z=z)

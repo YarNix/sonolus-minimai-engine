@@ -8,6 +8,7 @@ from minimai.lib import archetype_names
 from minimai.lib.game import apply_button_mirror_option
 from minimai.lib.hold import HoldKind, is_ex_hold
 from minimai.lib.skin import BaseSkin
+from minimai.preview.layer import LAYER_HOLD_END_POINT, get_hold_z, get_z
 from minimai.preview.base import PreviewButtonBase
 from minimai.preview.layout import (
     get_button_lane,
@@ -19,7 +20,7 @@ from minimai.preview.layout import (
     report_judgment_beat,
     time_to_col,
 )
-from minimai.preview.note import Z_EX_OUTLINE, Z_HOLD, Z_HOLD_END_POINT, draw_firework
+from minimai.preview.note import draw_firework
 
 
 class PreviewBaseHold(PreviewButtonBase):
@@ -46,19 +47,19 @@ class PreviewBaseHold(PreviewButtonBase):
         ex = is_ex_hold(self.kind)
         for col in range(time_to_col(self.target_time), time_to_col(self.end_time) + 1):
             body = layout_hold_body(lane, self.target_time, self.end_time, col)
-            draw_hold_part(self.kind, HoldPart.BODY, body, self.target_time, False)
+            draw_hold_part(self.kind, HoldPart.BODY, body, lane, self.target_time, False)
             if ex:
-                draw_hold_part(self.kind, HoldPart.BODY, body, self.target_time, True)
+                draw_hold_part(self.kind, HoldPart.BODY, body, lane, self.target_time, True)
         tail = layout_hold_tail_cap(lane, self.target_time)
         head = layout_hold_head_cap(lane, self.end_time)
-        draw_hold_part(self.kind, HoldPart.TAIL, tail, self.target_time, False)
-        draw_hold_part(self.kind, HoldPart.HEAD, head, self.target_time, False)
+        draw_hold_part(self.kind, HoldPart.TAIL, tail, lane, self.target_time, False)
+        draw_hold_part(self.kind, HoldPart.HEAD, head, lane, self.target_time, False)
         if ex:
-            draw_hold_part(self.kind, HoldPart.TAIL, tail, self.target_time, True)
-            draw_hold_part(self.kind, HoldPart.HEAD, head, self.target_time, True)
-        draw_hold_end_point(self.kind, layout_hold_end_point(lane, self.target_time), self.target_time)
+            draw_hold_part(self.kind, HoldPart.TAIL, tail, lane, self.target_time, True)
+            draw_hold_part(self.kind, HoldPart.HEAD, head, lane, self.target_time, True)
+        draw_hold_end_point(self.kind, layout_hold_end_point(lane, self.target_time), lane, self.target_time)
         if self.end_time > self.target_time:
-            draw_hold_end_point(self.kind, layout_hold_end_point(lane, self.end_time), self.target_time)
+            draw_hold_end_point(self.kind, layout_hold_end_point(lane, self.end_time), lane, self.target_time)
 
 
 class HoldPart:
@@ -67,11 +68,9 @@ class HoldPart:
     TAIL = 2
 
 
-def draw_hold_part(kind: HoldKind, part: int, layout: Rect, time: float, ex_outline: bool):
+def draw_hold_part(kind: HoldKind, part: int, layout: Rect, lane: float, time: float, ex_outline: bool):
     """Breaks use their light sprites (no pulse in a still picture)."""
-    z = (Z_HOLD, time)
-    if ex_outline:
-        z = (Z_EX_OUTLINE, time)
+    z = get_hold_z(time, lane, ex_outline)
     match kind:
         case HoldKind.NORM_HOLD | HoldKind.EX_HOLD:
             if ex_outline:
@@ -92,8 +91,8 @@ def draw_hold_part(kind: HoldKind, part: int, layout: Rect, time: float, ex_outl
             assert_never(kind)
 
 
-def draw_hold_end_point(kind: HoldKind, layout: Rect, time: float):
-    z = (Z_HOLD_END_POINT, time)
+def draw_hold_end_point(kind: HoldKind, layout: Rect, lane: float, time: float):
+    z = get_z(LAYER_HOLD_END_POINT, lane, time)
     match kind:
         case HoldKind.NORM_HOLD | HoldKind.EX_HOLD:
             BaseSkin.hold_note_end_point.draw(layout, z=z)

@@ -7,6 +7,7 @@ from sonolus.script.vec import Vec2
 
 from minimai.lib import archetype_names
 from minimai.lib.skin import BaseSkin
+from minimai.preview.layer import LAYER_BEAT_LINE, LAYER_LANE_LABEL, LAYER_LANE_LINE, get_frame_z
 from minimai.preview.ui import init_preview_ui
 from minimai.preview.layout import (
     BAR_LINE_ALPHA,
@@ -44,9 +45,6 @@ from minimai.preview.layout import (
 
 BEATS_PER_BAR = 4
 
-Z_LANE_LINE = -100
-Z_BEAT_LINE = -99
-Z_LABEL = -98
 
 
 class PreviewInitialization(PreviewArchetype):
@@ -73,13 +71,13 @@ def draw_lanes(col: int):
         if i >= 4:
             lane = i + 1.0
             toward_center = -1.0
-        BaseSkin.white_square.draw(layout_vertical_line(lane, col, LANE_LINE_W), z=Z_LANE_LINE, a=LANE_LINE_ALPHA)
+        BaseSkin.white_square.draw(layout_vertical_line(lane, col, LANE_LINE_W), z=get_frame_z(LAYER_LANE_LINE), a=LANE_LINE_ALPHA)
         for step in range(1, 4):
             sub_lane = lane + toward_center * step * SENSOR_GROUP_STEP
             BaseSkin.white_square.draw(
-                layout_vertical_line(sub_lane, col, SENSOR_LINE_W), z=Z_LANE_LINE, a=SENSOR_LINE_ALPHA
+                layout_vertical_line(sub_lane, col, SENSOR_LINE_W), z=get_frame_z(LAYER_LANE_LINE), a=SENSOR_LINE_ALPHA
             )
-    BaseSkin.white_square.draw(layout_vertical_line(CENTER_LANE, col, LANE_LINE_W), z=Z_LANE_LINE, a=CENTER_LINE_ALPHA)
+    BaseSkin.white_square.draw(layout_vertical_line(CENTER_LANE, col, LANE_LINE_W), z=get_frame_z(LAYER_LANE_LINE), a=CENTER_LINE_ALPHA)
 
 
 def draw_beat_lines(col: int):
@@ -87,12 +85,12 @@ def draw_beat_lines(col: int):
     end_beat = PreviewData.column_beats[col + 1]
     while beat <= end_beat:
         if beat % BEATS_PER_BAR == 0:
-            BaseSkin.white_square.draw(layout_horizontal_line(beat_to_time(beat), col, BAR_LINE_H), z=Z_BEAT_LINE, a=BAR_LINE_ALPHA)
+            BaseSkin.white_square.draw(layout_horizontal_line(beat_to_time(beat), col, BAR_LINE_H), z=get_frame_z(LAYER_BEAT_LINE), a=BAR_LINE_ALPHA)
         else:
-            BaseSkin.white_square.draw(layout_horizontal_line(beat_to_time(beat), col, BEAT_LINE_H), z=Z_BEAT_LINE, a=BEAT_LINE_ALPHA)
+            BaseSkin.white_square.draw(layout_horizontal_line(beat_to_time(beat), col, BEAT_LINE_H), z=get_frame_z(LAYER_BEAT_LINE), a=BEAT_LINE_ALPHA)
         if beat < end_beat:
             BaseSkin.white_square.draw(
-                layout_horizontal_line(beat_to_time(beat + 0.5), col, BEAT_LINE_H), z=Z_BEAT_LINE, a=HALF_BEAT_LINE_ALPHA
+                layout_horizontal_line(beat_to_time(beat + 0.5), col, BEAT_LINE_H), z=get_frame_z(LAYER_BEAT_LINE), a=HALF_BEAT_LINE_ALPHA
             )
         beat += 1
 
@@ -155,12 +153,12 @@ def draw_lane_labels(col: int):
             x = lane_to_x(lane + toward_center * step * SENSOR_GROUP_STEP, col)
             BaseSkin.preview_group_labels[label].draw(
                 Rect.from_center(Vec2(x, mark_y), Vec2(GROUP_MARK_H * PREVIEW_LABEL_ASPECT, GROUP_MARK_H)),
-                z=Z_LABEL,
+                z=get_frame_z(LAYER_LANE_LABEL),
             )
     # C, as big as the numbers.
     BaseSkin.preview_group_labels[1].draw(
         Rect.from_center(
             Vec2(lane_to_x(CENTER_LANE, col), number_y), Vec2(LANE_NUMBER_H * PREVIEW_LABEL_ASPECT, LANE_NUMBER_H)
         ),
-        z=Z_LABEL,
+        z=get_frame_z(LAYER_LANE_LABEL),
     )

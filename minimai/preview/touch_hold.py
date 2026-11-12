@@ -7,6 +7,7 @@ from minimai.lib import archetype_names
 from minimai.lib.game import Sensor, apply_sensor_mirror_option
 from minimai.lib.skin import BaseSkin
 from minimai.lib.touch_hold import TouchHoldKind
+from minimai.preview.layer import LAYER_TOUCH_HOLD_BAR, get_touch_hold_fan_z, get_touch_point_z, get_z
 from minimai.preview.layout import (
     TOUCH_HOLD_BAR_PARTS,
     TOUCH_HOLD_FAN_OFFSET,
@@ -19,7 +20,7 @@ from minimai.preview.layout import (
     report_judgment_beat,
     time_to_col,
 )
-from minimai.preview.note import Z_HOLD, Z_NOTE, draw_firework
+from minimai.preview.note import draw_firework
 
 
 class PreviewBaseTouchHold(PreviewArchetype):
@@ -54,19 +55,19 @@ class PreviewBaseTouchHold(PreviewArchetype):
             end = start + part_duration
             for col in range(time_to_col(start), time_to_col(end) + 1):
                 BaseSkin.touch_hold_border_on_bars[part].draw(
-                    layout_touch_hold_bar(lane, start, end, col, part >= 2), z=(Z_HOLD, self.target_time)
+                    layout_touch_hold_bar(lane, start, end, col, part >= 2), z=get_z(LAYER_TOUCH_HOLD_BAR, lane, self.target_time)
                 )
         for i in range(4):
             BaseSkin.normal_touch_hold_fan[i].draw(
                 layout_touch_fan(lane, self.target_time, get_touch_hold_fan_angle(i), TOUCH_HOLD_FAN_OFFSET),
-                z=(Z_NOTE, self.target_time, 3 - i),
+                z=get_touch_hold_fan_z(lane, self.target_time, i),
             )
         draw_touch_hold_point(self.kind, lane, self.target_time)
 
 
 def draw_touch_hold_point(kind: TouchHoldKind, lane: float, time: float):
     layout = layout_touch_point(lane, time)
-    z = (Z_NOTE, time, 4)
+    z = get_touch_point_z(lane, time)
     match kind:
         case TouchHoldKind.NORM_TOUCH_HOLD | TouchHoldKind.EX_TOUCH_HOLD:
             BaseSkin.normal_touch_point.draw(layout, z=z)

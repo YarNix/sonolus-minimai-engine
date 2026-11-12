@@ -4,9 +4,9 @@ from sonolus.script.archetype import EntityRef, PreviewArchetype, imported
 
 from minimai.lib import archetype_names
 from minimai.lib.skin import BaseSkin
+from minimai.preview.layer import get_each_line_z
 from minimai.preview.base import PreviewButtonBase
 from minimai.preview.layout import LANE_MAX, LANE_MIN, get_button_lane, layout_each_line
-from minimai.preview.note import Z_EACH_LINE
 
 
 class PreviewEachLine(PreviewArchetype):
@@ -39,4 +39,4 @@ class PreviewEachLine(PreviewArchetype):
 
 
 def draw_each_line(from_lane: float, to_lane: float, time: float):
-    BaseSkin.preview_each_line.draw(layout_each_line(from_lane, to_lane, time), z=(Z_EACH_LINE, time))
+    BaseSkin.preview_each_line.draw(layout_each_line(from_lane, to_lane, time), z=get_each_line_z(time))

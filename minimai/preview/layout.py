@@ -57,6 +57,8 @@ HALF_BEAT_LINE_ALPHA = 0.12
 
 TEXT_H = 0.08
 TEXT_W = 0.5
+# The BPM label's right edge, past the last lane's edge (into the column's margin).
+BPM_LABEL_SHIFT = 0.06
 # Lane labels, under each column: button numbers and C, with B / D / E marks above them.
 LANE_NUMBER_H = 0.055
 # The print box: digits fill about half of it, so this keeps them close to the C mark.

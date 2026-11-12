@@ -25,6 +25,7 @@ from minimai.lib.slide import (
     slide_at,
     wifi_conn_slide_at,
 )
+from minimai.preview.layer import LAYER_SHAPE_LABEL, LAYER_SLIDE, LAYER_SLIDE_WAIT, get_z
 from minimai.preview.layout import (
     SLIDE_BAR_SPACING,
     SLIDE_WAIT_ALPHA_END,
@@ -46,8 +47,6 @@ from minimai.preview.layout import (
 )
 from minimai.preview.note import PreviewBaseNote, draw_firework
 
-Z_SLIDE = 1.5
-Z_SHAPE_LABEL = 1.6
 
 UPPER_HALF = (7, 8, 1, 2)
 
@@ -132,7 +131,7 @@ class PreviewBaseSlide(PreviewArchetype):
                     alpha_end=SLIDE_WAIT_ALPHA_END,
                     end_gap=SLIDE_WAIT_END_GAP,
                 ),
-                (Z_SLIDE, self.target_time),
+                LAYER_SLIDE_WAIT,
             )
         travel = SlideBarStyle(scale=1.0, alpha_start=1.0, alpha_end=1.0, end_gap=0.0)
         track = self.track
@@ -145,20 +144,20 @@ class PreviewBaseSlide(PreviewArchetype):
                         self.kind,
                         build_slide_track(SlideTrackKind.FAN_L, self.start_button, self.is_mirrored, start_time, end_time),
                         travel,
-                        (Z_SLIDE, start_time),
+                        LAYER_SLIDE,
                     )
                 if wifi.next_slide_r_ref.index > 0:
                     draw_slide_bars(
                         self.kind,
                         build_slide_track(SlideTrackKind.FAN_R, self.start_button, self.is_mirrored, start_time, end_time),
                         travel,
-                        (Z_SLIDE, start_time),
+                        LAYER_SLIDE,
                     )
         draw_slide_bars(
             self.kind,
             build_slide_track(track, self.start_button, self.is_mirrored, start_time, end_time),
             travel,
-            (Z_SLIDE, start_time),
+            LAYER_SLIDE,
         )
         draw_shape_label(get_shape_label(self.track, self.start_button, self.is_mirrored), lane, start_time)
         if self.firework:
@@ -192,7 +191,7 @@ def get_shape_label(track: SlideTrackKind, button: Button, is_mirrored: bool) ->
 
 
 def draw_shape_label(label: int, lane: float, time: float):
-    BaseSkin.preview_shape_labels[label].draw(layout_shape_label(lane, time), z=(Z_SHAPE_LABEL, time))
+    BaseSkin.preview_shape_labels[label].draw(layout_shape_label(lane, time), z=get_z(LAYER_SHAPE_LABEL, lane, time))
 
 
 class SlideBarStyle(Record):
@@ -204,7 +203,7 @@ class SlideBarStyle(Record):
     end_gap: float
 
 
-def draw_slide_bars(kind: SlideKind, path: SlideTrackPoints, style: SlideBarStyle, z: tuple):
+def draw_slide_bars(kind: SlideKind, path: SlideTrackPoints, style: SlideBarStyle, layer: int):
     """Slide bars along the track, the first right at its start, then one every spacing, each pointing
     the way the track goes. A jump starts the spacing over."""
     spacing = SLIDE_BAR_SPACING * style.scale
@@ -230,11 +229,19 @@ def draw_slide_bars(kind: SlideKind, path: SlideTrackPoints, style: SlideBarStyl
                         if length > 0:
                             u = (next_at - walked) / length
                         position = piece_start + (piece_end - piece_start) * u
+                        fraction = get_piece_fraction(a, b, col, u)
+                        bar_time = lerp(a.time, b.time, fraction)
+                        bar_lane = lerp(a.lane, b.lane, fraction)
                         progress = 1.0
                         if end_time > start_time:
-                            progress = (a.time + (b.time - a.time) * get_piece_fraction(a, b, col, u) - start_time) / (end_time - start_time)
+                            progress = (bar_time - start_time) / (end_time - start_time)
                         alpha = lerp(style.alpha_start, style.alpha_end, progress)
-                        draw_slide_bar(kind, layout_slide_bar(position, piece_end - piece_start, style.scale), z, alpha)
+                        draw_slide_bar(
+                            kind,
+                            layout_slide_bar(position, piece_end - piece_start, style.scale),
+                            get_z(layer, bar_lane, bar_time),
+                            alpha,
+                        )
                         next_at += spacing
                     walked += length
 
