@@ -212,8 +212,8 @@ SLIDE_AREAS = Array(
     build_slide_areas((Sensor.A1, 0, 4), (Sensor.B8, 7, 9), (Sensor.B7, 10, 12), (Sensor.C, 14, 17), (Sensor.B3, 19, 21), (Sensor.B4, 22, 25), (Sensor.A5, 27, 30)),
     # Wifi (w)
     build_slide_areas((Sensor.N0, 0, 1)),
-    build_slide_areas((Sensor.A1, 0, 0), (Sensor.B1, 2, 2), (Sensor.C, 4, 4), ((Sensor.A5, Sensor.B5), 7, 7)),
     build_slide_areas((Sensor.A1, 0, 0), (Sensor.B8, 2, 2), (Sensor.B7, 4, 4), ((Sensor.A6, Sensor.D6), 7, 7)),
+    build_slide_areas((Sensor.A1, 0, 0), (Sensor.B1, 2, 2), (Sensor.C, 4, 4), ((Sensor.A5, Sensor.B5), 7, 7)),
     build_slide_areas((Sensor.A1, 0, 0), (Sensor.B2, 2, 2), (Sensor.B3, 4, 4), ((Sensor.A4, Sensor.D5), 7, 7)),
 )
 
