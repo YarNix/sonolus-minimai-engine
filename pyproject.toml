@@ -9,11 +9,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Audio conversion for the chart folders in resources/levels.
-levels = [
-    "imageio-ffmpeg>=0.7.0",
-]
-# Building packs
+# The pack tools (images and audio), and audio conversion for the chart folders in resources/levels.
 tools = [
+    "imageio-ffmpeg>=0.7.0",
     "pillow>=10.0.0",
 ]

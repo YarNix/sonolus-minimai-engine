@@ -52,6 +52,17 @@ class SkinData(TypedDict):
     sprites: list[SkinSprite]
 
 
+class EffectClip(TypedDict):
+    name: str
+    filename: str
+
+
+class EffectData(TypedDict):
+    """An effect pack's ``data.json``."""
+
+    clips: list[EffectClip]
+
+
 # ==== pack.toml ===================================================================================
 
 
@@ -141,6 +152,57 @@ class SpriteRecipe(TypedDict, total=False):
     scale: float
     transform: Transform
     skip: bool
+
+
+class ClipSource(TypedDict, total=False):
+    """One source of an effect clip. Times are in seconds."""
+
+    # A file stem or a path in the source; a list is tried in order.
+    path: str | list[str]
+    # [start, length], read like the skin's crop.
+    trim: list[float]
+    # Crossfade the trimmed part's end into the audio before its start, so it loops.
+    loop: float
+    reverse: bool
+    speed: float
+    # [in, out]
+    fade: list[float]
+    curve: Literal["linear", "power"]
+    gain: float
+    # -1 (left) to 1 (right).
+    pan: float
+    # When it starts in the clip.
+    at: float
+
+
+class ClipRecipe(TypedDict, total=False):
+    """An effect clip's recipe (``[clips."<name>"]``). Any value may be ``"$param"`` or ``"-$param"``."""
+
+    # A path is short for one source; in a list, each path is short for { path = ... }.
+    sources: str | list[str | ClipSource]
+    duration: float
+    rate: int
+    channels: int
+    trim_silence: bool | float
+    fade: list[float]
+    curve: Literal["linear", "power"]
+    gain: float
+    normalize: float
+    # "mp3", "ogg", "flac" or "wav"; "" for the pack's format.
+    format: str
+    skip: bool
+
+
+class EffectConfig(TypedDict, total=False):
+    """An effect source's ``pack.toml`` (and the defaults in ``tools/defaults/effect.toml``)."""
+
+    item: ItemConfig
+    # The clips' format, unless a clip sets its own; "" keeps a single source's format.
+    format: str
+    # A source path the recipes use -> the file to read instead.
+    files: dict[str, str]
+    params: dict[str, object]
+    clips: dict[str, ClipRecipe]
 
 
 class SkinConfig(TypedDict, total=False):

@@ -1,0 +1,44 @@
+# The effect pack's defaults: every clip's recipe and the params they use. A source's pack.toml is
+# merged over this file. The format is in docs/packs.md.
+
+# Each clip keeps its source's format (a mix of several sources becomes an mp3), unless its recipe sets one.
+format = ""
+
+[params]
+# The touch hold riser becomes two clips. The engine swaps the charge for the sustain loop at
+# riser_loop_start (TOUCH_HOLD_CHARGE_DURATION in lib/effect.py), on a frame boundary, so the charge
+# runs riser_charge_length, a little past it. The sustain is the first clean cycle after it.
+riser_loop_start = 10.0
+riser_loop_length = 2.0
+riser_crossfade = 0.5
+riser_charge_length = 10.5
+# The guide and the slides are louder than the rest.
+guide_gain = 0.75
+slide_gain = 0.5
+
+[files]
+
+[clips]
+"Mai Perfect Hit" = { sources = "tap_perfect" }
+"Mai Great Hit" = { sources = "tap_great" }
+"Mai Good Hit" = { sources = "tap_good" }
+"Mai Ex Hit" = { sources = "tap_ex" }
+# The engine falls back to these; other engines play them. The same clips, so they share their files.
+"#PERFECT" = { sources = "tap_perfect" }
+"#GREAT" = { sources = "tap_great" }
+"#GOOD" = { sources = "tap_good" }
+"#PERFECT_ALTERNATIVE" = { sources = "tap_ex" }
+"Mai Break Hit" = { sources = "break_tap" }
+"Mai Break Critical" = { sources = "break" }
+# Mixed so fewer sounds play at once.
+"Mai Break Critical Hit" = { sources = ["break_tap", "break"] }
+"Mai Touch Hit" = { sources = "touch" }
+"Mai Firework" = { sources = "touch_hanabi" }
+"Mai Touch Hold Start" = { sources = [{ path = "touch_hold_riser", trim = [0, "$riser_charge_length"] }] }
+"Mai Touch Hold Sustain" = { sources = [{ path = "touch_hold_riser", trim = ["$riser_loop_start", "$riser_loop_length"], loop = "$riser_crossfade" }] }
+"Mai Slide" = { sources = [{ path = "slide", gain = "$slide_gain" }] }
+"Mai Break Slide" = { sources = [{ path = "slide_break_start", gain = "$slide_gain" }] }
+"Mai Break Slide End" = { sources = [{ path = "slide_break_slide", gain = "$slide_gain" }] }
+"Mai Break Slide End Critical" = { sources = [{ path = "slide_break_slide", gain = "$slide_gain" }, "break"] }
+"Mai Guide" = { sources = [{ path = "answer", gain = "$guide_gain" }] }
+"Mai Count In" = { sources = "answer_clock" }

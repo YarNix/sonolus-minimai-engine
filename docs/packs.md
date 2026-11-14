@@ -1,12 +1,15 @@
 # Pack configs
 
-The pack tools build Minimai's packs into `resources/<skins|effects|particles>/<name>`. The skin's:
+The pack tools build Minimai's skin, effect and particle packs into `resources/<skins|effects|particles>/<name>`:
 
 ```
-python -m minimai.tools.skin_pack <name> <folder or zip>
+python main.py skin <name> <folder or zip>
+python main.py effect <name> <folder or zip>
+python main.py particle <name> <folder or zip>
+python main.py all <name> <folder>      # <folder>/skin, <folder>/effect and <folder>/particle, each a folder or a .zip
 ```
 
-The tools need the `tools` extra (`uv sync --extra tools`): Pillow for images.
+The tools need the `tools` extra (`uv sync --extra tools`): Pillow for images, and the ffmpeg that imageio-ffmpeg ships for audio that has to be decoded or resampled.
 
 A zip file whose files all sit in one top folder, as zipping a folder makes, is read from inside that folder.
 
@@ -225,4 +228,140 @@ skip = true
 [sprites."Mai Each Note"]
 source = {}                                     # empty: painted on a blank 180 x 180 canvas
 canvas = { paint = [{ shape = "circle", radius = 60, width = 12, color = "#ffd040" }] }
+```
+
+## Effect
+
+Every clip the engine plays (`Effects` in `lib/effect.py`) can have a **recipe**: its sources and the edits that make the clip. The default recipes are in [`minimai/tools/defaults/effect.toml`](../minimai/tools/defaults/effect.toml), which uses the same format as a `pack.toml`; the source's `pack.toml` is merged over it. The source is a folder or a zip file.
+
+### Where a clip comes from
+
+1. The `[clips."<name>"]` entry of the source's `pack.toml`, merged over the rest. Its `sources` replaces the default's whole list.
+2. An audio file named exactly after the clip (`Mai Slide.wav`, `Mai Perfect Hit.ogg`, anywhere in the source), as its only source with no edits (converted only when it isn't in the clip's [format](#formats)).
+3. The default recipe.
+
+A clip whose source file is missing is left out and reported; the engine falls back or stays silent. Files no clip uses are listed. The engine plays the Mai clips and falls back to Sonolus' standard clips (`#PERFECT`, …) when a pack lacks them; the defaults pack both, so other engines can use the pack too. `#GREAT_ALTERNATIVE`, `#GOOD_ALTERNATIVE` and `#HOLD` (fallbacks for Mai Break Hit, Mai Touch Hit and Mai Touch Hold Sustain) have no default recipe, but a `pack.toml` can give them one.
+
+Clips that come out the same share one file in `audio.zip`, so a duplicate costs only its entry in `data.json`; the same recipe is also built only once.
+
+A recipe's `path` is a file stem (`tap_perfect`, any folder, any audio suffix) or a path with its suffix (`hits/tap.ogg`). Both are case-insensitive. The defaults read these stems:
+
+| Clip | Stem |
+|---|---|
+| Mai Perfect Hit, Mai Great Hit, Mai Good Hit, Mai Ex Hit | `tap_perfect`, `tap_great`, `tap_good`, `tap_ex` |
+| `#PERFECT`, `#GREAT`, `#GOOD`, `#PERFECT_ALTERNATIVE` | the same, as their fallbacks |
+| Mai Break Hit, Mai Break Critical | `break_tap`, `break` |
+| Mai Break Critical Hit | `break_tap` and `break` mixed |
+| Mai Touch Hit, Mai Firework | `touch`, `touch_hanabi` |
+| Mai Touch Hold Start, Mai Touch Hold Sustain | cut from `touch_hold_riser` |
+| Mai Slide, Mai Break Slide, Mai Break Slide End | `slide`, `slide_break_start`, `slide_break_slide`, each at `$slide_gain` |
+| Mai Break Slide End Critical | `slide_break_slide` (at `$slide_gain`) and `break` mixed |
+| Mai Guide, Mai Count In | `answer` (at `$guide_gain`), `answer_clock` |
+
+### Formats
+
+Sources can be wav, mp3, ogg or flac. A clip's output **format** is `"mp3"`, `"ogg"`, `"flac"` or `"wav"`, chosen in this order:
+
+1. The clip's `format`.
+2. The pack's `format`, a top-level key of the config. The defaults leave it empty.
+3. When both are empty (`""`, or left out): a clip with one source keeps that source's format, and a mix of several sources is an mp3.
+
+A clip with one source and no edits isn't decoded: it's copied byte for byte when it's already in its format, and converted otherwise. An edited clip is encoded once, at the end (wav as 16-bit). So the defaults keep the source files as they are; a config can convert every clip, or one:
+
+```toml
+format = "ogg"                        # before any [table]
+
+[clips."Mai Touch Hold Sustain"]
+format = "wav"                        # this clip only
+```
+
+mp3 is encoded at VBR quality 2 and ogg (Vorbis) at quality 6. The mp3 files carry the encoder delay in their header, so players that read it play them without the encoder's leading and trailing silence.
+
+PCM wav sources (8, 16, 24 or 32-bit) are edited in Python. Decoding other formats, encoding mp3, ogg and flac, and resampling (`speed`, `rate`, or mixing sources with different sample rates) go through ffmpeg. When ffmpeg is missing, only the clips that need it fail.
+
+### `[files]`
+
+A path the recipes use → the file to read instead. The recipes' edits stay as they are:
+
+```toml
+[files]
+"break" = "hits/break_v2.ogg"
+```
+
+### `[params]`
+
+Values recipes refer to as `"$name"`; `"-$name"` is the value negated.
+
+| Param | Default | |
+|---|---|---|
+| `riser_loop_start` | 10.0 | when the engine swaps Mai Touch Hold Start for the sustain loop (`TOUCH_HOLD_CHARGE_DURATION`); the sustain loop starts there in the riser |
+| `riser_loop_length` | 2.0 | the sustain loop's length: one cycle of the riser |
+| `riser_crossfade` | 0.5 | the sustain's `loop` crossfade |
+| `riser_charge_length` | 10.5 | Mai Touch Hold Start's length: a little past the swap, which happens on a frame boundary |
+| `guide_gain`, `slide_gain` | 0.75, 0.5 | the guide and slide clips are louder than the rest |
+
+### `[clips]`
+
+One table per clip: its **recipe**. Any value may be a `"$param"`. Times are in seconds. A clip is built in two stages:
+
+1. **Each source**: the file is decoded, then `trim` (with `loop`), `reverse`, `speed`, `fade`, `gain` and `pan`, in that order.
+2. **The clip**: the sources are mixed, each starting at its `at`, and cut at `duration`; then `trim_silence`, `fade`, `gain` and `normalize`, in that order, and the result is encoded in the clip's `format`.
+
+| Clip key | |
+|---|---|
+| `sources` | a list of [sources](#sources), mixed; a path is short for `{ path = ... }`, and a single path for a list of one |
+| `duration` | the clip's length; default until the last source ends. A source still playing then is cut, with a 5 ms fade so it doesn't click |
+| `rate` | the sample rate; default the highest of the sources'. The others are resampled |
+| `channels` | 1 (mono) or 2 (stereo); default stereo when any source is |
+| `trim_silence` | cut the silence before the sound starts: `true` (below -60 dBFS) or a threshold in dBFS. A sound that starts late feels late |
+| `fade` | `[in, out]`: fade the clip in over its first `in` seconds and out over its last `out` |
+| `curve` | the fades' shape: `"linear"` (default) or `"power"` (sine: keeps the loudness of two different sounds steady while they cross) |
+| `gain` | an amplitude factor (`0.5` is -6 dB) |
+| `normalize` | scale the clip so its peak is this many dBFS, e.g. `-1.0` |
+| `format` | the clip's [format](#formats): `"mp3"`, `"ogg"`, `"flac"` or `"wav"`; `""` (default) uses the pack's |
+| `skip` | `true` leaves the clip out |
+
+#### Sources
+
+| Source key | |
+|---|---|
+| `path` | a file stem or a path; a list is tried in order |
+| `trim` | `[start, length]` of the file, read like the skin's `crop`: a negative start counts from the end; a length of 0 reaches the end, and a negative one stops that much short of it. Parts outside the file are silent |
+| `loop` | with `trim`: crossfade the trimmed part's last `loop` seconds into the audio just before its start (equal power), so it loops without a seam |
+| `reverse` | `true` plays it backwards |
+| `speed` | play it this many times as fast, changing its pitch and length together: `1.1` is about 1.7 semitones up |
+| `fade`, `curve` | as the clip's, on this source after its speed change |
+| `gain` | an amplitude factor |
+| `pan` | stereo clips: -1 keeps only the left side, 1 only the right; 0 (default) keeps both as they are |
+| `at` | when it starts in the clip; default 0 |
+
+Keys the tool doesn't know are reported and ignored. When a mix goes past full scale, the clipped samples are counted and reported; lower a `gain` or use `normalize`.
+
+The touch hold riser becomes two clips: the charge, and a loop of the cycle after the swap:
+
+```toml
+"Mai Touch Hold Start" = { sources = [{ path = "touch_hold_riser", trim = [0, "$riser_charge_length"] }] }
+"Mai Touch Hold Sustain" = { sources = [{ path = "touch_hold_riser", trim = ["$riser_loop_start", "$riser_loop_length"], loop = "$riser_crossfade" }] }
+```
+
+```toml
+[params]
+slide_gain = 0.4
+
+[clips."Mai Guide"]
+sources = "guide"                     # replaces the default's sources, so "answer" and its gain are gone
+trim_silence = true
+
+[clips."Mai Break Critical Hit"]      # the hit, with a shout layered 30 ms later
+sources = ["break_tap", { path = "voice/break_shout.ogg", at = 0.03, gain = 0.6 }]
+normalize = -1.0
+
+[clips."Mai Count In"]                # the last 0.4 s of the guide, backwards
+sources = [{ path = "answer", trim = [-0.4, 0], reverse = true, fade = [0.05, 0] }]
+
+[clips."#HOLD"]                       # a fallback clip, which has no default
+sources = [{ path = "hold_loop", trim = [1, 2], loop = 0.25 }]
+
+[clips."Mai Firework"]
+skip = true
 ```

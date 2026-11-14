@@ -1,16 +1,11 @@
 {
     "version": 5,
     "title": {
-        "en": "minimai-default"
+        "en": "minimai-default",
+        "ja": "ミニマイデフォルト"
     },
-    "subtitle": {
-        "en": "Minimai"
-    },
-    "author": {
-        "en": "© SEGA"
-    },
+    "subtitle": "A modern washing machine sound pack",
+    "author": "© SEGA",
     "tags": [],
-    "description": {
-        "en": ""
-    }
+    "description": ""
 }

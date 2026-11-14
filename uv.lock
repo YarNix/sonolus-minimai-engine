@@ -25,20 +25,18 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-levels = [
-    { name = "imageio-ffmpeg" },
-]
 tools = [
+    { name = "imageio-ffmpeg" },
     { name = "pillow" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "imageio-ffmpeg", marker = "extra == 'levels'", specifier = ">=0.7.0" },
+    { name = "imageio-ffmpeg", marker = "extra == 'tools'", specifier = ">=0.7.0" },
     { name = "pillow", marker = "extra == 'tools'", specifier = ">=10.0.0" },
     { name = "sonolus-py", specifier = ">=0.18.1" },
 ]
-provides-extras = ["levels", "tools"]
+provides-extras = ["tools"]
 
 [[package]]
 name = "pillow"

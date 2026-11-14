@@ -1,72 +1,88 @@
 {
     "clips": [
         {
+            "name": "Mai Perfect Hit",
+            "filename": "mai_perfect_hit.ogg"
+        },
+        {
+            "name": "Mai Great Hit",
+            "filename": "mai_great_hit.ogg"
+        },
+        {
+            "name": "Mai Good Hit",
+            "filename": "mai_good_hit.ogg"
+        },
+        {
+            "name": "Mai Ex Hit",
+            "filename": "mai_ex_hit.ogg"
+        },
+        {
             "name": "#PERFECT",
-            "filename": "tap_perfect.wav"
+            "filename": "mai_perfect_hit.ogg"
         },
         {
             "name": "#GREAT",
-            "filename": "tap_great.wav"
+            "filename": "mai_great_hit.ogg"
         },
         {
             "name": "#GOOD",
-            "filename": "tap_good.wav"
+            "filename": "mai_good_hit.ogg"
         },
         {
             "name": "#PERFECT_ALTERNATIVE",
-            "filename": "tap_ex.wav"
+            "filename": "mai_ex_hit.ogg"
         },
         {
             "name": "Mai Break Hit",
-            "filename": "break_tap.wav"
+            "filename": "mai_break_hit.ogg"
         },
         {
             "name": "Mai Break Critical",
-            "filename": "break.wav"
+            "filename": "mai_break_critical.ogg"
         },
         {
             "name": "Mai Break Critical Hit",
-            "filename": "break_critical_hit.wav"
+            "filename": "mai_break_critical_hit.ogg"
         },
         {
             "name": "Mai Touch Hit",
-            "filename": "touch.wav"
+            "filename": "mai_touch_hit.ogg"
         },
         {
             "name": "Mai Firework",
-            "filename": "touch_hanabi.wav"
+            "filename": "mai_firework.ogg"
         },
         {
             "name": "Mai Touch Hold Start",
-            "filename": "touch_hold_start.wav"
+            "filename": "mai_touch_hold_start.ogg"
         },
         {
             "name": "Mai Touch Hold Sustain",
-            "filename": "touch_hold_sustain.wav"
+            "filename": "mai_touch_hold_sustain.ogg"
         },
         {
             "name": "Mai Slide",
-            "filename": "slide.wav"
+            "filename": "mai_slide.ogg"
         },
         {
             "name": "Mai Break Slide",
-            "filename": "slide_break_start.wav"
+            "filename": "mai_break_slide.ogg"
         },
         {
             "name": "Mai Break Slide End",
-            "filename": "slide_break_slide.wav"
+            "filename": "mai_break_slide_end.ogg"
         },
         {
             "name": "Mai Break Slide End Critical",
-            "filename": "slide_break_end_critical.wav"
+            "filename": "mai_break_slide_end_critical.ogg"
         },
         {
             "name": "Mai Guide",
-            "filename": "answer.wav"
+            "filename": "mai_guide.ogg"
         },
         {
             "name": "Mai Count In",
-            "filename": "answer_clock.wav"
+            "filename": "mai_count_in.ogg"
         }
     ]
 }

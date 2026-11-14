@@ -31,7 +31,7 @@ has several charts.
 Converting audio (.ogg tracks, previews) needs the optional `imageio-ffmpeg` package (it comes with its own ffmpeg):
 
 ```
-uv sync --extra levels
+uv sync --extra tools
 ```
 
 Without it, folders with a `track.mp3/wav` are built without a preview and the others are skipped,

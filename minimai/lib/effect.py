@@ -13,14 +13,18 @@ EMPTY_EFFECT = Effect(-1)
 
 @effects
 class Effects:
-    tap_perfect: StandardEffect.PERFECT
-    tap_great: StandardEffect.GREAT
-    tap_good: StandardEffect.GOOD
-    tap_ex: StandardEffect.PERFECT_ALTERNATIVE
+    tap_perfect_fallback: StandardEffect.PERFECT
+    tap_great_fallback: StandardEffect.GREAT
+    tap_good_fallback: StandardEffect.GOOD
+    tap_ex_fallback: StandardEffect.PERFECT_ALTERNATIVE
     break_hit_fallback: StandardEffect.GREAT_ALTERNATIVE
     touch_hit_fallback: StandardEffect.GOOD_ALTERNATIVE
     touch_hold_sustain_fallback: StandardEffect.HOLD
 
+    tap_perfect: Effect = effect("Mai Perfect Hit")
+    tap_great: Effect = effect("Mai Great Hit")
+    tap_good: Effect = effect("Mai Good Hit")
+    tap_ex: Effect = effect("Mai Ex Hit")
     break_hit: Effect = effect("Mai Break Hit")
     break_critical: Effect = effect("Mai Break Critical")
     # Mai Break Hit and Mai Break Critical mixed, so a live play doesn't cut one off with the other.
@@ -106,11 +110,11 @@ def get_plain_tap_sfx(judgment: ArcadeJudgment) -> Effect:
     if not allowed:
         pass
     elif judgment <= ArcadeJudgment.LOW_PERFECT:
-        result @= Effects.tap_perfect
+        result @= first_available_effect(Effects.tap_perfect, Effects.tap_perfect_fallback)
     elif judgment <= ArcadeJudgment.LOW_GREAT:
-        result @= Effects.tap_great
+        result @= first_available_effect(Effects.tap_great, Effects.tap_great_fallback)
     else:
-        result @= Effects.tap_good
+        result @= first_available_effect(Effects.tap_good, Effects.tap_good_fallback)
     return result
 
 
@@ -133,7 +137,7 @@ def emit_break_hit_sfx(judgment: ArcadeJudgment, at: float, scheduled: bool):
 
 def emit_ex_sfx(judgment: ArcadeJudgment, at: float, scheduled: bool):
     if is_hit(judgment) and Options.ex_sound:
-        emit_sfx(Effects.tap_ex, at, scheduled)
+        emit_sfx(first_available_effect(Effects.tap_ex, Effects.tap_ex_fallback), at, scheduled)
 
 
 def emit_tap_sfx(is_break: bool, is_ex: bool, judgment: ArcadeJudgment, at: float, scheduled: bool):

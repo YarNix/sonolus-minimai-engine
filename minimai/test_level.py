@@ -1,7 +1,6 @@
 import hashlib
 import re
 import struct
-import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Iterable
@@ -21,6 +20,7 @@ from minimai.lib.slide import SlideKind, SlideTrackKind
 from minimai.lib.layout import SLIDE_TRACK_POINTS
 from minimai.level_builder import LevelBuilder, SlideTrackArg
 from minimai.simai import read_maidata
+from minimai.tools import audio
 from minimai.play.initialization import Initialization
 from minimai.play import note, touch
 
@@ -368,12 +368,9 @@ def build_resource_levels(levels_dir: Path = LEVELS_DIR) -> Iterator[Level]:
     folders = sorted(path for path in levels_dir.iterdir() if path.is_dir())
     if not folders:
         return
-    try:
-        import imageio_ffmpeg  # noqa: F401
-        has_ffmpeg = True
-    except ImportError:
-        has_ffmpeg = False
-        print("imageio-ffmpeg isn't installed (uv sync --extra levels): "
+    has_ffmpeg = audio.has_ffmpeg()
+    if not has_ffmpeg:
+        print("imageio-ffmpeg isn't installed (uv sync --extra tools): "
               "chart levels get no preview, and only mp3 tracks are used.")
     for folder in folders:
         if folder.name.startswith("."):
@@ -479,15 +476,10 @@ def convert_audio(source: Path, args: list[str]) -> Path:
     key = hashlib.sha256(key_text.encode()).hexdigest()[:16]
     output = AUDIO_CACHE_DIR / f"{source.parent.name}-{key}.mp3"
     if not output.is_file():
-        import imageio_ffmpeg
-
         output.parent.mkdir(parents=True, exist_ok=True)
         temporary = output.with_suffix(".part.mp3")
-        subprocess.run(
-            [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(source), *args,
-             "-vn", "-codec:a", "libmp3lame", "-q:a", "2", str(temporary)],
-            check=True,
-        )
+        exe = audio.ffmpeg_exe(f"Converting {source.name}")
+        audio.run_ffmpeg(exe, source, temporary, [*args, "-vn", "-codec:a", "libmp3lame", "-q:a", "2"])
         temporary.replace(output)
     return output
 
