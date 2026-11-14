@@ -1,0 +1,282 @@
+# particle_pack's defaults: the sprites, the rigs (animated node trees) and which rig each engine effect
+# plays. A source's pack.toml is merged over this file, key by key. The format is in docs/packs.md.
+#
+# Units: positions and sizes in skin px (the judgment ring's radius is 480), rotations in degrees
+# (counterclockwise), times in seconds from the hit. Every animation was measured from the reference
+# player: its prefabs for tap and break hits, recordings for touch hits and the hold glow.
+
+[texture]
+interpolation = true
+# Px of each sprite's edge repeated around it on the texture, so filtering doesn't pick up neighbours.
+padding = 1
+max_size = 4096
+
+[build]
+# A turn longer than this (degrees) within one stretch is cut into pieces, so circling sprites stay on
+# their circle (a particle moves in a straight line).
+max_segment_turn = 30
+# A colour change is stepped this often (a particle's colour can't change), in seconds.
+color_step = 0.1
+# A stretch whose ease no particle can follow is cut into linear pieces this long, in seconds.
+ease_step = 0.02
+
+# Sprite id -> its recipe, as a skin sprite's (docs/packs.md): a file in the source (a list is tried in
+# order) and the steps that make the sprite, plus a fallback: the sprite drawn when this one has no image.
+# A PNG named after the sprite id, anywhere in the source, is used as it is. An effect whose sprites are
+# missing is left out, and the engine falls back to the standard effects for it.
+[sprites]
+tap_perfect = "tap_perfect.png"
+tap_great = "tap_great.png"
+tap_good = "tap_good.png"
+break_perfect = "break_perfect.png"
+break_great = "break_great.png"
+break_good = "break_good.png"
+touch_circle = "touch_circle.png"
+touch_star = "touch_star.png"
+touch_star_hollow = { source = "touch_star_hollow.png", fallback = "touch_star" }
+hold_glow = "hold_glow.png"
+
+# ==== Effects =====================================================================================
+# Every effect the engine plays: the rig it draws and the rig's args.
+
+[effects."Mai Tap Perfect"]
+rig = "perfect"
+args = { sprite = "tap_perfect" }
+
+[effects."Mai Tap Great"]
+rig = "great"
+args = { sprite = "tap_great" }
+
+[effects."Mai Tap Good"]
+rig = "good"
+args = { sprite = "tap_good" }
+
+# Breaks play the perfect hit for every grade, in their own sprites.
+[effects."Mai Break Perfect"]
+rig = "perfect"
+args = { sprite = "break_perfect" }
+
+[effects."Mai Break Great"]
+rig = "perfect"
+args = { sprite = "break_great" }
+
+[effects."Mai Break Good"]
+rig = "perfect"
+args = { sprite = "break_good" }
+
+# Perfect from a recording; great and good from the reference player's colours.
+[effects."Mai Touch Perfect"]
+rig = "touch"
+args = { circle = "#fff71a", star = "#fac903" }
+
+[effects."Mai Touch Great"]
+rig = "touch"
+args = { circle = "#fface1", star = "#fface1" }
+
+[effects."Mai Touch Good"]
+rig = "touch"
+args = { circle = "#5efc67", star = "#5ee667" }
+
+# Looped while a hold is held, by the head's grade: three rings per loop, one every 0.1 seconds. The
+# reference player's tints, halfway to white (the recorded perfect rings are a pale yellow).
+[effects."Mai Hold Perfect"]
+rig = "hold_glow"
+args = { color = "#fff28c" }
+loop_copies = 3
+
+[effects."Mai Hold Great"]
+rig = "hold_glow"
+args = { color = "#ffd9f7" }
+loop_copies = 3
+
+[effects."Mai Hold Good"]
+rig = "hold_glow"
+args = { color = "#c7ffcc" }
+loop_copies = 3
+
+[effects."Mai Hold Miss"]
+rig = "hold_glow"
+args = { color = "#ffffff" }
+loop_copies = 3
+
+# ==== Rigs ========================================================================================
+
+# A hex in the middle grows, while four more spin in toward it. Each of the four turns about the middle
+# while its sprite turns back, so it keeps its angle.
+[rigs.perfect]
+params = { alpha = [[0, 1], [0.233, 0.995], [0.417, 0]] }
+rot = 90
+scale = [[0, 0], [0.083, 0.7], [0.45, 1.3]]
+sprite = "$sprite"
+size = 256
+alpha = "$alpha"
+
+[[rigs.perfect.children]]
+pos = [0, -0.2]
+rot = [[0, 0], [0.467, 180], [0.717, 360]]
+[[rigs.perfect.children.children]]
+pos = [[0, [55.2, 50]], [0.25, [43.7, 39.6]], [0.567, [0, 0]]]
+rot = [[0, 0], [0.467, -180], [0.717, -360]]
+scale = [[0, 0.479], [0.267, 0.6]]
+sprite = "$sprite"
+size = 256
+alpha = "$alpha"
+
+[[rigs.perfect.children]]
+pos = [0, -0.2]
+rot = [[0, 0], [0.467, 180], [0.717, 360]]
+[[rigs.perfect.children.children]]
+pos = [[0, [-43.1, -52.7]], [0.25, [-31.9, -39]], [0.5, [0, 0]]]
+rot = [[0, 0], [0.467, -180], [0.717, -360]]
+scale = [[0, 0.479], [0.267, 0.6]]
+sprite = "$sprite"
+size = 256
+alpha = "$alpha"
+
+[[rigs.perfect.children]]
+pos = [0, -0.2]
+rot = [[0, 0], [0.467, -180], [0.717, -360]]
+[[rigs.perfect.children.children]]
+pos = [[0, [47.3, -46.8]], [0.25, [35, -34.7]], [0.5, [0, 0]]]
+rot = [[0, 0], [0.467, 180], [0.717, 360]]
+scale = [[0, 0.479], [0.267, 0.8]]
+sprite = "$sprite"
+size = 256
+alpha = "$alpha"
+
+[[rigs.perfect.children]]
+pos = [0, -0.2]
+rot = [[0, 0], [0.467, -180], [0.717, -360]]
+[[rigs.perfect.children.children]]
+pos = [[0, [-50.2, 49.2]], [0.25, [-37.2, 36.4]], [0.5, [0, 0]]]
+rot = [[0, 0], [0.467, 180], [0.717, 360]]
+scale = [[0, 0.479], [0.267, 0.8]]
+sprite = "$sprite"
+size = 256
+alpha = "$alpha"
+
+# Three rings of the hex, one after another, growing and fading.
+[rigs.great]
+rot = 120.6
+
+[[rigs.great.children]]
+pos = [0, -0.2]
+scale = [[0, 0], [0.083, 0.693], [0.283, 1.3]]
+[[rigs.great.children.children]]
+pos = [0.6, 0.2]
+rot = 28.615
+scale = 0.746
+sprite = "$sprite"
+size = 256
+alpha = [[0, 1], [0.133, 1], [0.283, 0]]
+
+[[rigs.great.children]]
+pos = [0, -0.2]
+scale = [[0, 0], [0.083, 0], [0.1, 0.693], [0.317, 1.8]]
+[[rigs.great.children.children]]
+pos = [0.1, -0.7]
+scale = 0.547
+sprite = "$sprite"
+size = 256
+alpha = [[0, 1], [0.167, 1], [0.317, 0]]
+
+[[rigs.great.children]]
+scale = [[0, 0], [0.083, 0], [0.117, 0.693], [0.35, 2.5]]
+[[rigs.great.children.children]]
+pos = [0.1, -0.9]
+rot = -29.931
+scale = 0.382
+sprite = "$sprite"
+size = 256
+alpha = [[0, 1], [0.2, 1], [0.35, 0]]
+
+# Three hexes burst out and back while the whole effect pops and shrinks away.
+[rigs.good]
+rot = 120.09
+scale = [[0, 0], [0.117, 0.7], [0.15, 0.7], [0.4, 0]]
+
+[[rigs.good.children]]
+pos = [[0, [0, 0]], [0.117, [70.2, 41.1]], [0.15, [79.1, 43.9]], [0.2, [0, 0]], [0.25, [70.2, 41.1]]]
+rot = -30.941
+sprite = "$sprite"
+size = 192
+
+[[rigs.good.children]]
+pos = [[0, [0, 0]], [0.117, [-1.7, -80.1]], [0.15, [-1.8, -92.5]], [0.2, [0, 0]], [0.25, [-1.7, -80.1]]]
+rot = -30.851
+sprite = "$sprite"
+size = 192
+
+[[rigs.good.children]]
+pos = [[0, [0, 0]], [0.117, [-67.8, 39]], [0.15, [-80.8, 46.5]], [0.2, [0, 0]], [0.25, [-67.8, 39]]]
+rot = -29.931
+sprite = "$sprite"
+size = 192
+
+# A circle flashes out while 16 stars burst from the sensor, hold, then shrink away: outer stars fly
+# out to their place, inner ones appear there. Measured from a 30 fps recording, its first frame a
+# frame after the hit (so the keys sit at 1/60 + n/30 seconds). Star widths are a little over the
+# measured, for the thin star sprite: medium, big, then small.
+[rigs.touch]
+params = { outer = [[0, [42, 0]], [0.0167, [50, 0]], [0.05, [61, 0]], [0.0833, [65, 0]], [0.1167, [70, 0]]], outer_width = [[0, 0.22], [0.0167, 0.28], [0.05, 0.37], [0.0833, 0.3], [0.1167, 0.25], [0.1833, 0.25], [0.2167, 0.19], [0.25, 0]], inner = [40, 0], inner_width = [[0, 0.13], [0.0167, 0.16], [0.05, 0.21], [0.0833, 0.14], [0.1167, 0.13], [0.1833, 0.13], [0.2167, 0.05], [0.25, 0]] }
+
+[[rigs.touch.children]]
+scale = [[0, 0.25], [0.0167, 0.475], [0.05, 1.1], [0.0833, 1.34], [0.1167, 1.4]]
+sprite = "touch_circle"
+size = 100
+alpha = [[0, 1], [0.0167, 0.9], [0.05, 0.45], [0.0833, 0.15], [0.1167, 0]]
+color = "$circle"
+
+# Outer stars: full ones on the diagonals; hollow ones on the axes, leaning one way or the other,
+# alternating round the ring. The copies go round, but each star keeps its own angle.
+[[rigs.touch.children]]
+rig = "touch_star"
+args = { sprite = "touch_star", pos = "$outer", width = "$outer_width", color = "$star" }
+repeat = { count = 4, rot = 90, start = 45, orient = false }
+
+[[rigs.touch.children]]
+rig = "touch_star"
+args = { sprite = "touch_star_hollow", pos = "$outer", width = "$outer_width", color = "$star", lean = 22.5 }
+repeat = { count = 2, rot = 180, start = 0, orient = false }
+
+[[rigs.touch.children]]
+rig = "touch_star"
+args = { sprite = "touch_star_hollow", pos = "$outer", width = "$outer_width", color = "$star", lean = -22.5 }
+repeat = { count = 2, rot = 180, start = 90, orient = false }
+
+# Inner stars: full ones on the axes, hollow ones on the diagonals leaning against the outer ones.
+[[rigs.touch.children]]
+rig = "touch_star"
+args = { sprite = "touch_star", pos = "$inner", width = "$inner_width", color = "$star" }
+repeat = { count = 4, rot = 90, start = 0, orient = false }
+
+[[rigs.touch.children]]
+rig = "touch_star"
+args = { sprite = "touch_star_hollow", pos = "$inner", width = "$inner_width", color = "$star", lean = -22.5 }
+repeat = { count = 2, rot = 180, start = 45, orient = false }
+
+[[rigs.touch.children]]
+rig = "touch_star"
+args = { sprite = "touch_star_hollow", pos = "$inner", width = "$inner_width", color = "$star", lean = 22.5 }
+repeat = { count = 2, rot = 180, start = 135, orient = false }
+
+# One star of the touch hit, at pos (out along the x axis), width a track of scales.
+[rigs.touch_star]
+params = { lean = 0 }
+pos = "$pos"
+rot = "$lean"
+scale = "$width"
+sprite = "$sprite"
+size = 100
+alpha = [[0.1833, 1], [0.25, 0.6]]
+color = "$color"
+
+# One ring of the held note's glow: it spreads out fast, slows, and fades near its widest. A ring lives
+# 0.24 seconds of the 0.3 second loop and reaches about 110 skin px across its middle (the sprite's
+# ring is at 0.72 of its half-size, so the sprite is about 300 px wide then).
+[rigs.hold_glow]
+scale = [[0, 0], [0.0336, 0.45], [0.0672, 1.2], [0.1008, 1.86], [0.1344, 2.4], [0.1656, 2.79], [0.1992, 3], [0.24, 3.15]]
+sprite = "hold_glow"
+size = 100
+alpha = [[0, 0], [0.0336, 0.75], [0.1344, 0.75], [0.1656, 0.7], [0.1992, 0.25], [0.24, 0]]
+color = "$color"

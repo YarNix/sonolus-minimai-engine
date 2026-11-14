@@ -130,7 +130,7 @@ New params can be added and used in any recipe.
 
 ### `[sprites]`
 
-One table per sprite: its **recipe**. Any value may be a `"$param"`. A sprite is built in three stages, each working in its own pixels:
+One table per sprite: its **recipe**. Any value may be a `"$param"`. The particle pack's [sprites](#sprites-1) are made the same way. A sprite is built in three stages, each working in its own pixels:
 
 1. **`source`**: the file is read, and the source's operations run on it in **source px** (the file's pixels).
 2. **`canvas`**: the result is fitted to the canvas, and the canvas's operations run on it in **canvas px**.
@@ -364,4 +364,168 @@ sources = [{ path = "hold_loop", trim = [1, 2], loop = 0.25 }]
 
 [clips."Mai Firework"]
 skip = true
+```
+
+## Particle
+
+Every effect the engine plays (`BaseParticles` in `lib/particle.py`) draws a **rig**: a tree of **nodes**, each a position, rotation and scale animated over time, some with a sprite. The defaults are in [`minimai/tools/defaults/particle.toml`](../minimai/tools/defaults/particle.toml), which uses the same format as a `pack.toml`; the source's `pack.toml` is merged over it. The source is a folder or a zip file of PNG sprites.
+
+The tool turns each sprite's movement into Sonolus particles (see [From rigs to particles](#from-rigs-to-particles)). Units: positions and sizes in skin px (the judgment ring's radius is 480), rotations in degrees counterclockwise, times in seconds from the hit.
+
+### `[effects]`
+
+One table per effect the engine plays. The engine spawns each on a square around the note or sensor and plays it over a fixed time (divided by the Effect Animation Speed option); the hold glow loops while the hold is held.
+
+| Effect | Plays for | Square | Default rig and args |
+|---|---|---|---|
+| Mai Tap Perfect, Great, Good | 0.42, 0.35, 0.4 s | 400 px | `perfect`, `great`, `good`; `sprite = "tap_perfect"` … |
+| Mai Break Perfect, Great, Good | 0.42 s | 400 px | `perfect`; `sprite = "break_perfect"` … |
+| Mai Touch Perfect, Great, Good | 0.25 s | 200 px | `touch`; `circle` and `star` colours |
+| Mai Hold Perfect, Great, Good, Miss | 0.3 s, looped | 240 px | `hold_glow`; `color`, `loop_copies = 3` |
+
+The tap and break effects also play for stars, hold ends and touch hold ends.
+
+| Key | |
+|---|---|
+| `rig` | the rig it draws, from [`[rigs]`](#rigs) |
+| `args` | values for the rig's params (`"$name"` in the rig); merged key by key, so a config can change one |
+| `loop_copies` | looped effects: copies of every particle, this many, evenly spread over the loop, so a 0.24 s ring in a 0.3 s loop with 3 copies starts every 0.1 s |
+| `skip` | `true` leaves the effect out |
+
+An effect is left out when one of its sprites is missing (and has no fallback); the engine then falls back to Sonolus' standard effects for it. Parts of a rig after the effect's end are cut.
+
+### `[sprites]`
+
+Sprite id → its **recipe**, made just like a skin sprite's: a `source`, a `canvas`, then `cross_section`, `tint`, `levels` and `scale` (see the skin's [`[sprites]`](#sprites), [`source`](#source), [`canvas`](#canvas), [Operations](#operations) and [Shapes](#shapes)). A path, or a list of paths tried in order, is short for `{ source = ... }`. As in the skin:
+
+- a PNG named exactly after the sprite id (`tap_perfect.png`, anywhere in the source) is used as it is, keeping the default's `skip` and `fallback`;
+- a `pack.toml` entry merges into the default recipe key by key, but its `source` replaces the default's whole `source` ([Merging](#merging));
+- `[files]` maps a path the recipes use to the file to read instead ([`[files]`](#files));
+- `skip = true` leaves the sprite out, and unknown keys are reported.
+
+Particle sprites have no `transform`, and one key of their own: `fallback`, the sprite drawn instead when this one has no image (its file is missing, or it's skipped). Sprites are white or coloured; a node's `color` tints its sprite as it's drawn. The defaults:
+
+| Sprite id (and file) | Drawn by |
+|---|---|
+| `tap_perfect`, `tap_great`, `tap_good` (`.png`) | Tap, star and hold hits |
+| `break_perfect`, `break_great`, `break_good` | Break hits |
+| `touch_circle`, `touch_star` | Touch hits |
+| `touch_star_hollow` | Touch hits' hollow stars; falls back to `touch_star` |
+| `hold_glow` | Held holds and touch holds |
+
+A config can change them, or add sprites for its own rigs:
+
+```toml
+[files]
+"hold_glow.png" = "fx/ring.png"                     # every recipe reading hold_glow.png reads this instead
+
+[sprites]
+spark = "fx/spark.png"
+tap_great = ["tap_great.png", "tap_perfect.png"]    # the first one found
+tap_perfect = { tint = "#ffd040", scale = 0.5 }     # the default file, tinted, at half size
+break_perfect = { source = { path = "fx/sheet.png", crop = [0, 0, 256, 256] } }
+dot = { canvas = { size = [32, 32], paint = [{ shape = "circle", radius = 12, fill = true }] } }
+```
+
+### `[texture]`, `[build]` and `[params]`
+
+| Key | Default | |
+|---|---|---|
+| `texture.interpolation` | `true` | smooth the sprites when scaled |
+| `texture.padding` | 1 | px of each sprite's edge repeated around it on the texture, so filtering doesn't pick up its neighbours |
+| `texture.max_size` | 4096 | the texture's largest side |
+| `build.max_segment_turn` | 30 | degrees; a longer turn within one stretch is cut into pieces |
+| `build.color_step` | 0.1 | seconds; a changing colour is stepped this often |
+| `build.ease_step` | 0.02 | seconds; a stretch whose ease no particle can follow is cut into linear pieces this long |
+
+`[params]` holds values any rig or sprite recipe can use as `"$name"`; `"-$name"` is the value negated. The defaults have none.
+
+### `[rigs]`
+
+`[rigs.<name>]` is a rig's root node. A node is placed at `pos` in its parent's frame (x right, y up); its `rot` and `scale` then turn and scale its sprite and everything under it. Every key is optional:
+
+| Node key | | Default |
+|---|---|---|
+| `pos` | [track](#tracks) of `[x, y]`, skin px | `[0, 0]` |
+| `rot` | track, degrees counterclockwise | 0 |
+| `scale` | track, a factor | 1 |
+| `sprite` | a sprite id: drawn at the node | none |
+| `size` | the sprite's size at scale 1, skin px: a number for a square, or `[width, height]` | 0 |
+| `alpha` | track, 0–1 | 1 |
+| `color` | track of colours (`"#rrggbb"` or `[r, g, b]`, 0–255): the sprite's tint | `"#ffffff"` |
+| `children` | a list of nodes, drawn after (over) this one | |
+| `repeat` | `{ count, rot, start, orient }`: `count` copies of the node, the first turned `start` degrees about its parent's origin, each next one `rot` more (default `360 / count`). With `orient = false` the copies keep their angle: only their positions go round | |
+| `count` | the node and its children become a group of their own, spawned this many times, each with its own [random values](#random-values) | |
+| `rig`, `args` | draws another rig here, under this node, with these args | |
+| `params` | a rig's root only: the rig's params and their defaults | |
+
+`"$name"` values are looked up in the args the rig is drawn with, then its `params`, then `[params]`. Each draw of a rig has its own: a rig drawn by several nodes can differ in each.
+
+#### Tracks
+
+A track is a constant (`rot = 30`, `pos = [0, 50]`, `color = "#ffcc00"`), or keys `[[time, value], [time, value, ease], ...]`: the value is held before the first key and after the last, and each key's ease takes it to the next key's value (default `"linear"`).
+
+```toml
+scale = [[0, 0, "outBack"], [0.15, 1.2], [0.4, 1.0]]
+alpha = [[0.2, 1], [0.4, 0]]                         # full until 0.2 s, then fading out
+```
+
+The eases are Sonolus': `"linear"`, `"none"` (holds the value, then jumps at the next key), and `in`, `out`, `inOut` or `outIn` followed by `Sine`, `Quad`, `Cubic`, `Quart`, `Quint`, `Expo`, `Circ`, `Back` or `Elastic` (`"outQuad"`, `"inOutBack"`).
+
+#### Random values
+
+`{ random = [low, high] }` can stand for any number of a track or a size (not for times or colours). It's drawn once per spawn, between `low` and `high`. Each place draws its own value; places with the same `r = 1`–`8` share one draw, each scaled to its own range:
+
+```toml
+pos = [{ random = [-20, 20], r = 1 }, 0]
+rot = { random = [-15, 15], r = 1 }                  # leans the way it's pushed
+```
+
+A particle can only add random values to its values (and, for a random turn, their sine and cosine), not multiply them. So:
+
+- a node with a random rotation and children away from its origin must turn a whole circle (`[0, 360]`, or any range 360 wide);
+- a random scale can't scale a random position or size below it;
+- a group has 8 random values at most;
+- a node with a `count` can't sit under random values (its copies would each draw them again).
+
+The tool checks these and names the node that breaks one.
+
+### From rigs to particles
+
+A particle moves its position, size, rotation and alpha from one value to another along one ease, in one colour. So each sprite becomes a chain of particles, back to back, one for each stretch between the keys of its tracks and its ancestors':
+
+- A stretch where a parent turns more than `max_segment_turn` is cut into pieces, so a sprite circling its parent stays on the circle (each piece moves in a straight line).
+- A stretch keeps an ease when each value follows it: a node's eased `scale` scales its sprite's size and its children's offsets along that ease. When a stretch follows no one ease (two different eases at once, an eased turn moving children, or an ease cut short by another track's key), it is cut into `ease_step` pieces, each linear. Keys of eased tracks at the same times keep the particle count low.
+- A changing colour is stepped every `color_step`.
+- Back-to-back linear pieces that make one straight line are merged, and pieces with no alpha or no size are dropped.
+
+Sonolus Studio can tweak single particles of the result.
+
+### Examples
+
+```toml
+[effects."Mai Touch Great"]            # pinker stars; the rig's other args stay
+args = { star = "#ff80c0" }
+
+[effects."Mai Hold Miss"]
+skip = true
+
+[sprites]
+spark = "fx/spark.png"
+
+[effects."Mai Tap Perfect"]            # sparks flying out every way
+rig = "sparks"
+args = { color = "#ffe080" }
+
+[rigs.sparks]
+params = { color = "#ffffff" }
+[[rigs.sparks.children]]
+count = 8                              # 8 sparks, each with its own direction and size
+rot = { random = [0, 360] }
+[[rigs.sparks.children.children]]
+pos = [[0, [40, 0], "outCubic"], [0.4, [220, 0]]]
+sprite = "spark"
+size = { random = [24, 48] }
+alpha = [[0, 1, "inQuad"], [0.4, 0]]  # keyed with pos, so each spark is one particle
+color = "$color"
 ```

@@ -1,4 +1,5 @@
-"""Image steps shared by the pack tools: fitting, cropping, painting, colour and the sprite sheet.
+"""Image steps shared by the pack tools: fitting, cropping, painting, colour, cross sections and the sprite
+sheet.
 
 Pillow is an optional extra (``uv sync --extra tools``): each function imports it when it runs, so the
 modules that use these can be imported without it.
@@ -6,6 +7,7 @@ modules that use these can be imported without it.
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 from minimai.tools.pack_config import parse_color
@@ -162,6 +164,61 @@ def apply_tint(image: Image.Image, color: Color) -> Image.Image:
     channels = [channel.point([round(v * part) for v in range(256)]) for channel, part in zip((r, g, b), tint)]
     return Image.merge("RGBA", (*channels, a))
 
+
+
+# ==== Cross sections ==============================================================================
+
+
+def find_band_radius(image: Image.Image, normal: tuple[float, float]) -> float:
+    """The distance from the image's center to the middle of the widest opaque band along ``normal``
+    (where alpha crosses half), to the nearest half pixel."""
+    from PIL import Image
+
+    cx, cy = image.width / 2, image.height / 2
+    steps = int(math.hypot(cx, cy) * 4)
+    # The alpha along the normal, bilinear, every quarter pixel.
+    line = image.getchannel("A").transform(
+        (steps, 1), Image.Transform.AFFINE, (normal[0] / 4, 0, cx, normal[1] / 4, 0, cy), Image.Resampling.BILINEAR
+    )
+    profile = [line.getpixel((i, 0)) for i in range(steps)]
+    best = None
+    best_width = 0.0
+    start = None
+    for i in range(1, steps):
+        before, after = profile[i - 1], profile[i]
+        crossing = (i - 1 + (127.5 - before) / (after - before)) / 4 if before != after else i / 4
+        if before < 127.5 <= after:
+            start = crossing
+        elif before >= 127.5 > after and start is not None:
+            if crossing - start > best_width:
+                best_width, best = crossing - start, (start + crossing) / 2
+            start = None
+    if best is None:
+        raise ValueError("no opaque band to cut across")
+    return round(best * 2) / 2
+
+
+def cross_section(
+    image: Image.Image, side: int, width: int = 8, length: int = 52, radius: float | str = "auto"
+) -> Image.Image:
+    """A ``width`` x ``length`` strip across side ``side`` (1-4 clockwise from the top-right) of a touch hold
+    border, at the side's middle: across it from the outside in, and along it clockwise."""
+    from PIL import Image
+
+    width, length = int(width), int(length)
+    angle = math.radians(45 - 90 * (side - 1))
+    # Image y points down.
+    normal = (math.cos(angle), -math.sin(angle))
+    tangent = (-normal[1], normal[0])
+    r0 = find_band_radius(image, normal) if radius == "auto" else float(radius)
+    cx, cy = image.width / 2, image.height / 2
+    # Output (X, Y) -> input: center + normal * (r0 - (Y - length / 2)) + tangent * (X - width / 2).
+    data = (
+        tangent[0], -normal[0], cx + normal[0] * (r0 + length / 2) - tangent[0] * width / 2,
+        tangent[1], -normal[1], cy + normal[1] * (r0 + length / 2) - tangent[1] * width / 2,
+    )
+    strip = image.convert("RGBa").transform((width, length), Image.Transform.AFFINE, data, Image.Resampling.BILINEAR)
+    return strip.convert("RGBA")
 
 
 # ==== Sprite sheet ================================================================================

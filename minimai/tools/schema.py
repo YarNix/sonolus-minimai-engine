@@ -139,8 +139,9 @@ class CanvasStage(Operations, total=False):
     stretch: bool
 
 
-class SpriteRecipe(TypedDict, total=False):
-    """A skin sprite's recipe (``[sprites."<name>"]``). Any value may be ``"$param"`` or ``"-$param"``."""
+class ImageRecipe(TypedDict, total=False):
+    """A sprite image's recipe, the same for the skin and particle packs. Any value may be ``"$param"`` or
+    ``"-$param"``."""
 
     # A path (or list) is short for { path = ... }.
     source: str | list[str] | SourceStage
@@ -150,8 +151,20 @@ class SpriteRecipe(TypedDict, total=False):
     levels: Levels
     # Texture px per canvas px.
     scale: float
-    transform: Transform
     skip: bool
+
+
+class SpriteRecipe(ImageRecipe, total=False):
+    """A skin sprite's recipe (``[sprites."<name>"]``)."""
+
+    transform: Transform
+
+
+class ParticleSprite(ImageRecipe, total=False):
+    """A particle pack's sprite (``[sprites.<id>]``); a path (or list) is short for { source = ... }."""
+
+    # The sprite drawn instead when this one has no image.
+    fallback: str
 
 
 class ClipSource(TypedDict, total=False):
@@ -214,3 +227,62 @@ class SkinConfig(TypedDict, total=False):
     files: dict[str, str]
     params: dict[str, object]
     sprites: dict[str, SpriteRecipe]
+
+
+class RepeatConfig(TypedDict, total=False):
+    count: int
+    # Degrees between copies; default a whole turn shared out.
+    rot: float
+    start: float
+    # False turns the copies' positions but not their angles.
+    orient: bool
+
+
+class RigNode(TypedDict, total=False):
+    """A node of a particle rig (``[rigs.<name>]`` is its root). Tracks are a constant or keys
+    ``[[seconds, value], [seconds, value, ease], ...]``; a number may be ``{ random = [low, high], r = n }``."""
+
+    pos: object
+    rot: object
+    scale: object
+    sprite: str
+    # Skin px: a number, or [width, height].
+    size: object
+    alpha: object
+    color: object
+    children: list["RigNode"]
+    repeat: RepeatConfig
+    # Its own particle group, spawned this many times.
+    count: int
+    # Draws another rig here, with these args.
+    rig: str
+    args: dict[str, object]
+    # A rig's root only: its params and their defaults.
+    params: dict[str, object]
+
+
+class ParticleEffectConfig(TypedDict, total=False):
+    rig: str
+    args: dict[str, object]
+    loop_copies: int
+    skip: bool
+
+
+class ParticleBuildConfig(TypedDict, total=False):
+    max_segment_turn: float
+    color_step: float
+    ease_step: float
+
+
+class ParticleConfig(TypedDict, total=False):
+    """A particle source's ``pack.toml`` (and the defaults in ``tools/defaults/particle.toml``)."""
+
+    item: ItemConfig
+    texture: TextureConfig
+    build: ParticleBuildConfig
+    # A source path the recipes use -> the file to read instead.
+    files: dict[str, str]
+    sprites: dict[str, str | list[str] | ParticleSprite]
+    params: dict[str, object]
+    effects: dict[str, ParticleEffectConfig]
+    rigs: dict[str, RigNode]

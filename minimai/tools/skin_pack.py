@@ -3,9 +3,9 @@
 Usage: python -m minimai.tools.skin_pack <name> <source> (or ``python main.py skin ...``).
 Needs Pillow (``uv sync --extra tools``).
 
-Every sprite has a recipe: a source file in the folder and the steps that turn it into the sprite. The
-defaults are in ``tools/defaults/skin.toml``; the source's ``pack.toml`` is merged over them. The format,
-the lookup order and the steps are in docs/packs.md.
+Every sprite has a recipe (tools/sprite_recipe.py): a source file in the folder and the steps that turn it
+into the sprite. The defaults are in ``tools/defaults/skin.toml``; the source's ``pack.toml`` is merged over
+them. The format, the lookup order and the steps are in docs/packs.md.
 """
 
 from __future__ import annotations
@@ -13,11 +13,10 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import math
 import tomllib
 from collections.abc import Mapping
 from functools import cache
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from minimai.lib.layout import (
@@ -40,24 +39,17 @@ from minimai.lib.layout import (
     WIFI_SLIDE_PATH_SIZES,
 )
 from minimai.lib.skin import COUNTER_ACHIEVEMENTS, COUNTER_GRADES, BaseSkin
-from minimai.tools.imaging import (
-    apply_levels,
-    apply_operations,
-    apply_tint,
-    build_sheet,
-    fit_to_canvas,
-    premultiplied_resize,
-)
+from minimai.tools.imaging import build_sheet
 from minimai.tools.pack_config import (
     RESOURCES_DIR,
-    PackFiles,
     get_item_info,
     item_json,
     load_config,
     merged,
     resolve,
 )
-from minimai.tools.schema import CanvasStage, SkinConfig, SkinData, SourceStage, SpriteRecipe, Transform
+from minimai.tools.schema import SkinConfig, SkinData, SpriteRecipe, Transform
+from minimai.tools.sprite_recipe import SourceFiles, build_sprite, check_recipe, combined_recipe, report_missing
 
 # Pillow is an optional extra (uv sync --extra tools): the image functions import it when they run.
 if TYPE_CHECKING:
@@ -151,182 +143,20 @@ def sparse_transform(transform: Transform | None) -> Transform:
     }
 
 
-# ==== Touch hold border bars ======================================================================
-
-
-def find_band_radius(image: Image.Image, normal: tuple[float, float]) -> float:
-    """The distance from the image's center to the middle of the widest opaque band along ``normal``
-    (where alpha crosses half), to the nearest half pixel."""
-    from PIL import Image
-
-    cx, cy = image.width / 2, image.height / 2
-    steps = int(math.hypot(cx, cy) * 4)
-    # The alpha along the normal, bilinear, every quarter pixel.
-    line = image.getchannel("A").transform(
-        (steps, 1), Image.Transform.AFFINE, (normal[0] / 4, 0, cx, normal[1] / 4, 0, cy), Image.Resampling.BILINEAR
-    )
-    profile = [line.getpixel((i, 0)) for i in range(steps)]
-    best = None
-    best_width = 0.0
-    start = None
-    for i in range(1, steps):
-        before, after = profile[i - 1], profile[i]
-        crossing = (i - 1 + (127.5 - before) / (after - before)) / 4 if before != after else i / 4
-        if before < 127.5 <= after:
-            start = crossing
-        elif before >= 127.5 > after and start is not None:
-            if crossing - start > best_width:
-                best_width, best = crossing - start, (start + crossing) / 2
-            start = None
-    if best is None:
-        raise ValueError("no opaque band to cut across")
-    return round(best * 2) / 2
-
-
-def cross_section(
-    image: Image.Image, side: int, width: int = 8, length: int = 52, radius: float | str = "auto"
-) -> Image.Image:
-    """A ``width`` x ``length`` strip across side ``side`` (1-4 clockwise from the top-right) of a touch hold
-    border, at the side's middle: across it from the outside in, and along it clockwise."""
-    from PIL import Image
-
-    width, length = int(width), int(length)
-    angle = math.radians(45 - 90 * (side - 1))
-    # Image y points down.
-    normal = (math.cos(angle), -math.sin(angle))
-    tangent = (-normal[1], normal[0])
-    r0 = find_band_radius(image, normal) if radius == "auto" else float(radius)
-    cx, cy = image.width / 2, image.height / 2
-    # Output (X, Y) -> input: center + normal * (r0 - (Y - length / 2)) + tangent * (X - width / 2).
-    data = (
-        tangent[0], -normal[0], cx + normal[0] * (r0 + length / 2) - tangent[0] * width / 2,
-        tangent[1], -normal[1], cy + normal[1] * (r0 + length / 2) - tangent[1] * width / 2,
-    )
-    strip = image.convert("RGBa").transform((width, length), Image.Transform.AFFINE, data, Image.Resampling.BILINEAR)
-    return strip.convert("RGBA")
-
-
 # ==== Recipes =====================================================================================
 
-
-def source_stage(source) -> dict:
-    """A recipe's ``source``; a plain path (or list of paths) is short for ``{ path = ... }``."""
-    if source is None:
-        return {}
-    if isinstance(source, (str, list)):
-        return {"path": source}
-    return dict(source)
-
-
 RECIPE_KEYS = set(SpriteRecipe.__annotations__)
-STAGE_KEYS = {"source": set(SourceStage.__annotations__), "canvas": set(CanvasStage.__annotations__)}
-
-
-def check_recipe(name: str, recipe: Mapping):
-    """Warns about keys the packer doesn't know, so an old or misspelt config doesn't go unnoticed."""
-    unknown = [key for key in recipe if key not in RECIPE_KEYS]
-    for stage, keys in STAGE_KEYS.items():
-        if isinstance(recipe.get(stage), Mapping):
-            unknown += [f"{stage}.{key}" for key in recipe[stage] if key not in keys]
-    if unknown:
-        print(f"{name}: unknown keys (ignored): {', '.join(unknown)}")
-
-
-class SourceFiles(PackFiles):
-    """The PNGs of the source (any depth), found by path (case-insensitive)."""
-
-    def __init__(self, source: Path, files: Mapping[str, str]):
-        super().__init__(source, {".png"})
-        self.files = {key.replace("\\", "/").lower(): value for key, value in files.items()}
-        self.by_stem: dict[str, str] = {}
-        for path in self.entries:
-            self.by_stem.setdefault(PurePosixPath(path).stem, path)
-
-    def find(self, source) -> str | None:
-        for candidate in [source] if isinstance(source, str) else source:
-            key = candidate.replace("\\", "/").lower()
-            found = self.lookup(self.files.get(key, candidate))
-            if found is not None:
-                return found
-        return None
-
-    def exact(self, name: str) -> str | None:
-        """A PNG named exactly after a sprite."""
-        return self.by_stem.get(name)
 
 
 def recipe_for(name: str, files: SourceFiles, defaults: SkinConfig, config: SkinConfig) -> SpriteRecipe:
-    """The default recipe, or an exact-name file as it is, with the source's pack.toml entry on top. The
-    entry's ``source`` replaces the whole default ``source`` (its crop and paint belong to the default file);
-    the other tables merge key by key."""
-    default = defaults["sprites"][name]
-    exact = files.exact(name)
-    if exact is not None:
-        recipe = {"source": {"path": exact}}
-        for key in ("transform", "skip"):
-            if key in default:
-                recipe[key] = default[key]
-    else:
-        recipe = dict(default)
-    entry = dict(config.get("sprites", {}).get(name, {}))
-    if "source" in entry:
-        recipe["source"] = source_stage(entry.pop("source"))
-    else:
-        recipe["source"] = source_stage(recipe.get("source"))
-    return merged(recipe, entry)
-
-
-def build_sprite(name: str, recipe: SpriteRecipe, files: SourceFiles) -> Image.Image | None:
-    """The sprite's image, or None when its source file is missing."""
-    from PIL import Image
-
-    # recipe_for has made it a table.
-    source = cast(SourceStage, recipe["source"])
-    canvas = recipe.get("canvas", {})
-    size = [int(part) for part in canvas.get("size", [0, 0])]
-    if "path" in source:
-        path = files.find(source["path"])
-        if path is None:
-            return None
-        image = apply_operations(Image.open(io.BytesIO(files.read(path))).convert("RGBA"), source, expand=True)
-        image = fit_to_canvas(image, size, bool(canvas.get("stretch", False)), name)
-    else:
-        if set(source) & {"crop", "paint", "flip", "rotate"}:
-            raise ValueError("source operations need a source path")
-        if not all(size):
-            raise ValueError("without a source path, the canvas needs a size")
-        # Transparent white, so filtering at painted edges doesn't darken them.
-        image = Image.new("RGBA", (size[0], size[1]), (255, 255, 255, 0))
-    image = apply_operations(image, canvas, expand=False)
-    if "cross_section" in recipe:
-        image = cross_section(image, **recipe["cross_section"])
-    if "tint" in recipe:
-        image = apply_tint(image, recipe["tint"])
-    if "levels" in recipe:
-        image = apply_levels(image, recipe["levels"].get("multiply", 1.0), recipe["levels"].get("add", 0.0))
-    scale = float(recipe.get("scale", 1.0))
-    size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
-    if size != image.size:
-        image = premultiplied_resize(image, size)
-    return image
+    """The default recipe (or a PNG named exactly after the sprite, keeping the default's transform and skip)
+    with the source's pack.toml entry on top (sprite_recipe.combined_recipe)."""
+    entry = config.get("sprites", {}).get(name, {})
+    recipe = combined_recipe(defaults["sprites"][name], files.exact(name), entry, ("transform", "skip"))
+    return cast(SpriteRecipe, recipe)
 
 
 # ==== Pack ========================================================================================
-
-
-def report_missing(missing: Mapping[str, SpriteRecipe]):
-    """The sprites left out, grouped by their source folder."""
-    if not missing:
-        return
-    groups: dict[str, list[str]] = {}
-    for name, recipe in missing.items():
-        path = cast(SourceStage, recipe["source"]).get("path", "")
-        source = path if isinstance(path, str) else path[0]
-        groups.setdefault(source.rpartition("/")[0] or "(top folder)", []).append(name)
-    print(f"Missing sprites ({len(missing)}), by source folder:")
-    for folder, names in groups.items():
-        listed = ", ".join(names) if len(names) <= 6 else f"{', '.join(names[:3])}, ... ({len(names)})"
-        print(f"  {folder}: {listed}")
 
 
 def build_thumbnail(images: Mapping[str, Image.Image]) -> Image.Image:
@@ -366,7 +196,7 @@ def pack_skin(name: str, source: Path, *, skins_dir: Path = SKINS_DIR) -> Path:
         recipe = recipe_for(sprite, files, defaults, source_config)
         if recipe.get("skip"):
             continue
-        check_recipe(sprite, recipe)
+        check_recipe(sprite, recipe, RECIPE_KEYS)
         recipe = resolve(recipe, params)
         try:
             image = build_sprite(sprite, recipe, files)

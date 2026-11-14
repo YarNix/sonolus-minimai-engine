@@ -1,31 +1,31 @@
-"""Build a Minimai particle pack in ``resources/particles/<name>`` from a folder of sprites.
+"""Build a Minimai particle pack in ``resources/particles/<name>`` from a folder or zip file of sprites.
 
-Usage: python -m minimai.tools.particle_pack <name> <folder> [--author A] [--desc D] [--thumbnail IMAGE]
-
+Usage: python -m minimai.tools.particle_pack <name> <source> (or ``python main.py particle ...``).
 Needs Pillow (``uv sync --extra tools``).
 
-The folder holds white (or coloured) PNG sprites; the effects tint them. Effects whose sprites are
-missing are left out, and the engine falls back to the standard effects for them:
+Every effect the engine plays draws a **rig**: a tree of nodes, each a transform animated by keys, maybe
+with a sprite. The defaults are in ``tools/defaults/particle.toml``; the source's ``pack.toml`` is merged
+over them. The format is in docs/packs.md.
 
-    tap_perfect.png    tap_great.png    tap_good.png      Tap, star and hold end hits
-    break_perfect.png  break_great.png  break_good.png    The same for breaks
-    touch_circle.png   touch_star.png                     Touch hits
-    touch_star_hollow.png                                 Touch hits' outer stars (else touch_star)
-    hold_glow.png                                         Held holds and touch holds
-    thumbnail.png                                         Optional
-
-The animations are timelines taken from the reference player's effects, in its units (the judgment
-ring is 4.8 across from the center), with linear keys. A particle effect can't follow a curve or a
-parent's rotation, so each sprite becomes a chain of particles, one per stretch between keys, with
-long turns cut into short ones. Sonolus Studio can tweak the result.
+A Sonolus particle moves in a straight line (or along one ease) and can't follow a parent's rotation, so
+each sprite becomes a chain of particles, one per stretch between keys, with long turns cut into short
+ones. Random values become Sonolus' per-instance random values (``r``, and ``sinr`` / ``cosr`` for a full
+turn).
 """
+
+from __future__ import annotations
 
 import argparse
 import io
 import json
 import math
+import tomllib
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
+from itertools import pairwise
 from pathlib import Path
+from types import MappingProxyType
+from typing import TYPE_CHECKING
 
 from minimai.lib.layout import (
     HOLD_EFFECT_SIZE,
@@ -40,73 +40,389 @@ from minimai.lib.particle import (
     TAP_PERFECT_DURATION,
     TOUCH_DURATION,
 )
-
-PARTICLES_DIR = Path(__file__).parent.parent.parent / "resources" / "particles"
-SPRITE_NAMES = (
-    "tap_perfect",
-    "tap_great",
-    "tap_good",
-    "break_perfect",
-    "break_great",
-    "break_good",
-    "touch_circle",
-    "touch_star",
-    "touch_star_hollow",
-    "hold_glow",
+from minimai.tools.imaging import build_sheet
+from minimai.tools.pack_config import (
+    RESOURCES_DIR,
+    get_item_info,
+    item_json,
+    load_config,
+    merged,
+    parse_color,
+    resolve,
 )
-# Reference units per ring unit (the judgment ring radius).
-REFERENCE_UNITS = SKIN_RING_RADIUS_PX / 100
-# A turn longer than this (degrees) is split, so circling sprites stay on their circle.
-MAX_SEGMENT_TURN = 30
-# A colour change in a sprite's track is stepped at this many seconds.
-COLOR_STEP = 0.1
-WHITE = (1.0, 1.0, 1.0)
-# A sprite that may be missing, and the one drawn instead.
-SPRITE_FALLBACKS = {"touch_star_hollow": "touch_star"}
+from minimai.tools.schema import ParticleConfig, ParticleSprite, RigNode
+from minimai.tools.sprite_recipe import SourceFiles, build_sprite, check_recipe, combined_recipe, report_missing
+
+# Pillow is an optional extra (uv sync --extra tools): the image functions import it when they run.
+if TYPE_CHECKING:
+    from PIL import Image
+
+PARTICLES_DIR = RESOURCES_DIR / "particles"
+DEFAULTS_PATH = Path(__file__).parent / "defaults" / "particle.toml"
 
 
-class Track:
-    """Keys (time, value), linear between them and held outside them. Values are floats or tuples."""
+def skin_px(size: float) -> float:
+    """Ring units (lib/layout.py) to skin px."""
+    return size * SKIN_RING_RADIUS_PX
 
-    def __init__(self, *keys):
-        self.keys = sorted(keys, key=lambda key: key[0])
 
-    @classmethod
-    def constant(cls, value):
-        return cls((0.0, value))
+# Every effect the engine spawns (lib/particle.py): how long it plays, in seconds, and the side of the
+# square it's spawned on, in skin px. The hold effects loop.
+ENGINE_EFFECTS: dict[str, tuple[float, float]] = {
+    "Mai Tap Perfect": (TAP_PERFECT_DURATION, skin_px(TAP_EFFECT_SIZE)),
+    "Mai Tap Great": (TAP_GREAT_DURATION, skin_px(TAP_EFFECT_SIZE)),
+    "Mai Tap Good": (TAP_GOOD_DURATION, skin_px(TAP_EFFECT_SIZE)),
+    "Mai Break Perfect": (TAP_PERFECT_DURATION, skin_px(TAP_EFFECT_SIZE)),
+    "Mai Break Great": (TAP_PERFECT_DURATION, skin_px(TAP_EFFECT_SIZE)),
+    "Mai Break Good": (TAP_PERFECT_DURATION, skin_px(TAP_EFFECT_SIZE)),
+    **{f"Mai Touch {grade}": (TOUCH_DURATION, skin_px(TOUCH_EFFECT_SIZE)) for grade in ("Perfect", "Great", "Good")},
+    **{
+        f"Mai Hold {grade}": (HOLD_DURATION, skin_px(HOLD_EFFECT_SIZE))
+        for grade in ("Perfect", "Great", "Good", "Miss")
+    },
+}
 
-    def at(self, t: float):
-        keys = self.keys
-        if t <= keys[0][0]:
-            return keys[0][1]
-        for (t0, v0), (t1, v1) in zip(keys, keys[1:]):
-            if t <= t1:
-                x = 0 if t1 == t0 else (t - t0) / (t1 - t0)
-                if isinstance(v0, tuple):
-                    return tuple(a + (b - a) * x for a, b in zip(v0, v1))
-                return v0 + (v1 - v0) * x
-        return keys[-1][1]
+NODE_KEYS = {
+    *("pos", "rot", "scale", "sprite", "size", "alpha", "color", "children"),
+    *("repeat", "count", "rig", "args", "params"),
+}
+EFFECT_KEYS = {"rig", "args", "loop_copies", "skip"}
+MAX_RANDOMS = 8
+# Rigs referring to rigs deeper than this are taken for a loop.
+MAX_RIG_DEPTH = 16
 
-    @property
-    def times(self) -> list[float]:
-        return [t for t, _ in self.keys]
 
-    def changes(self, t0: float, t1: float) -> bool:
-        return self.at(t0) != self.at(t1) or any(t0 < t < t1 for t in self.times)
+class RigError(Exception):
+    """A rig that can't be built or can't become particles; the message names where."""
+
+
+# ==== Eases =======================================================================================
+# Sonolus' eases (as Sonolus Studio draws them): progress 0..1 -> 0..1.
+
+BACK = 1.70158
+
+
+def _out(ease: Callable[[float], float]) -> Callable[[float], float]:
+    return lambda x: 1 - ease(1 - x)
+
+
+def _in_out(ease: Callable[[float], float]) -> Callable[[float], float]:
+    return lambda x: ease(2 * x) / 2 if x < 0.5 else 1 - ease(2 - 2 * x) / 2
+
+
+def _out_in(ease: Callable[[float], float]) -> Callable[[float], float]:
+    out = _out(ease)
+    return lambda x: out(2 * x) / 2 if x < 0.5 else 0.5 + ease(2 * x - 1) / 2
+
+
+def _in_elastic(x: float) -> float:
+    if x in (0, 1):
+        return x
+    return -(2 ** (10 * x - 10)) * math.sin((x * 10 - 10.75) * 2 * math.pi / 3)
+
+
+EASE_INS: dict[str, Callable[[float], float]] = {
+    "Sine": lambda x: 1 - math.cos(x * math.pi / 2),
+    "Quad": lambda x: x**2,
+    "Cubic": lambda x: x**3,
+    "Quart": lambda x: x**4,
+    "Quint": lambda x: x**5,
+    "Expo": lambda x: 0.0 if x == 0 else 2 ** (10 * x - 10),
+    "Circ": lambda x: 1 - math.sqrt(max(0.0, 1 - x * x)),
+    "Back": lambda x: (BACK + 1) * x**3 - BACK * x**2,
+    "Elastic": _in_elastic,
+}
+EASES: dict[str, Callable[[float], float]] = {
+    "linear": lambda x: x,
+    "none": lambda x: 1.0 if x == 1 else 0.0,
+    **{f"in{name}": ease for name, ease in EASE_INS.items()},
+    **{f"out{name}": _out(ease) for name, ease in EASE_INS.items()},
+    **{f"inOut{name}": _in_out(ease) for name, ease in EASE_INS.items()},
+    **{f"outIn{name}": _out_in(ease) for name, ease in EASE_INS.items()},
+    # As Sonolus has them: their second halves don't start at exactly 0.5.
+    "outInExpo": lambda x: (
+        x if x in (0, 1) else 0.5 - 0.5 * 2 ** (-20 * x) if x < 0.5 else 0.5 + 0.5 * 2 ** (20 * x - 20)
+    ),
+    "outInElastic": lambda x: (
+        x
+        if x in (0, 1)
+        else _out(_in_elastic)(2 * x) / 2
+        if x < 0.5
+        else 0.5 - 0.5 * 2 ** (20 * x - 20) * math.sin((20 * x - 20.75) * 2 * math.pi / 3)
+    ),
+}
+
+
+# ==== Values and tracks ===========================================================================
+
+
+@dataclass(eq=False)
+class Random:
+    """A value drawn between ``low`` and ``high`` once per spawn (per group instance), from Sonolus' random
+    value ``index`` (1-8). ``shared`` is the index a config asked for, so values can share one draw."""
+
+    low: float
+    high: float
+    shared: int | None = None
+    index: int = 0
+
+    def value(self, randoms: Mapping[int, float]) -> float:
+        return self.low + (self.high - self.low) * randoms.get(self.index, 0.0)
+
+
+type Scalar = float | Random
+type Randoms = Mapping[int, float]
+# No random values drawn: each is its low end.
+NO_RANDOMS: Randoms = MappingProxyType({})
+
+
+def value_of(scalar: Scalar, randoms: Randoms) -> float:
+    return scalar.value(randoms) if isinstance(scalar, Random) else scalar
+
+
+def parse_scalar(raw, where: str) -> Scalar:
+    if isinstance(raw, bool):
+        raise RigError(f"{where}: expected a number, not {raw!r}")
+    if isinstance(raw, int | float):
+        return float(raw)
+    if isinstance(raw, Mapping) and "random" in raw:
+        low_high = raw["random"]
+        if not (isinstance(low_high, list) and len(low_high) == 2):
+            raise RigError(f"{where}: random must be [low, high], not {low_high!r}")
+        low, high = (parse_scalar(part, where) for part in low_high)
+        if isinstance(low, Random) or isinstance(high, Random):
+            raise RigError(f"{where}: a random value's ends must be numbers")
+        shared = raw.get("r")
+        if shared is not None and (not isinstance(shared, int) or not 1 <= shared <= MAX_RANDOMS):
+            raise RigError(f"{where}: r must be 1-{MAX_RANDOMS}, not {shared!r}")
+        unknown = set(raw) - {"random", "r"}
+        if unknown:
+            raise RigError(f"{where}: unknown keys in a random value: {', '.join(sorted(unknown))}")
+        return Random(low, high, shared)
+    raise RigError(f"{where}: expected a number or {{ random = [low, high] }}, not {raw!r}")
+
+
+def parse_pair(raw, where: str) -> tuple[Scalar, Scalar]:
+    if not (isinstance(raw, list) and len(raw) == 2):
+        raise RigError(f"{where}: expected [x, y], not {raw!r}")
+    return parse_scalar(raw[0], where), parse_scalar(raw[1], where)
+
+
+def parse_rgb(raw, where: str) -> tuple[float, float, float]:
+    try:
+        return parse_color(raw)
+    except (TypeError, ValueError) as error:
+        raise RigError(f"{where}: expected a colour (\"#rrggbb\" or [r, g, b]), not {raw!r}") from error
 
 
 @dataclass
+class Key:
+    time: float
+    value: object
+    # How the value moves from this key to the next.
+    ease: str = "linear"
+
+
+class Track:
+    """A value over time: keys, eased from each to the next and held before the first and after the last.
+    Values are a scalar, a pair of scalars, or an RGB colour."""
+
+    def __init__(self, keys: list[Key]):
+        self.keys = sorted(keys, key=lambda key: key.time)
+
+    @classmethod
+    def constant(cls, value) -> Track:
+        return cls([Key(0.0, value)])
+
+    @staticmethod
+    def evaluate(value, randoms: Randoms):
+        if isinstance(value, tuple):
+            return tuple(value_of(part, randoms) for part in value)
+        return value_of(value, randoms)
+
+    def at(self, t: float, randoms: Randoms = NO_RANDOMS):
+        keys = self.keys
+        if t <= keys[0].time:
+            return self.evaluate(keys[0].value, randoms)
+        for k0, k1 in pairwise(keys):
+            if t <= k1.time:
+                x = 0 if k1.time == k0.time else (t - k0.time) / (k1.time - k0.time)
+                v0, v1 = self.evaluate(k0.value, randoms), self.evaluate(k1.value, randoms)
+                if k0.ease != "linear":
+                    x = EASES[k0.ease](x)
+                if isinstance(v0, tuple):
+                    return tuple(a + (b - a) * x for a, b in zip(v0, v1))
+                return v0 + (v1 - v0) * x
+        return self.evaluate(keys[-1].value, randoms)
+
+    @property
+    def times(self) -> list[float]:
+        return [key.time for key in self.keys]
+
+    def randoms(self) -> Iterator[Random]:
+        for key in self.keys:
+            for part in key.value if isinstance(key.value, tuple) else (key.value,):
+                if isinstance(part, Random):
+                    yield part
+
+    def changes(self, t0: float, t1: float, samples: list[Randoms]) -> bool:
+        return any(t0 < t < t1 for t in self.times) or any(self.at(t0, r) != self.at(t1, r) for r in samples)
+
+    def ease_between(self, t0: float, t1: float) -> str:
+        """The ease of the key stretch holding [t0, t1] (no key strictly inside); linear outside the keys."""
+        for k0, k1 in pairwise(self.keys):
+            if k0.time <= t0 and t1 <= k1.time:
+                return k0.ease
+        return "linear"
+
+
+def parse_track(raw, parse: Callable[[object, str], object], where: str) -> Track:
+    """A constant, or keys ``[[time, value], [time, value, ease], ...]``."""
+    if not (isinstance(raw, list) and raw and isinstance(raw[0], list)):
+        return Track.constant(parse(raw, where))
+    keys = []
+    for i, key in enumerate(raw):
+        here = f"{where} key {i + 1}"
+        timed = isinstance(key, list) and len(key) in (2, 3) and isinstance(key[0], int | float)
+        if not timed or isinstance(key[0], bool):
+            raise RigError(f"{here}: expected [time, value] or [time, value, ease], not {key!r}")
+        ease = key[2] if len(key) == 3 else "linear"
+        if ease not in EASES:
+            raise RigError(
+                f"{here}: unknown ease {ease!r}; one of linear, none, or in/out/inOut/outIn + "
+                "Sine, Quad, Cubic, Quart, Quint, Expo, Circ, Back, Elastic"
+            )
+        keys.append(Key(float(key[0]), parse(key[1], here), ease))
+    return Track(keys)
+
+
+# ==== Rigs ========================================================================================
+
+
+@dataclass(eq=False)
 class Node:
-    """A transform (Unity style: position, then rotation in degrees, then uniform scale), and maybe a
-    sprite of ``size`` reference units square drawn at it."""
+    """A transform (position, then rotation in degrees, then uniform scale, applied to its children too),
+    and maybe a sprite ``size`` skin px wide and high drawn at it."""
+
+    where: str
     pos: Track = field(default_factory=lambda: Track.constant((0.0, 0.0)))
     rot: Track = field(default_factory=lambda: Track.constant(0.0))
     scale: Track = field(default_factory=lambda: Track.constant(1.0))
     sprite: str | None = None
-    size: float = 0.0
+    size: tuple[Scalar, Scalar] = (0.0, 0.0)
     alpha: Track = field(default_factory=lambda: Track.constant(1.0))
-    color: Track = field(default_factory=lambda: Track.constant(WHITE))
-    children: list["Node"] = field(default_factory=list)
+    color: Track = field(default_factory=lambda: Track.constant((1.0, 1.0, 1.0)))
+    children: list[Node] = field(default_factory=list)
+    # A repeat copy's turn about the parent, in degrees; with orient off it moves the copy's position (and
+    # its children's) but not their angle.
+    turn: float = 0.0
+    orient: bool = True
+    # Spawned this many times, each with its own random values (its own particle group).
+    count: int | None = None
+
+    def randoms(self) -> Iterator[Random]:
+        for track in (self.pos, self.rot, self.scale, self.alpha):
+            yield from track.randoms()
+        yield from (part for part in self.size if isinstance(part, Random))
+
+
+class RigParser:
+    """Rig tables (from the config) to node trees. ``"$name"`` values are the rig's params: the config's
+    ``[params]``, the rig's own ``params`` (defaults) and the args it's drawn with, in that order."""
+
+    def __init__(self, rigs: Mapping[str, RigNode], params: Mapping):
+        self.rigs = rigs
+        self.params = params
+        self.warned: set[str] = set()
+
+    def rig(self, name, args: Mapping, where: str, depth: int = 0) -> list[Node]:
+        if not isinstance(name, str) or name not in self.rigs:
+            raise RigError(f"{where}: no rig {name!r} (the rigs: {', '.join(self.rigs)})")
+        if depth > MAX_RIG_DEPTH:
+            raise RigError(f"{where}: rigs draw each other in a loop")
+        table = self.rigs[name]
+        try:
+            defaults = resolve(table.get("params", {}), self.params)
+        except ValueError as error:
+            raise RigError(f"rigs.{name}.params: {error}") from error
+        return self.nodes(table, {**self.params, **defaults, **args}, f"rigs.{name}", depth)
+
+    def nodes(self, table: Mapping, scope: Mapping, where: str, depth: int) -> list[Node]:
+        """The node (or its repeat copies) for a table."""
+        if not isinstance(table, Mapping):
+            raise RigError(f"{where}: a node must be a table, not {table!r}")
+        unknown = sorted(set(table) - NODE_KEYS)
+        if unknown and where not in self.warned:
+            self.warned.add(where)
+            print(f"{where}: unknown keys (ignored): {', '.join(unknown)}")
+
+        def get(key: str, default=None):
+            if key not in table:
+                return default
+            try:
+                return resolve(table[key], scope)
+            except ValueError as error:
+                raise RigError(f"{where}.{key}: {error}") from error
+
+        repeat = get("repeat", {})
+        if not isinstance(repeat, Mapping) or not repeat.keys() <= {"count", "rot", "start", "orient"}:
+            raise RigError(f"{where}.repeat: expected {{ count, rot, start, orient }}, not {repeat!r}")
+        count = repeat.get("count", 1)
+        if not isinstance(count, int) or count < 1:
+            raise RigError(f"{where}.repeat: count must be a whole number of at least 1, not {count!r}")
+        step = float(repeat.get("rot", 360 / count))
+        start = float(repeat.get("start", 0))
+        group_count = get("count")
+        if group_count is not None and (not isinstance(group_count, int) or group_count < 1):
+            raise RigError(f"{where}.count: must be a whole number of at least 1, not {group_count!r}")
+        size = get("size", 0)
+        size_where = f"{where}.size"
+        copies = []
+        for copy in range(count):
+            # Parsed again for each copy, so each draws its own random values.
+            node = Node(
+                where=where if count == 1 else f"{where} (copy {copy + 1})",
+                pos=parse_track(get("pos", [0, 0]), parse_pair, f"{where}.pos"),
+                rot=parse_track(get("rot", 0), parse_scalar, f"{where}.rot"),
+                scale=parse_track(get("scale", 1), parse_scalar, f"{where}.scale"),
+                sprite=get("sprite"),
+                size=parse_pair(size, size_where) if isinstance(size, list) else (parse_scalar(size, size_where),) * 2,
+                alpha=parse_track(get("alpha", 1), parse_scalar, f"{where}.alpha"),
+                color=parse_track(get("color", "#ffffff"), parse_rgb, f"{where}.color"),
+                turn=start + step * copy,
+                orient=bool(repeat.get("orient", True)),
+                count=group_count,
+            )
+            if node.sprite is not None and not isinstance(node.sprite, str):
+                raise RigError(f"{where}.sprite: expected a sprite id, not {node.sprite!r}")
+            if "rig" in table:
+                args = get("args", {})
+                if not isinstance(args, Mapping):
+                    raise RigError(f"{where}.args: expected a table, not {args!r}")
+                node.children += self.rig(get("rig"), args, where, depth + 1)
+            for i, child in enumerate(table.get("children", [])):
+                node.children += self.nodes(child, scope, f"{where}.children[{i}]", depth)
+            copies.append(node)
+        return copies
+
+
+def sprite_chains(node: Node, chain: tuple[Node, ...] = ()) -> Iterator[tuple[Node, ...]]:
+    """The chain from the root to every node with a sprite, in drawing order."""
+    chain = (*chain, node)
+    if node.sprite is not None:
+        yield chain
+    for child in node.children:
+        yield from sprite_chains(child, chain)
+
+
+# ==== Compiling ===================================================================================
+# A sprite's state, in the spawn quad's space (its half side is 1): x, y, half width, half height,
+# rotation in radians, alpha.
+
+PROPERTIES = ("x", "y", "w", "h", "r", "a")
+type State = tuple[float, float, float, float, float, float]
+# c + sum of coefficient x random value, by Sonolus expression key ("c", "r1", "sinr1", "cosr1", ...).
+type Expression = dict[str, float]
 
 
 @dataclass
@@ -117,43 +433,87 @@ class World:
     scale: float
 
 
-def world_at(chain: list[Node], t: float) -> World:
+def world_at(chain: tuple[Node, ...], t: float, randoms: Randoms = NO_RANDOMS) -> World:
     x = y = rot = 0.0
+    # Turns from repeat copies that don't orient: they turn positions but not angles.
+    position_turn = 0.0
     scale = 1.0
     for node in chain:
-        px, py = node.pos.at(t)
-        c, s = math.cos(math.radians(rot)), math.sin(math.radians(rot))
+        if node.orient:
+            rot += node.turn
+        else:
+            position_turn += node.turn
+        px, py = node.pos.at(t, randoms)
+        angle = math.radians(rot + position_turn)
+        c, s = math.cos(angle), math.sin(angle)
         x, y = x + scale * (c * px - s * py), y + scale * (s * px + c * py)
-        rot += node.rot.at(t)
-        scale *= node.scale.at(t)
+        rot += node.rot.at(t, randoms)
+        scale *= node.scale.at(t, randoms)
     return World(x, y, rot, scale)
 
 
-def walk(node: Node, chain: list[Node] | None = None):
-    """(chain from the root, node) for every node with a sprite, in drawing order."""
-    chain = [*(chain or []), node]
-    if node.sprite is not None:
-        yield chain
-    for child in node.children:
-        yield from walk(child, chain)
-
-
-def segment_times(chain: list[Node], duration: float) -> list[float]:
+def sprite_state(chain: tuple[Node, ...], t: float, half: float, randoms: Randoms = NO_RANDOMS) -> State:
     sprite = chain[-1]
-    times = {0.0, duration}
-    for node in chain:
-        for track in (node.pos, node.rot, node.scale):
-            times.update(t for t in track.times if 0 < t < duration)
-    times.update(t for t in sprite.alpha.times if 0 < t < duration)
-    times.update(t for t in sprite.color.times if 0 < t < duration)
-    ordered = sorted(times)
-    result = [ordered[0]]
-    for t0, t1 in zip(ordered, ordered[1:]):
-        turn = max(abs(world_at(chain[: i + 1], t1).rot - world_at(chain[: i + 1], t0).rot) for i in range(len(chain)))
-        pieces = max(1, math.ceil(turn / MAX_SEGMENT_TURN))
-        if sprite.color.changes(t0, t1):
-            pieces = max(pieces, math.ceil((t1 - t0) / COLOR_STEP))
-        result.extend(t0 + (t1 - t0) * (i + 1) / pieces for i in range(pieces))
+    world = world_at(chain, t, randoms)
+    w, h = (value_of(part, randoms) * world.scale / 2 / half for part in sprite.size)
+    return (world.x / half, world.y / half, w, h, math.radians(world.rot), sprite.alpha.at(t, randoms))
+
+
+def random_samples(indexes: list[int]) -> list[dict[int, float]]:
+    """Random values to check a chain at: none drawn, and a few spread out."""
+    if not indexes:
+        return [{}]
+    return [{}, *({i: (offset + 0.37 * i) % 1 for i in indexes} for offset in (0.13, 0.58, 0.91))]
+
+
+def fit_expressions(state: Callable[[Randoms], State], indexes: list[int], where: str) -> list[Expression]:
+    """Each property of a state that depends on random values, as a Sonolus expression: a constant plus,
+    for each random value r, a·r + b·cos(2πr) + c·sin(2πr). Checked against the state, since products of
+    random values (or a turn short of a full one) can't be written so."""
+    base = state({})
+    expressions: list[Expression] = [{"c": value} for value in base]
+    for i in indexes:
+        quarter, half, three_quarters = state({i: 0.25}), state({i: 0.5}), state({i: 0.75})
+        for expression, v0, v1, v2, v3 in zip(expressions, base, quarter, half, three_quarters):
+            # g(r) = v(r) - v(0) = a·r + b·(cos 2πr - 1) + c·sin 2πr, from r = 1/4, 1/2 and 3/4.
+            g1, g2, g3 = v1 - v0, v2 - v0, v3 - v0
+            a = 2 * (g1 + g3 - g2)
+            b = (a / 2 - g2) / 2
+            c = (g1 - g3 + a / 2) / 2
+            for key, coefficient in ((f"r{i}", a), (f"cosr{i}", b), (f"sinr{i}", c)):
+                if abs(coefficient) > 1e-9:
+                    expression[key] = coefficient
+            expression["c"] -= b if abs(b) > 1e-9 else 0.0
+    checks = [{i: x} for i in indexes for x in (0.1, 0.6, 0.85)] + random_samples(indexes)[1:]
+    for randoms in checks:
+        for name, expression, actual in zip(PROPERTIES, expressions, state(randoms)):
+            if abs(evaluate(expression, randoms) - actual) > 1e-6 * max(1.0, abs(actual)):
+                raise RigError(
+                    f"{where}: its {name} can't follow its random values. A particle adds random values (and, "
+                    "for a turn of a whole 360°, their sine and cosine), but can't multiply them: a random "
+                    "rotation must be a whole turn to move children, and two random values can't scale each other"
+                )
+    return expressions
+
+
+def evaluate(expression: Expression, randoms: Randoms) -> float:
+    total = 0.0
+    for key, coefficient in expression.items():
+        if key == "c":
+            total += coefficient
+            continue
+        kind, index = key.rstrip("0123456789"), int(key.lstrip("sincor"))
+        r = randoms.get(index, 0.0)
+        total += coefficient * {"r": r, "sinr": math.sin(2 * math.pi * r), "cosr": math.cos(2 * math.pi * r)}[kind]
+    return total
+
+
+def expression_json(expression: Expression) -> dict[str, float]:
+    result = {}
+    for key, coefficient in expression.items():
+        coefficient = round(coefficient, 5)
+        if coefficient:
+            result[key] = coefficient
     return result
 
 
@@ -161,416 +521,367 @@ def color_hex(rgb) -> str:
     return "#" + "".join(f"{round(max(0.0, min(1.0, c)) * 255):02x}" for c in rgb)
 
 
-def expression(value: float) -> dict:
-    value = round(value, 5)
-    return {"c": value} if value else {}
+@dataclass
+class Segment:
+    start: float
+    end: float
+    # Each property's ease, or None for linear.
+    eases: tuple[str, ...] | None
+    color: str
 
 
-def prop(start: float, end: float) -> dict:
-    return {"from": expression(start), "to": expression(end), "ease": "linear"}
+def fitted_eases(
+    chain: tuple[Node, ...], t0: float, t1: float, half: float, candidates: list[str], samples: list[Randoms]
+) -> tuple[str, ...] | None:
+    """For each property, the first candidate ease it follows from t0 to t1; None when one follows none."""
+    steps = [i / 8 for i in range(1, 8)]
+    ends = [(sprite_state(chain, t0, half, r), sprite_state(chain, t1, half, r)) for r in samples]
+    middles = [[sprite_state(chain, t0 + (t1 - t0) * u, half, r) for u in steps] for r in samples]
+    eases = []
+    for p in range(len(PROPERTIES)):
+        for ease in candidates:
+            function = EASES[ease]
+            if all(
+                abs(start[p] + (end[p] - start[p]) * function(u) - middle[p]) < 1e-4
+                for (start, end), row in zip(ends, middles)
+                for u, middle in zip(steps, row)
+            ):
+                eases.append(ease)
+                break
+        else:
+            return None
+    return tuple(eases)
+
+
+def chain_segments(
+    chain: tuple[Node, ...], duration: float, half: float, build: Mapping, samples: list[Randoms]
+) -> list[Segment]:
+    """The stretches of a sprite's life, each one particle: between keys, with long turns, colour changes
+    and eases no particle can follow cut into pieces."""
+    sprite = chain[-1]
+    motion = [track for node in chain for track in (node.pos, node.rot, node.scale)] + [sprite.alpha]
+    times = sorted({0.0, duration} | {t for track in (*motion, sprite.color) for t in track.times if 0 < t < duration})
+    segments = []
+    for t0, t1 in pairwise(times):
+        turn = max(
+            abs(world_at(chain[: i + 1], t1, r).rot - world_at(chain[: i + 1], t0, r).rot)
+            for r in samples
+            for i in range(len(chain))
+        )
+        pieces = max(1, math.ceil(turn / build["max_segment_turn"]))
+        if sprite.color.changes(t0, t1, [{}]):
+            pieces = max(pieces, math.ceil((t1 - t0) / build["color_step"]))
+        eases = sorted({track.ease_between(t0, t1) for track in motion if track.changes(t0, t1, samples)} - {"linear"})
+        if eases:
+            if pieces == 1:
+                fitted = fitted_eases(chain, t0, t1, half, ["linear", *eases], samples)
+                if fitted is not None:
+                    color = color_hex(sprite.color.at((t0 + t1) / 2))
+                    segments.append(Segment(t0, t1, None if set(fitted) == {"linear"} else fitted, color))
+                    continue
+            pieces = max(pieces, math.ceil((t1 - t0) / build["ease_step"]))
+        bounds = [t0] + [t0 + (t1 - t0) * (i + 1) / pieces for i in range(pieces)]
+        for a, b in pairwise(bounds):
+            segments.append(Segment(a, b, None, color_hex(sprite.color.at((a + b) / 2))))
+    return segments
+
+
+def straight(start: list[Expression], middle: list[Expression], end: list[Expression], x: float) -> bool:
+    """Whether ``middle`` is on the line from ``start`` to ``end``, ``x`` of the way along."""
+    for s, m, e in zip(start, middle, end):
+        for key in s.keys() | m.keys() | e.keys():
+            a, b = s.get(key, 0.0), e.get(key, 0.0)
+            if abs(a + (b - a) * x - m.get(key, 0.0)) >= 1e-4:
+                return False
+    return True
+
+
+def merge_segments(segments: list[Segment], states: Callable[[float], list[Expression]]) -> list[Segment]:
+    """Back-to-back linear segments of one colour that make one straight line, as one."""
+    merged_segments: list[Segment] = []
+    for segment in segments:
+        if merged_segments:
+            last = merged_segments[-1]
+            if last.eases is None and segment.eases is None and last.color == segment.color:
+                x = (segment.start - last.start) / (segment.end - last.start)
+                if straight(states(last.start), states(segment.start), states(segment.end), x):
+                    last.end = segment.end
+                    continue
+        merged_segments.append(Segment(segment.start, segment.end, segment.eases, segment.color))
+    return merged_segments
+
+
+def invisible(start: list[Expression], end: list[Expression]) -> bool:
+    """Whether a particle never shows: no alpha, or no width or height, at both ends (and nothing random)."""
+    def constant(expression: Expression) -> float | None:
+        return expression.get("c", 0.0) if expression.keys() <= {"c"} else None
+
+    def gone(p: int, test: Callable[[float], bool]) -> bool:
+        values = (constant(start[p]), constant(end[p]))
+        return all(value is not None and test(value) for value in values)
+
+    return gone(5, lambda a: a <= 0.001) or gone(2, lambda w: w == 0) or gone(3, lambda h: h == 0)
 
 
 @dataclass
 class Effect:
     name: str
-    # The spawn quad's side, in reference units.
-    quad_size: float
     duration: float
-    root: Node
+    # The spawn quad's side, in skin px.
+    quad_size: float
+    root: list[Node]
     # A looped effect: copies of every particle, this many, evenly offset over the loop.
     loop_copies: int = 1
 
 
-def sprite_state(chain: list[Node], t: float, half: float) -> tuple[float, ...]:
-    """x, y, half-size, rotation and alpha of the chain's sprite, in the spawn quad's space."""
-    sprite = chain[-1]
-    world = world_at(chain, t)
-    return (world.x / half, world.y / half, sprite.size * world.scale / 2 / half, math.radians(world.rot), sprite.alpha.at(t))
-
-
-def merge_segments(times: list[float], states: list[tuple], colors: list) -> list[int]:
-    """Indexes of the times to keep: a key in the middle of a straight stretch (same colour, every
-    value on the line between its neighbours) is dropped."""
-    keep = [0]
-    for i in range(1, len(times) - 1):
-        start = keep[-1]
-        x = (times[i] - times[start]) / (times[i + 1] - times[start])
-        straight = colors[i - 1] == colors[i] and all(
-            abs(a + (b - a) * x - m) < 1e-4 for a, m, b in zip(states[start], states[i], states[i + 1])
-        )
-        if not straight:
-            keep.append(i)
-    keep.append(len(times) - 1)
-    return keep
-
-
-def build_particles(effect: Effect, sprite_ids: dict[str, int]) -> list[dict]:
+def effect_groups(effect: Effect, sprite_ids: Mapping[str, int], build: Mapping) -> list[dict]:
+    """The effect's particle groups: one for the rig, and one for each node with a count."""
     half = effect.quad_size / 2
+    # Group (the node with a count, or None) -> its chains.
+    groups: dict[Node | None, list[tuple[Node, ...]]] = {None: []}
+    for root in effect.root:
+        for chain in sprite_chains(root):
+            counted = [i for i, node in enumerate(chain) if node.count is not None]
+            if len(counted) > 1:
+                raise RigError(f"{chain[counted[1]].where}: a node with a count can't be inside another")
+            if counted and any(True for node in chain[: counted[0]] for _ in node.randoms()):
+                raise RigError(f"{chain[counted[0]].where}: a node with a count can't be inside random values")
+            groups.setdefault(chain[counted[0]] if counted else None, []).append(chain)
+
+    result = []
+    for group, chains in groups.items():
+        assign_random_indexes(chains)
+        particles = []
+        for chain in chains:
+            particles += chain_particles(chain, effect, half, sprite_ids, build)
+        if particles:
+            result.append({"count": 1 if group is None else group.count, "particles": particles})
+    return result
+
+
+def assign_random_indexes(chains: list[tuple[Node, ...]]):
+    """Give each random value of a group a Sonolus random value (1-8): the one a config shared, else a free one."""
+    values = list({id(value): value for chain in chains for node in chain for value in node.randoms()}.values())
+    taken = {value.shared for value in values if value.shared is not None}
+    free = (i for i in range(1, MAX_RANDOMS + 1) if i not in taken)
+    for value in values:
+        if value.shared is not None:
+            value.index = value.shared
+            continue
+        index = next(free, None)
+        if index is None:
+            raise RigError(
+                f"more than {MAX_RANDOMS} random values in one particle group; share some with r = 1-{MAX_RANDOMS}"
+            )
+        value.index = index
+
+
+def chain_particles(
+    chain: tuple[Node, ...], effect: Effect, half: float, sprite_ids: Mapping[str, int], build: Mapping
+) -> list[dict]:
+    sprite = chain[-1]
+    indexes = sorted({value.index for node in chain for value in node.randoms()})
+    samples = random_samples(indexes)
+    cache: dict[float, list[Expression]] = {}
+
+    def states(t: float) -> list[Expression]:
+        if t not in cache:
+            cache[t] = fit_expressions(lambda randoms: sprite_state(chain, t, half, randoms), indexes, sprite.where)
+        return cache[t]
+
     particles = []
-    for chain in walk(effect.root):
-        sprite = chain[-1]
-        times = segment_times(chain, effect.duration)
-        states = [sprite_state(chain, t, half) for t in times]
-        # The colour of each stretch (a particle's colour can't change).
-        colors = [color_hex(sprite.color.at((t0 + t1) / 2)) for t0, t1 in zip(times, times[1:])]
-        keep = merge_segments(times, states, colors)
-        for k0, k1 in zip(keep, keep[1:]):
-            (x0, y0, s0, r0, a0), (x1, y1, s1, r1, a1) = states[k0], states[k1]
-            if (a0 <= 0.001 and a1 <= 0.001) or (s0 == 0 and s1 == 0):
-                continue
-            for copy in range(effect.loop_copies):
-                offset = copy / effect.loop_copies
-                # Rounded ends, so back-to-back particles leave no gap.
-                start = round(times[k0] / effect.duration + offset, 5)
-                end = round(times[k1] / effect.duration + offset, 5)
-                wrap = math.floor(start)
-                particles.append({
-                    "sprite": sprite_ids[sprite.sprite],
-                    "color": colors[k0],
-                    "start": round(start - wrap, 5),
-                    "duration": round(end - start, 5),
-                    "x": prop(x0, x1),
-                    "y": prop(y0, y1),
-                    "w": prop(s0, s1),
-                    "h": prop(s0, s1),
-                    "r": prop(r0, r1),
-                    "a": prop(a0, a1),
-                })
+    for segment in merge_segments(chain_segments(chain, effect.duration, half, build, samples), states):
+        start, end = states(segment.start), states(segment.end)
+        if invisible(start, end):
+            continue
+        eases = segment.eases or ("linear",) * len(PROPERTIES)
+        for copy in range(effect.loop_copies):
+            offset = copy / effect.loop_copies
+            # Rounded ends, so back-to-back particles leave no gap.
+            begin = round(segment.start / effect.duration + offset, 5)
+            finish = round(segment.end / effect.duration + offset, 5)
+            wrap = math.floor(begin)
+            particle = {
+                "sprite": sprite_ids[sprite.sprite],
+                "color": segment.color,
+                "start": round(begin - wrap, 5),
+                "duration": round(finish - begin, 5),
+            }
+            for p, name in enumerate(PROPERTIES):
+                particle[name] = {"from": expression_json(start[p]), "to": expression_json(end[p]), "ease": eases[p]}
+            particles.append(particle)
     return particles
 
 
-# --- The effects -------------------------------------------------------------------------------
-
-PERFECT_ALPHA = Track((0, 1.0), (0.233, 0.995), (0.417, 0.0))
-
-
-def perfect_effect(sprite: str) -> Node:
-    """A hex in the middle grows, while four more spin in toward it; breaks use this for every grade."""
-    hexes = (
-        (1, ((0.552, 0.5), (0.437, 0.396), 0.567), 0.6),
-        (1, ((-0.431, -0.527), (-0.319, -0.39), 0.5), 0.6),
-        (-1, ((0.473, -0.468), (0.35, -0.347), 0.5), 0.8),
-        (-1, ((-0.502, 0.492), (-0.372, 0.364), 0.5), 0.8),
-    )
-    children = []
-    for turn, (start, middle, end_time), end_scale in hexes:
-        children.append(Node(
-            pos=Track.constant((0.0, -0.002)),
-            rot=Track((0, 0.0), (0.467, 180.0 * turn), (0.717, 360.0 * turn)),
-            children=[Node(
-                pos=Track((0, start), (0.25, middle), (end_time, (0.0, 0.0))),
-                rot=Track((0, 0.0), (0.467, -180.0 * turn), (0.717, -360.0 * turn)),
-                scale=Track((0, 0.479), (0.267, end_scale)),
-                sprite=sprite,
-                size=2.56,
-                alpha=PERFECT_ALPHA,
-            )],
-        ))
-    return Node(
-        rot=Track.constant(90.0),
-        scale=Track((0, 0.0), (0.083, 0.7), (0.45, 1.3)),
-        sprite=sprite,
-        size=2.56,
-        alpha=PERFECT_ALPHA,
-        children=children,
-    )
-
-
-def great_effect(sprite: str) -> Node:
-    """Three rings of the hex, one after another, growing and fading."""
-    rings = (
-        ((0.0, -0.002), ((0, 0.0), (0.083, 0.693), (0.283, 1.3)), (0.006, 0.002), 0.746, 28.615, ((0, 1.0), (0.133, 1.0), (0.283, 0.0))),
-        ((0.0, -0.002), ((0, 0.0), (0.083, 0.0), (0.1, 0.693), (0.317, 1.8)), (0.001, -0.007), 0.547, 0.0, ((0, 1.0), (0.167, 1.0), (0.317, 0.0))),
-        ((0.0, 0.0), ((0, 0.0), (0.083, 0.0), (0.117, 0.693), (0.35, 2.5)), (0.001, -0.009), 0.382, -29.931, ((0, 1.0), (0.2, 1.0), (0.35, 0.0))),
-    )
-    return Node(
-        rot=Track.constant(120.6),
-        children=[
-            Node(
-                pos=Track.constant(pivot),
-                scale=Track(*scale_keys),
-                children=[Node(
-                    pos=Track.constant(pos),
-                    rot=Track.constant(rot),
-                    scale=Track.constant(scale),
-                    sprite=sprite,
-                    size=2.56,
-                    alpha=Track(*alpha_keys),
-                )],
-            )
-            for pivot, scale_keys, pos, scale, rot, alpha_keys in rings
-        ],
-    )
-
-
-def good_effect(sprite: str) -> Node:
-    """Three hexes burst out and back while the whole effect pops and shrinks away."""
-    bursts = (
-        ((0.702, 0.411), (0.791, 0.439), -30.941),
-        ((-0.017, -0.801), (-0.018, -0.925), -30.851),
-        ((-0.678, 0.39), (-0.808, 0.465), -29.931),
-    )
-    return Node(
-        rot=Track.constant(120.09),
-        scale=Track((0, 0.0), (0.117, 0.7), (0.15, 0.7), (0.4, 0.0)),
-        children=[
-            Node(
-                pos=Track((0, (0.0, 0.0)), (0.117, out), (0.15, far), (0.2, (0.0, 0.0)), (0.25, out)),
-                rot=Track.constant(rot),
-                sprite=sprite,
-                size=1.92,
-            )
-            for out, far, rot in bursts
-        ],
-    )
-
-
-def touch_effect(circle_color, star_color) -> Node:
-    """A circle flashes out while 16 stars burst from the sensor, hold, then shrink away. Measured
-    from a recording of the reference (30 fps) rather than its prefab, which has fewer stars."""
-    # Seconds, for the recorded frames (the first one a frame after the hit).
-    f = [1 / 60 + i / 30 for i in range(8)]
-
-    def star(angle: float, radius: Track, size: Track, sprite: str, rot: float) -> Node:
-        direction = (math.cos(math.radians(angle)), math.sin(math.radians(angle)))
-        return Node(
-            pos=Track(*((t, (direction[0] * r, direction[1] * r)) for t, r in radius.keys)),
-            rot=Track.constant(rot),
-            scale=size,
-            sprite=sprite,
-            size=1.0,
-            alpha=Track((f[5], 1.0), (f[7], 0.6)),
-            color=Track.constant(star_color),
-        )
-
-    # Outer stars fly out to their place; inner ones appear there.
-    outer_radius = Track((0, 0.42), (f[0], 0.5), (f[1], 0.61), (f[2], 0.65), (f[3], 0.7))
-    inner_radius = Track.constant(0.4)
-    # Full widths in reference units (a little over the measured, for the thin star sprite):
-    # medium, big, then small.
-    outer_size = Track((0, 0.22), (f[0], 0.28), (f[1], 0.37), (f[2], 0.3), (f[3], 0.25), (f[5], 0.25), (f[6], 0.19), (f[7], 0.0))
-    inner_size = Track((0, 0.13), (f[0], 0.16), (f[1], 0.21), (f[2], 0.14), (f[3], 0.13), (f[5], 0.13), (f[6], 0.05), (f[7], 0.0))
-    stars = []
-    for i in range(4):
-        axis = 90.0 * i
-        diagonal = axis + 45.0
-        stars.append(star(diagonal, outer_radius, outer_size, "touch_star", 0.0))
-        # Hollow stars lean one way or the other, alternating around the ring.
-        lean = 22.5 if i % 2 == 0 else -22.5
-        stars.append(star(axis, outer_radius, outer_size, "touch_star_hollow", lean))
-        stars.append(star(axis, inner_radius, inner_size, "touch_star", 0.0))
-        stars.append(star(diagonal, inner_radius, inner_size, "touch_star_hollow", -lean))
-    return Node(children=[
-        Node(
-            scale=Track((0, 0.25), (f[0], 0.475), (f[1], 1.1), (f[2], 1.34), (f[3], 1.4)),
-            sprite="touch_circle",
-            size=1.0,
-            alpha=Track((0, 1.0), (f[0], 0.9), (f[1], 0.45), (f[2], 0.15), (f[3], 0.0)),
-            color=Track.constant(circle_color),
-        ),
-        *stars,
-    ])
-
-
-def hold_glow(color) -> Node:
-    """One ring of the held note's glow: it spreads out fast, slows, and fades near its widest.
-    Measured from a recording of the reference: a ring lives about 0.24 seconds of the 0.3 second
-    loop, and reaches about 1.1 units across its middle (the sprite's ring is at 0.72 of its
-    half-size, so the sprite is about 3 units wide then)."""
-    life = 0.8 * HOLD_DURATION
-    widest = 3.0
-    spread = ((0, 0.0), (0.14, 0.15), (0.28, 0.4), (0.42, 0.62), (0.56, 0.8), (0.69, 0.93), (0.83, 1.0), (1.0, 1.05))
-    return Node(
-        scale=Track(*((x * life, widest * f) for x, f in spread)),
-        sprite="hold_glow",
-        size=1.0,
-        alpha=Track((0, 0.0), (0.14 * life, 0.75), (0.56 * life, 0.75), (0.69 * life, 0.7), (0.83 * life, 0.25), (life, 0.0)),
-        color=Track.constant(color),
-    )
-
-
-TOUCH_COLORS = {
-    # Perfect from the recording; great and good from the reference player's colours.
-    "Perfect": ((1.0, 0.97, 0.1), (0.98, 0.79, 0.01)),
-    "Great": ((1.0, 0.675, 0.883), (1.0, 0.675, 0.883)),
-    "Good": ((0.368, 0.99, 0.405), (0.368, 0.9, 0.405)),
-}
-# The reference player's tints, halfway to white: the recorded perfect rings are a pale yellow.
-HOLD_COLORS = {
-    "Perfect": (1.0, 0.95, 0.55),
-    "Great": (1.0, 0.85, 0.97),
-    "Good": (0.78, 1.0, 0.8),
-    "Miss": WHITE,
-}
-# Rings per loop: one starts every 0.1 seconds.
-HOLD_GLOW_COPIES = 3
-
-
-def all_effects() -> list[tuple[Effect, set[str]]]:
-    """Every effect and the sprites it needs."""
-    tap = TAP_EFFECT_SIZE * REFERENCE_UNITS
-    effects = []
-    for prefix in ("tap", "break"):
-        title = prefix.capitalize()
-        perfect, great, good = f"{prefix}_perfect", f"{prefix}_great", f"{prefix}_good"
-        if prefix == "tap":
-            grades = (
-                (perfect, perfect_effect(perfect), TAP_PERFECT_DURATION),
-                (great, great_effect(great), TAP_GREAT_DURATION),
-                (good, good_effect(good), TAP_GOOD_DURATION),
-            )
-        else:
-            grades = tuple((sprite, perfect_effect(sprite), TAP_PERFECT_DURATION) for sprite in (perfect, great, good))
-        for (sprite, root, duration), grade in zip(grades, ("Perfect", "Great", "Good")):
-            effects.append((Effect(f"Mai {title} {grade}", tap, duration, root), {sprite}))
-    for grade, (circle, star) in TOUCH_COLORS.items():
-        effects.append((
-            Effect(f"Mai Touch {grade}", TOUCH_EFFECT_SIZE * REFERENCE_UNITS, TOUCH_DURATION, touch_effect(circle, star)),
-            {"touch_circle", "touch_star"},
-        ))
-    for grade, color in HOLD_COLORS.items():
-        effects.append((
-            Effect(f"Mai Hold {grade}", HOLD_EFFECT_SIZE * REFERENCE_UNITS, HOLD_DURATION, hold_glow(color), HOLD_GLOW_COPIES),
-            {"hold_glow"},
-        ))
-    return effects
-
+# ==== Packing =====================================================================================
 
 IDENTITY_TRANSFORM = {f"{axis}{i}": {f"{axis}{i}": 1} for i in range(1, 5) for axis in "xy"}
 
 
-def build_data(sprite_names: list[str]) -> tuple[dict, list[str]]:
-    """data.json (without the atlas rects) and the effects left out."""
-    sprite_ids = {name: i for i, name in enumerate(sprite_names)}
-    for name, fallback in SPRITE_FALLBACKS.items():
-        if name not in sprite_ids and fallback in sprite_ids:
-            sprite_ids[name] = sprite_ids[fallback]
-    effects = []
-    skipped = []
-    for effect, needs in all_effects():
-        if not needs <= sprite_ids.keys():
-            skipped.append(effect.name)
+def load_defaults() -> ParticleConfig:
+    with DEFAULTS_PATH.open("rb") as file:
+        defaults = tomllib.load(file)
+    names = set(defaults["effects"])
+    if names != set(ENGINE_EFFECTS):
+        raise SystemExit(
+            f"{DEFAULTS_PATH.name} is out of step with lib/particle.py: "
+            f"missing {sorted(set(ENGINE_EFFECTS) - names)}, unknown {sorted(names - set(ENGINE_EFFECTS))}"
+        )
+    return defaults
+
+
+SPRITE_KEYS = set(ParticleSprite.__annotations__)
+
+
+def build_sprites(
+    files: SourceFiles, defaults: Mapping, entries: Mapping, params: Mapping
+) -> tuple[dict[str, Image.Image], dict[str, str], dict[str, dict]]:
+    """Each sprite id's image, from its recipe (as the skin's: sprite_recipe), the fallbacks, and the recipes
+    of the sprites with no image."""
+    images: dict[str, Image.Image] = {}
+    fallbacks: dict[str, str] = {}
+    missing: dict[str, dict] = {}
+    for sprite in dict.fromkeys([*defaults, *entries]):
+        recipe = combined_recipe(defaults.get(sprite), files.exact(sprite), entries.get(sprite), ("skip", "fallback"))
+        check_recipe(sprite, recipe, SPRITE_KEYS)
+        fallback = recipe.pop("fallback", None)
+        if fallback:
+            fallbacks[sprite] = fallback
+        if recipe.get("skip"):
             continue
-        effects.append({
-            "name": effect.name,
-            "transform": IDENTITY_TRANSFORM,
-            "groups": [{"count": 1, "particles": build_particles(effect, sprite_ids)}],
-        })
-    return {"interpolation": True, "sprites": [], "effects": effects}, skipped
+        try:
+            recipe = resolve(recipe, params)
+            image = build_sprite(sprite, recipe, files)
+        except Exception as error:
+            print(f"{sprite}: {error}")
+            image = None
+        if image is None:
+            missing[sprite] = recipe
+        else:
+            images[sprite] = image
+    return images, fallbacks, missing
 
 
-def pack_atlas(images: list) -> tuple[object, list[dict]]:
-    """Shelf-pack the sprites into a square power-of-two texture. Each sprite gets a 1 px border
-    copied from its edge, so filtering doesn't pick up its neighbours."""
-    from PIL import Image
-
-    order = sorted(range(len(images)), key=lambda i: -images[i].height)
-    size = 64
-    while True:
-        placed = {}
-        x = y = row = 0
-        fits = True
-        for i in order:
-            w, h = images[i].width + 2, images[i].height + 2
-            if x + w > size:
-                x, y, row = 0, y + row, 0
-            if y + h > size or w > size:
-                fits = False
-                break
-            placed[i] = (x, y)
-            x += w
-            row = max(row, h)
-        if fits:
-            break
-        size *= 2
-    atlas = Image.new("RGBA", (size, size))
-    rects = [{}] * len(images)
-    for i, (x, y) in placed.items():
-        image = images[i]
-        w, h = image.size
-        atlas.paste(image, (x + 1, y + 1))
-        atlas.paste(image.crop((0, 0, w, 1)), (x + 1, y))
-        atlas.paste(image.crop((0, h - 1, w, h)), (x + 1, y + h + 1))
-        atlas.paste(atlas.crop((x + 1, y, x + 2, y + h + 2)), (x, y))
-        atlas.paste(atlas.crop((x + w, y, x + w + 1, y + h + 2)), (x + w + 1, y))
-        rects[i] = {"x": x + 1, "y": y + 1, "w": image.width, "h": image.height}
-    return atlas, rects
+def sprite_ids_for(found: Iterable[str], fallbacks: Mapping[str, str]) -> dict[str, int]:
+    ids = {sprite: i for i, sprite in enumerate(found)}
+    for sprite, fallback in fallbacks.items():
+        seen = {sprite}
+        while fallback not in ids and fallback in fallbacks and fallback not in seen:
+            seen.add(fallback)
+            fallback = fallbacks[fallback]
+        if sprite not in ids and fallback in ids:
+            ids[sprite] = ids[fallback]
+    return ids
 
 
-def build_thumbnail(images: list):
+def build_effects(config: ParticleConfig, sprite_ids: Mapping[str, int]) -> tuple[list[dict], list[str]]:
+    """The effects (for data.json), and the names of those left out for missing sprites."""
+    parser = RigParser(config.get("rigs", {}), config.get("params", {}))
+    effects = []
+    left_out = []
+    known = set(config.get("sprites", {}))
+    for name, entry in config["effects"].items():
+        if name not in ENGINE_EFFECTS:
+            raise SystemExit(f"[effects.\"{name}\"]: not an effect the engine plays ({', '.join(ENGINE_EFFECTS)})")
+        unknown = sorted(set(entry) - EFFECT_KEYS)
+        if unknown:
+            print(f"[effects.\"{name}\"]: unknown keys (ignored): {', '.join(unknown)}")
+        if entry.get("skip"):
+            continue
+        duration, quad_size = ENGINE_EFFECTS[name]
+        try:
+            args = resolve(entry.get("args", {}), config.get("params", {}))
+            root = parser.rig(entry.get("rig"), args, "rig")
+            needs = {chain[-1].sprite for node in root for chain in sprite_chains(node)}
+            strangers = sorted(needs - known)
+            if strangers:
+                raise RigError(f"sprites not in [sprites]: {', '.join(strangers)}")
+            if not needs <= sprite_ids.keys():
+                left_out.append(name)
+                continue
+            effect = Effect(name, duration, quad_size, root, int(entry.get("loop_copies", 1)))
+            groups = effect_groups(effect, sprite_ids, config["build"])
+        except (RigError, ValueError) as error:
+            raise SystemExit(f"[effects.\"{name}\"]: {error}") from error
+        effects.append({"name": name, "transform": IDENTITY_TRANSFORM, "groups": groups})
+    return effects, left_out
+
+
+def build_thumbnail(image: Image.Image) -> Image.Image:
     from PIL import Image
 
     thumbnail = Image.new("RGBA", (128, 128), (32, 32, 40, 255))
-    preview = images[0].copy()
+    preview = image.copy()
     preview.thumbnail((96, 96))
     thumbnail.alpha_composite(preview, ((128 - preview.width) // 2, (128 - preview.height) // 2))
     return thumbnail
 
 
-def pack_particle(
-    name: str,
-    folder: Path,
-    *,
-    title: str | None = None,
-    author: str = "Unknown",
-    description: str = "",
-    thumbnail: Path | None = None,
-    particles_dir: Path = PARTICLES_DIR,
-) -> Path:
+def pack_particle(name: str, source: Path, *, particles_dir: Path = PARTICLES_DIR) -> Path:
+    """Build the pack from ``source`` (folder or zip) and return its folder."""
     try:
         from PIL import Image
     except ImportError as error:
         raise SystemExit("Pillow is needed: uv sync --extra tools") from error
 
-    sprite_names = [stem for stem in SPRITE_NAMES if (folder / f"{stem}.png").is_file()]
-    missing = [stem for stem in SPRITE_NAMES if stem not in sprite_names and stem not in SPRITE_FALLBACKS]
-    if missing:
-        print(f"Missing sprites: {', '.join(missing)}")
-    if not sprite_names:
-        raise SystemExit(f"No sprites in {folder}")
-    images = [Image.open(folder / f"{stem}.png").convert("RGBA") for stem in sprite_names]
-    data, skipped = build_data(sprite_names)
-    if skipped:
-        print(f"Left out (the engine falls back to standard effects): {', '.join(skipped)}")
-    atlas, rects = pack_atlas(images)
-    data = {"width": atlas.width, "height": atlas.height, **data, "sprites": rects}
+    defaults = load_defaults()
+    source_config: ParticleConfig = load_config(source)
+    config: ParticleConfig = merged(defaults, source_config)
+    info = get_item_info(name, source, config)
+    files = SourceFiles(source, config.get("files", {}))
+    found, fallbacks, missing = build_sprites(
+        files, defaults["sprites"], source_config.get("sprites", {}), config.get("params", {})
+    )
+    # The ones with a fallback aren't missed.
+    report_missing({sprite: recipe for sprite, recipe in missing.items() if sprite not in fallbacks})
+    if not found:
+        raise SystemExit(f"No sprites in {source}")
+    sprite_ids = sprite_ids_for(found, fallbacks)
+    effects, left_out = build_effects(config, sprite_ids)
+    if left_out:
+        print(f"Left out for missing sprites (the engine falls back to standard effects): {', '.join(left_out)}")
+
+    images = list(found.values())
+    texture = config["texture"]
+    try:
+        sheet, origins = build_sheet(images, int(texture["padding"]), int(texture["max_size"]))
+    except ValueError as error:
+        raise SystemExit(f"{error.args[0].capitalize()}; raise [texture] max_size or scale them down") from error
+    data = {
+        "width": sheet.width,
+        "height": sheet.height,
+        "interpolation": bool(texture["interpolation"]),
+        "sprites": [{"x": x, "y": y, "w": image.width, "h": image.height} for image, (x, y) in zip(images, origins)],
+        "effects": effects,
+    }
 
     target = particles_dir / name
     target.mkdir(parents=True, exist_ok=True)
-    item = {
-        "version": 3,
-        "title": {"en": title or name},
-        "subtitle": {"en": "Minimai"},
-        "author": {"en": author},
-        "tags": [],
-        "description": {"en": description},
-    }
+    item = item_json(3, info)
     (target / "item.json").write_text(json.dumps(item, indent=4, ensure_ascii=False) + "\n", encoding="utf-8")
     (target / "data.json").write_text(json.dumps(data, separators=(",", ":")) + "\n", encoding="utf-8")
-    atlas.save(target / "texture.png")
-    if thumbnail is None and (folder / "thumbnail.png").is_file():
-        thumbnail = folder / "thumbnail.png"
-    if thumbnail is not None:
+    sheet.save(target / "texture.png")
+    if info.thumbnail is not None:
         output = io.BytesIO()
-        Image.open(thumbnail).convert("RGBA").save(output, "PNG")
+        Image.open(io.BytesIO(info.thumbnail)).convert("RGBA").save(output, "PNG")
         (target / "thumbnail.png").write_bytes(output.getvalue())
     else:
-        build_thumbnail(images).save(target / "thumbnail.png")
-    count = sum(len(effect["groups"][0]["particles"]) for effect in data["effects"])
-    print(f"{len(data['effects'])} effects, {count} particles")
+        build_thumbnail(images[0]).save(target / "thumbnail.png")
+    count = sum(len(group["particles"]) for effect in effects for group in effect["groups"])
+    print(f"{len(effects)} effects, {count} particles, {len(images)} sprites on a {sheet.width} px texture")
     return target
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Build a Minimai particle pack from a folder of sprites.")
+def add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument("name", help="the pack's folder name in resources/particles")
-    parser.add_argument("folder", type=Path, help="folder with the sprites")
-    parser.add_argument("--author", default="Unknown")
-    parser.add_argument("--desc", default="", help="the pack's description")
-    parser.add_argument("--thumbnail", type=Path, help="image file; overrides a thumbnail.png in the folder")
+    parser.add_argument("source", type=Path, help="the folder or zip file of sprites (and its pack.toml)")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Build a Minimai particle pack from a folder or zip file of sprites.")
+    add_arguments(parser)
     args = parser.parse_args()
-    folder = pack_particle(args.name, args.folder, author=args.author, description=args.desc, thumbnail=args.thumbnail)
-    print(f"Particle pack written to {folder}")
+    print(f"Particle pack written to {pack_particle(args.name, args.source)}")
 
 
 if __name__ == "__main__":
