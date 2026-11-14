@@ -1,5 +1,6 @@
 from math import pi, sin
 
+from sonolus.script.array import Array, Dim
 from sonolus.script.array_like import ArrayLike, check_positive_index
 from sonolus.script.debug import static_error
 from sonolus.script.globals import level_data
@@ -19,6 +20,33 @@ SLIDE_OK_GRADES = (
 )
 COUNTER_COLOURS = ("Yellow", "Pink", "Green", "Silver", "Blue", "Red", "Gold")
 COUNTER_GLYPHS = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Dot", "Percent", "Plus", "Minus", "Star")
+# The center displays' own glyph sprites (Mai Counter <style> <glyph>); a skin missing one falls back to the
+# colour group in COUNTER_STYLE_FALLBACKS, glyph by glyph.
+COUNTER_GRADES = ("AP Plus", "AP", "FC Plus", "FC", "Miss")
+COUNTER_ACHIEVEMENTS = ("Triple S", "Pass S", "Pass", "Fail")
+COUNTER_BORDERS = ("SSS", "SS", "S")
+COUNTER_DX_RANKS = ("High", "Mid", "Low")
+COUNTER_LIFE_STATES = tuple(f"{state} Life" for state in ("High", "Mid", "Low", "Ended"))
+COUNTER_STYLES = (
+    "Combo",
+    *(f"{grade} Combo" for grade in COUNTER_GRADES),
+    *COUNTER_ACHIEVEMENTS,
+    *(f"Border {border}" for border in COUNTER_BORDERS),
+    "DX",
+    *(f"DX {rank}" for rank in COUNTER_DX_RANKS),
+    *COUNTER_LIFE_STATES,
+)
+# The colour each style falls back to, glyph by glyph.
+COUNTER_STYLE_FALLBACKS = (
+    "Pink",
+    *("Gold", "Yellow", "Pink", "Green", "Silver"),
+    *("Gold", "Yellow", "Red", "Blue"),
+    *("Gold", "Yellow", "Red"),
+    "Green",
+    *("Gold", "Red", "Green"),
+    *("Green", "Yellow", "Red", "Silver"),
+)
+assert len(COUNTER_STYLE_FALLBACKS) == len(COUNTER_STYLES)
 # The preview's sensor group marks, under each column.
 PREVIEW_GROUP_LABELS = ("B", "C", "D", "E")
 # The preview's slide shape labels: sprite name, then the simai shape it shows. "^" isn't here: the
@@ -203,8 +231,12 @@ class BaseSkin:
     counter_glyphs: SpriteGroup = sprite_group(
         f"Mai Counter {colour} {glyph}" for colour in COUNTER_COLOURS for glyph in COUNTER_GLYPHS
     )
-    # The life counter's backdrop, by COUNTER_COLOURS.
-    counter_lives: SpriteGroup = sprite_group(f"Mai Counter {colour} Life" for colour in COUNTER_COLOURS)
+    # By COUNTER_STYLES, then COUNTER_GLYPHS.
+    counter_style_glyphs: SpriteGroup = sprite_group(
+        f"Mai Counter {style} {glyph}" for style in COUNTER_STYLES for glyph in COUNTER_GLYPHS
+    )
+    # The life counter's backdrop, by COUNTER_LIFE_STATES.
+    counter_lives: SpriteGroup = sprite_group(f"Mai Counter {state} Ring" for state in COUNTER_LIFE_STATES)
 
     # By PREVIEW_GROUP_LABELS.
     preview_group_labels: SpriteGroup = sprite_group(f"Mai Preview Label {label}" for label in PREVIEW_GROUP_LABELS)
@@ -281,6 +313,11 @@ class BreakBodySpriteSet(Record):
     head: BreakSpriteSet
     body: BreakSpriteSet
     tail: BreakSpriteSet
+
+
+# By COUNTER_STYLES, then COUNTER_GLYPHS.
+CounterGlyphs = Array[Sprite, Dim[315]]
+assert len(COUNTER_STYLES) * len(COUNTER_GLYPHS) == CounterGlyphs.size()
 
 
 @level_data
@@ -389,7 +426,8 @@ class ActiveSkin:
 
     slide_oks: SpriteGroup
 
-    counter_glyphs: SpriteGroup
+    # Each style's glyph, or its fallback colour's (init_skin).
+    counter_glyphs: CounterGlyphs
     counter_lives: SpriteGroup
 
 
@@ -586,5 +624,13 @@ def init_skin():
 
     ActiveSkin.slide_oks = BaseSkin.slide_oks
 
-    ActiveSkin.counter_glyphs = BaseSkin.counter_glyphs
+    glyph_count = len(COUNTER_GLYPHS)
+    for style, colour_name in enumerate(COUNTER_STYLE_FALLBACKS):
+        colour = COUNTER_COLOURS.index(colour_name)
+        for glyph in range(glyph_count):
+            styled = BaseSkin.counter_style_glyphs[style * glyph_count + glyph]
+            if styled.is_available:
+                ActiveSkin.counter_glyphs[style * glyph_count + glyph] = styled
+            else:
+                ActiveSkin.counter_glyphs[style * glyph_count + glyph] = BaseSkin.counter_glyphs[colour * glyph_count + glyph]
     ActiveSkin.counter_lives = BaseSkin.counter_lives

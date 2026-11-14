@@ -27,7 +27,7 @@ from minimai.lib.scoring import (
     get_dx_rank,
     get_dx_rank_margin,
 )
-from minimai.lib.skin import COUNTER_COLOURS, COUNTER_GLYPHS, ActiveSkin
+from minimai.lib.skin import COUNTER_GLYPHS, COUNTER_STYLES, ActiveSkin
 
 
 class CenterDisplay(IntEnum):
@@ -44,16 +44,6 @@ class CenterDisplay(IntEnum):
     SS_BORDER = auto()
     SSS_BORDER = auto()
     SONOLUS_COMBO = auto()
-
-
-class CounterColour(IntEnum):
-    YELLOW = 0
-    PINK = auto()
-    GREEN = auto()
-    SILVER = auto()
-    BLUE = auto()
-    RED = auto()
-    GOLD = auto()
 
 
 class CounterGlyph(IntEnum):
@@ -74,8 +64,37 @@ class CounterGlyph(IntEnum):
     STAR = auto()
 
 
-assert len(CounterColour) == len(COUNTER_COLOURS)
+class CounterStyle(IntEnum):
+    """What a display draws with (COUNTER_STYLES); ActiveSkin.counter_glyphs has each style's fallbacks."""
+
+    COMBO = 0
+    # By Grade.
+    AP_PLUS_COMBO = auto()
+    AP_COMBO = auto()
+    FC_PLUS_COMBO = auto()
+    FC_COMBO = auto()
+    MISS_COMBO = auto()
+    TRIPLE_S = auto()
+    PASS_S = auto()
+    PASS = auto()
+    FAIL = auto()
+    BORDER_SSS = auto()
+    BORDER_SS = auto()
+    BORDER_S = auto()
+    DX = auto()
+    DX_HIGH = auto()
+    DX_MID = auto()
+    DX_LOW = auto()
+    # By ActiveSkin.counter_lives.
+    HIGH_LIFE = auto()
+    MID_LIFE = auto()
+    LOW_LIFE = auto()
+    ENDED_LIFE = auto()
+
+
 assert len(CounterGlyph) == len(COUNTER_GLYPHS)
+assert [style.name for style in CounterStyle] == [name.upper().replace(" ", "_") for name in COUNTER_STYLES]
+assert CounterStyle.MISS_COMBO - CounterStyle.AP_PLUS_COMBO == Grade.NONE - Grade.AP_PLUS
 
 DIGIT_WIDTH = COUNTER_GLYPH_WIDTHS[CounterGlyph.ZERO]
 DOT_WIDTH = COUNTER_GLYPH_WIDTHS[CounterGlyph.DOT]
@@ -98,31 +117,31 @@ def get_counter_alpha() -> float:
     return runtime_ui().combo_config.alpha * Options.center_display_opacity
 
 
-def get_counter_sprite(colour: CounterColour, glyph: int) -> Sprite:
-    return ActiveSkin.counter_glyphs[colour * len(COUNTER_GLYPHS) + glyph]
+def get_glyph_sprite(style: CounterStyle, glyph: int) -> Sprite:
+    return ActiveSkin.counter_glyphs[style * len(COUNTER_GLYPHS) + glyph]
 
 
-def get_grade_colour(grade: Grade) -> CounterColour:
-    result = CounterColour.SILVER
-    if grade == Grade.AP_PLUS:
-        result = CounterColour.GOLD
-    elif grade == Grade.AP:
-        result = CounterColour.YELLOW
-    elif grade == Grade.FC_PLUS:
-        result = CounterColour.PINK
-    elif grade == Grade.FC:
-        result = CounterColour.GREEN
+def get_grade_style(grade: Grade) -> CounterStyle:
+    return CounterStyle.AP_PLUS_COMBO + grade
+
+
+def get_achievement_style(achievement: float) -> CounterStyle:
+    result = CounterStyle.FAIL
+    if achievement >= 100:
+        result = CounterStyle.TRIPLE_S
+    elif achievement >= 97:
+        result = CounterStyle.PASS_S
+    elif achievement >= 80:
+        result = CounterStyle.PASS
     return result
 
 
-def get_achievement_colour(achievement: float) -> CounterColour:
-    result = CounterColour.BLUE
-    if achievement >= 100:
-        result = CounterColour.GOLD
-    elif achievement >= 97:
-        result = CounterColour.YELLOW
-    elif achievement >= 80:
-        result = CounterColour.RED
+def get_dx_rank_style(rank: int) -> CounterStyle:
+    result = CounterStyle.DX_HIGH
+    if rank < 3:
+        result = CounterStyle.DX_LOW
+    elif rank < 5:
+        result = CounterStyle.DX_MID
     return result
 
 
@@ -135,29 +154,29 @@ def get_digit_count(value: int) -> int:
     return count
 
 
-def draw_glyph(colour: CounterColour, glyph: int, left: float, width: float, size: float) -> float:
+def draw_glyph(style: CounterStyle, glyph: int, left: float, width: float, size: float) -> float:
     """Draws a glyph at ``size`` of the big digits, on their baseline. Returns its right edge."""
     ui = runtime_ui().combo_config
     layout = layout_counter_glyph(left, width, ui.scale, size)
-    get_counter_sprite(colour, glyph).draw(layout, get_z(LAYER_COUNTER).tuple, get_counter_alpha())
+    get_glyph_sprite(style, glyph).draw(layout, get_z(LAYER_COUNTER).tuple, get_counter_alpha())
     return left + width * size
 
 
-def draw_digits(value: int, count: int, colour: CounterColour, left: float, size: float, tracking: float) -> float:
+def draw_digits(value: int, count: int, style: CounterStyle, left: float, size: float, tracking: float) -> float:
     """``value`` as ``count`` digits, with leading zeros. Returns the right edge."""
     divisor = 1
     for _ in range(count - 1):
         divisor *= 10
     while divisor >= 1:
-        left = draw_glyph(colour, floor(value / divisor) % 10, left, DIGIT_WIDTH, size) + tracking
+        left = draw_glyph(style, floor(value / divisor) % 10, left, DIGIT_WIDTH, size) + tracking
         divisor /= 10
     return left
 
 
-def draw_integer(value: int, colour: CounterColour):
+def draw_integer(value: int, style: CounterStyle):
     """A whole number in big digits, centered."""
     count = get_digit_count(value)
-    draw_digits(value, count, colour, -count * DIGIT_WIDTH / 2, 1, 0)
+    draw_digits(value, count, style, -count * DIGIT_WIDTH / 2, 1, 0)
 
 
 def get_percent_units(percent: float) -> int:
@@ -165,7 +184,7 @@ def get_percent_units(percent: float) -> int:
     return floor(percent * ACHIEVEMENT_STEPS + ACHIEVEMENT_EPSILON)
 
 
-def draw_percent(units: int, colour: CounterColour):
+def draw_percent(units: int, style: CounterStyle):
     """As "101.0000%" (``units`` of 0.0001%): the whole part big, the decimals and % small, centered."""
     whole = floor(units / ACHIEVEMENT_STEPS)
     count = get_digit_count(whole)
@@ -175,67 +194,66 @@ def draw_percent(units: int, colour: CounterColour):
         + (ACHIEVEMENT_DECIMALS + 1) * COUNTER_SMALL_TRACKING
     )
     left = -(count * DIGIT_WIDTH + small_run) / 2
-    left = draw_digits(whole, count, colour, left, 1, 0)
-    left = draw_glyph(colour, CounterGlyph.DOT, left, DOT_WIDTH, COUNTER_SMALL_SIZE) + COUNTER_SMALL_TRACKING
+    left = draw_digits(whole, count, style, left, 1, 0)
+    left = draw_glyph(style, CounterGlyph.DOT, left, DOT_WIDTH, COUNTER_SMALL_SIZE) + COUNTER_SMALL_TRACKING
     left = draw_digits(
-        units - whole * ACHIEVEMENT_STEPS, ACHIEVEMENT_DECIMALS, colour, left, COUNTER_SMALL_SIZE, COUNTER_SMALL_TRACKING
+        units - whole * ACHIEVEMENT_STEPS, ACHIEVEMENT_DECIMALS, style, left, COUNTER_SMALL_SIZE, COUNTER_SMALL_TRACKING
     )
-    draw_glyph(colour, CounterGlyph.PERCENT, left, PERCENT_WIDTH, COUNTER_PERCENT_SIZE)
+    draw_glyph(style, CounterGlyph.PERCENT, left, PERCENT_WIDTH, COUNTER_PERCENT_SIZE)
 
 
 def draw_achievement(achievement: float):
     units = get_percent_units(achievement)
-    draw_percent(units, get_achievement_colour(units / ACHIEVEMENT_STEPS))
+    draw_percent(units, get_achievement_style(units / ACHIEVEMENT_STEPS))
 
 
-def draw_border(border: float, colour: CounterColour):
+def draw_border(border: float, style: CounterStyle):
     units = get_percent_units(get_achievement_from_101() - border)
     if units >= 0:
-        draw_percent(units, colour)
+        draw_percent(units, style)
 
 
-def draw_signed(value: int, sign: int, sign_width: float, colour: CounterColour):
+def draw_signed(value: int, sign: int, sign_width: float, style: CounterStyle):
     """As "+0" / "-0": ``sign`` (a glyph) then ``value``, centered."""
     count = get_digit_count(value)
-    left = draw_glyph(colour, sign, -(sign_width + count * DIGIT_WIDTH) / 2, sign_width, 1)
-    draw_digits(value, count, colour, left, 1, 0)
+    left = draw_glyph(style, sign, -(sign_width + count * DIGIT_WIDTH) / 2, sign_width, 1)
+    draw_digits(value, count, style, left, 1, 0)
 
 
 def draw_dx_rank(rank: int, margin: int):
     if rank == 0:
         return
-    colour = CounterColour.GREEN
-    if rank >= 3:
-        colour = CounterColour.GOLD
+    style = get_dx_rank_style(rank)
     ui = runtime_ui().combo_config
     z = get_z(LAYER_COUNTER).tuple
     pitch = STAR_WIDTH * COUNTER_STAR_SIZE + COUNTER_STAR_TRACKING
     left = -(rank * pitch - COUNTER_STAR_TRACKING) / 2
     for _ in range(rank):
         layout = layout_counter_header_glyph(left, STAR_WIDTH, ui.scale, COUNTER_STAR_SIZE)
-        get_counter_sprite(colour, CounterGlyph.STAR).draw(layout, z, get_counter_alpha())
+        get_glyph_sprite(style, CounterGlyph.STAR).draw(layout, z, get_counter_alpha())
         left += pitch
-    draw_signed(margin, CounterGlyph.PLUS, PLUS_WIDTH, colour)
+    draw_signed(margin, CounterGlyph.PLUS, PLUS_WIDTH, style)
 
 
-def get_life_colour(life: int) -> CounterColour:
-    result = CounterColour.GREEN
+def get_life_style(life: int) -> CounterStyle:
+    result = CounterStyle.HIGH_LIFE
     if life <= 0:
-        result = CounterColour.SILVER
+        result = CounterStyle.ENDED_LIFE
     elif life < Options.life_challenge:
         if life < 10:
-            result = CounterColour.RED
+            result = CounterStyle.LOW_LIFE
         elif life < 100:
-            result = CounterColour.YELLOW
+            result = CounterStyle.MID_LIFE
     return result
 
 
 def draw_life_counter(life: int):
-    colour = get_life_colour(life)
+    style = get_life_style(life)
     ui = runtime_ui().combo_config
     layout = layout_counter_backdrop(COUNTER_LIFE_SIZE, ui.scale)
-    ActiveSkin.counter_lives[colour].draw(layout, get_z(LAYER_COUNTER, offset=-1).tuple, get_counter_alpha())
-    draw_integer(life, colour)
+    ring = ActiveSkin.counter_lives[style - CounterStyle.HIGH_LIFE]
+    ring.draw(layout, get_z(LAYER_COUNTER, offset=-1).tuple, get_counter_alpha())
+    draw_integer(life, style)
 
 
 def draw_center_counter():
@@ -244,10 +262,10 @@ def draw_center_counter():
         draw_life_counter(ScoreMemory.life)
     elif display == CenterDisplay.COMBO or display == CenterDisplay.GRADE_COMBO:
         if ScoreMemory.combo > 0:
-            colour = CounterColour.PINK
+            style = CounterStyle.COMBO
             if display == CenterDisplay.GRADE_COMBO:
-                colour = get_grade_colour(ScoreMemory.grade)
-            draw_integer(ScoreMemory.combo, colour)
+                style = get_grade_style(ScoreMemory.grade)
+            draw_integer(ScoreMemory.combo, style)
     elif display == CenterDisplay.ACHIEVEMENT:
         draw_achievement(get_achievement())
     elif display == CenterDisplay.ACHIEVEMENT_FROM_100:
@@ -255,14 +273,14 @@ def draw_center_counter():
     elif display == CenterDisplay.ACHIEVEMENT_FROM_101:
         draw_achievement(get_achievement_from_101())
     elif display == CenterDisplay.DX_SCORE:
-        draw_integer(ScoreMemory.dx_earned, CounterColour.GREEN)
+        draw_integer(ScoreMemory.dx_earned, CounterStyle.DX)
     elif display == CenterDisplay.DX_SCORE_FROM_MAX:
-        draw_signed(ScoreMemory.dx_lost, CounterGlyph.MINUS, MINUS_WIDTH, CounterColour.GREEN)
+        draw_signed(ScoreMemory.dx_lost, CounterGlyph.MINUS, MINUS_WIDTH, CounterStyle.DX)
     elif display == CenterDisplay.DX_SCORE_RANK:
         draw_dx_rank(get_dx_rank(), get_dx_rank_margin())
     elif display == CenterDisplay.S_BORDER:
-        draw_border(S_BORDER, CounterColour.RED)
+        draw_border(S_BORDER, CounterStyle.BORDER_S)
     elif display == CenterDisplay.SS_BORDER:
-        draw_border(SS_BORDER, CounterColour.YELLOW)
+        draw_border(SS_BORDER, CounterStyle.BORDER_SS)
     elif display == CenterDisplay.SSS_BORDER:
-        draw_border(SSS_BORDER, CounterColour.GOLD)
+        draw_border(SSS_BORDER, CounterStyle.BORDER_SSS)
