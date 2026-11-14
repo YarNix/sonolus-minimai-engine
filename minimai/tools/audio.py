@@ -172,6 +172,22 @@ def resample(audio: Audio, rate: int, speed: float = 1.0) -> Audio:
     return through_ffmpeg(data, ["-af", f"asetrate={played},aresample={rate}"], reason)
 
 
+def filtered(audio: Audio, *, highpass: float | None = None, lowpass: float | None = None, slope: int = 12) -> Audio:
+    """``audio`` high-passed (cut below ``highpass`` Hz) and low-passed (cut above ``lowpass`` Hz), ``slope`` dB
+    per octave: a 12 dB per octave filter run ``slope / 12`` times."""
+    if slope <= 0 or slope % 12:
+        raise ValueError(f"slope must be 12, 24, 36, ..., not {slope}")
+    passes = slope // 12
+    filters = []
+    if highpass:
+        filters += [f"highpass=f={float(highpass)}"] * passes
+    if lowpass:
+        filters += [f"lowpass=f={float(lowpass)}"] * passes
+    if not filters:
+        return audio
+    return through_ffmpeg(write_wav_32(audio), ["-af", ",".join(filters)], "Filtering")
+
+
 def write_wav_32(audio: Audio) -> bytes:
     """32-bit wav bytes for ffmpeg, so a round trip keeps the precision."""
     count = len(audio.channels)

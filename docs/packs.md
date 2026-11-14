@@ -113,7 +113,7 @@ A source path the recipes use → the file to read instead (paths are case-insen
 
 ### `[params]`
 
-Values recipes refer to as `"$name"`; `"-$name"` is the value negated. Changing a param changes every recipe that uses it.
+Values recipes refer to as `"$name"`; `"-$name"` is the value negated. Changing a param changes every recipe that uses it. A param can use others, so a set of shapes can be a param of its own (`normal_tap = [{ shape = "circle", radius = 44, width = 16, color = "$pink" }]`).
 
 | Param | Default | |
 |---|---|---|
@@ -175,7 +175,7 @@ With no canvas (or a `size` of `[0, 0]`), the canvas is the source as it is, so 
 | Key | | Example |
 |---|---|---|
 | `crop` | `[x, y, w, h]`. A negative `x` / `y` counts from the right / bottom edge; a `w` / `h` of 0 reaches the right / bottom edge, and a negative one stops that many px short of it. Parts outside the image are transparent | `[0, -58, 0, 0]`: the bottom 58 rows |
-| `paint` | a list of [shapes](#shapes), drawn over the image in order | |
+| `paint` | a list of [shapes](#shapes), drawn over the image (in `order`, then as listed) | |
 | `flip` | `"x"` (mirrored left to right) or `"y"` (top to bottom) | |
 | `rotate` | degrees counterclockwise about the center. In the source, the image grows to fit the turned art; in the canvas, it keeps the canvas size and cuts what turns outside it | `90` |
 
@@ -189,22 +189,36 @@ The hold recipes cut their image into three with `crop`:
 
 #### Shapes
 
-Coordinates are px from the image's top-left corner, on pixel edges: pixel (0, 0) spans 0 to 1, so its center is (0.5, 0.5), and a 1 px line along the pixel row 4 is at `y = 4.5`. Fractions are fine; edges are antialiased.
+Coordinates are px from the image's top-left corner, on pixel edges: pixel (0, 0) spans 0 to 1, so its center is (0.5, 0.5), and a 1 px line along the pixel row 4 is at `y = 4.5`. Fractions are fine; edges are antialiased. Angles are degrees clockwise from the top.
 
 | Key | Shapes | |
 |---|---|---|
-| `shape` | | `"line"`, `"rect"`, `"circle"` or `"polygon"` |
+| `shape` | | `"line"`, `"rect"`, `"circle"`, `"arc"`, `"polygon"`, `"star"` or `"regular"` |
 | `color` | all | `"#rrggbb"`, `"#rrggbbaa"`, `[r, g, b]` or `[r, g, b, a]` in 0–255; default white |
-| `width` | all | the line's width, centered on it, or the outline's, drawn inside the edge; default 1 |
-| `fill` | rect, circle, polygon | `true` fills the shape; `false` (default) draws its outline |
+| `width` | all | the line's width, or the outline's; default 1 |
+| `align` | rect, circle, arc, polygon, star, regular | where an outline goes: `"inside"` the edge (default) or `"center"`d on it (a centered polygon's corners are rounded). A line is always centered |
+| `fill` | all but line | `true` fills the shape (an arc as a pie slice); `false` (default) draws its outline |
 | `points` | line, polygon | `[[x, y], ...]`: a line joins them in order, a polygon also closes back to the first |
+| `closed` | line | `true` joins the last point back to the first |
+| `cap` | line, arc | `"round"` rounds the ends; default `"flat"` |
 | `rect` | rect | `[x, y, w, h]`, read like `crop`; default the whole image |
-| `center` | circle | `[x, y]`; default the image's center |
-| `radius` | circle | |
+| `radius` | rect, circle, arc, star, regular | a rect's corner radius (default 0); the others' radius, to the tips for a star |
+| `center` | circle, arc, star, regular | `[x, y]`; default the image's center |
+| `start`, `end` | arc | the arc's ends, clockwise from `start` |
+| `tips`, `inner` | star | the number of tips (default 5) and the radius of the corners between them |
+| `sides` | regular | the number of sides of the regular polygon |
+| `rotate` | star, regular | where the first tip / corner points (default 0: straight up) |
+| `repeat` | all but rect | `{ count, rotate, center }`: `count` copies, each turned `rotate` degrees (default an even share of a turn) about `center` (default the image's center) from the one before |
+| `blur` | all | a Gaussian blur of the shape, in px |
+| `erase` | all | `true` clears what the shape covers (as much as its alpha) instead of drawing |
+| `order` | all | shapes are drawn by `order` (default 0), then as listed. On the canvas, a negative order draws the shape under the fitted image |
 
 ```toml
 "White Square" = { canvas = { size = [8, 8], paint = [{ shape = "rect", fill = true, color = "#ffffff" }] } }
 "White Outline" = { canvas = { size = [100, 100], paint = [{ shape = "rect", width = 2, color = "#ffffff" }] } }
+# Eight dots round a ring, and a plate under the source's image.
+"Ring Dots" = { canvas = { size = [200, 200], paint = [{ shape = "circle", center = [100, 20], radius = 8, fill = true, repeat = { count = 8 } }] } }
+"Banner" = { source = "banner_text.png", canvas = { size = [300, 80], paint = [{ shape = "rect", rect = [10, 10, -10, -10], radius = 16, fill = true, color = "#ff9a1f", order = -1 }] } }
 ```
 
 #### Merging
@@ -277,7 +291,7 @@ format = "wav"                        # this clip only
 
 mp3 is encoded at VBR quality 2 and ogg (Vorbis) at quality 6. The mp3 files carry the encoder delay in their header, so players that read it play them without the encoder's leading and trailing silence.
 
-PCM wav sources (8, 16, 24 or 32-bit) are edited in Python. Decoding other formats, encoding mp3, ogg and flac, and resampling (`speed`, `rate`, or mixing sources with different sample rates) go through ffmpeg. When ffmpeg is missing, only the clips that need it fail.
+PCM wav sources (8, 16, 24 or 32-bit) are edited in Python. Decoding other formats, encoding mp3, ogg and flac, resampling (`speed`, `rate`, or mixing sources with different sample rates), and `highpass` and `lowpass` go through ffmpeg. When ffmpeg is missing, only the clips that need it fail.
 
 ### `[files]`
 
@@ -290,7 +304,7 @@ A path the recipes use → the file to read instead. The recipes' edits stay as 
 
 ### `[params]`
 
-Values recipes refer to as `"$name"`; `"-$name"` is the value negated.
+Values recipes refer to as `"$name"`; `"-$name"` is the value negated. A param can use others.
 
 | Param | Default | |
 |---|---|---|
@@ -304,7 +318,7 @@ Values recipes refer to as `"$name"`; `"-$name"` is the value negated.
 
 One table per clip: its **recipe**. Any value may be a `"$param"`. Times are in seconds. A clip is built in two stages:
 
-1. **Each source**: the file is decoded, then `trim` (with `loop`), `reverse`, `speed`, `fade`, `gain` and `pan`, in that order.
+1. **Each source**: the file is decoded, then `highpass` and `lowpass` (on the whole file, so a loop's crossfade joins filtered audio), `trim` (with `loop`), `reverse`, `speed`, `fade`, `gain` and `pan`, in that order.
 2. **The clip**: the sources are mixed, each starting at its `at`, and cut at `duration`; then `trim_silence`, `fade`, `gain` and `normalize`, in that order, and the result is encoded in the clip's `format`.
 
 | Clip key | |
@@ -326,6 +340,8 @@ One table per clip: its **recipe**. Any value may be a `"$param"`. Times are in 
 | Source key | |
 |---|---|
 | `path` | a file stem or a path; a list is tried in order |
+| `highpass`, `lowpass` | cut the sound below / above this many Hz: `lowpass = 3000` softens a shrill sound |
+| `slope` | the filters' steepness in dB per octave: 12 (default), 24, 36, ... Each 12 is one more pass of a 12 dB per octave filter, so at 24 the cutoff sits 6 dB down rather than 3 |
 | `trim` | `[start, length]` of the file, read like the skin's `crop`: a negative start counts from the end; a length of 0 reaches the end, and a negative one stops that much short of it. Parts outside the file are silent |
 | `loop` | with `trim`: crossfade the trimmed part's last `loop` seconds into the audio just before its start (equal power), so it loops without a seam |
 | `reverse` | `true` plays it backwards |
@@ -438,7 +454,7 @@ dot = { canvas = { size = [32, 32], paint = [{ shape = "circle", radius = 12, fi
 | `build.color_step` | 0.1 | seconds; a changing colour is stepped this often |
 | `build.ease_step` | 0.02 | seconds; a stretch whose ease no particle can follow is cut into linear pieces this long |
 
-`[params]` holds values any rig or sprite recipe can use as `"$name"`; `"-$name"` is the value negated. The defaults have none.
+`[params]` holds values any rig or sprite recipe can use as `"$name"`; `"-$name"` is the value negated. A param can use others. The defaults have none.
 
 ### `[rigs]`
 

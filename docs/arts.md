@@ -76,7 +76,7 @@ The heart is a gradient of the state's colour, top to bottom, with a rim and a l
 | `heart_alpha` | 255 | 0–255 | the heart's opacity |
 | `heart_rim` | 0.06 | part of the way in | a rim in the deep shade, from the edge to here |
 | `heart_bevel` | 0.16 | part of the way in | a light bevel from the edge to here… |
-| `heart_bevel_fade` | 0.08 | part of the way in | …fading out over this much more |
+| `heart_bevel_fade` | 0.08 | part of the way in | …fading out over this much more (0: ending sharply) |
 | `heart_bevel_light` | 0.15 | 0–1 | how far the bevel moves toward white |
 
 ## each_line

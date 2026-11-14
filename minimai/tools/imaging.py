@@ -8,13 +8,13 @@ modules that use these can be imported without it.
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from minimai.tools.pack_config import parse_color
 from minimai.tools.schema import Color, Operations, Rect, Shape
 
 if TYPE_CHECKING:
-    from PIL import Image
+    from PIL import Image, ImageDraw
 
 
 # ==== Steps =======================================================================================
@@ -84,38 +84,153 @@ def paint_color(value: Color) -> tuple[int, int, int, int]:
 PAINT_SUPERSAMPLE = 4
 
 
+def turned(point: tuple[float, float], center: tuple[float, float], degrees: float) -> tuple[float, float]:
+    """``point`` turned ``degrees`` clockwise (on screen) about ``center``."""
+    a = math.radians(degrees)
+    x, y = point[0] - center[0], point[1] - center[1]
+    return center[0] + x * math.cos(a) - y * math.sin(a), center[1] + x * math.sin(a) + y * math.cos(a)
+
+
+def on_circle(center: tuple[float, float], radius: float, degrees: float) -> tuple[float, float]:
+    """The point ``radius`` from ``center`` at ``degrees`` clockwise from the top."""
+    a = math.radians(degrees)
+    return center[0] + radius * math.sin(a), center[1] - radius * math.cos(a)
+
+
+def star_points(shape: Shape, center: tuple[float, float]) -> list[tuple[float, float]]:
+    """A star's corners (or a regular polygon's, with no inner radius), the first pointing ``rotate`` degrees
+    clockwise from the top."""
+    rotate = float(shape.get("rotate", 0))
+    radius = float(shape["radius"])
+    if shape["shape"] == "regular":
+        sides = int(shape["sides"])
+        return [on_circle(center, radius, rotate + 360 * i / sides) for i in range(sides)]
+    count = int(shape.get("tips", 5))
+    inner = float(shape["inner"])
+    return [on_circle(center, radius if i % 2 == 0 else inner, rotate + 180 * i / count) for i in range(2 * count)]
+
+
+def shape_copies(shape: Shape, image: Image.Image) -> list[Shape]:
+    """The shape, or its ``repeat`` copies: ``count`` of them, each turned ``rotate`` degrees (default an even
+    share of a turn) clockwise about ``center`` (default the image's center) from the one before."""
+    repeat = shape.get("repeat")
+    if not repeat:
+        return [shape]
+    count = int(repeat["count"])
+    step = float(repeat.get("rotate", 360 / count))
+    px, py = repeat.get("center", (image.width / 2, image.height / 2))
+    pivot = (float(px), float(py))
+    copies = []
+    for i in range(count):
+        degrees = step * i
+        copy = cast(Shape, {key: value for key, value in shape.items() if key != "repeat"})
+        if shape["shape"] in ("line", "polygon"):
+            copy["points"] = [list(turned((float(x), float(y)), pivot, degrees)) for x, y in shape["points"]]
+        if shape["shape"] in ("circle", "arc", "star", "regular"):
+            cx, cy = shape.get("center", (image.width / 2, image.height / 2))
+            copy["center"] = list(turned((float(cx), float(cy)), pivot, degrees))
+        if shape["shape"] in ("star", "regular"):
+            copy["rotate"] = float(shape.get("rotate", 0)) + degrees
+        if shape["shape"] == "arc":
+            copy["start"], copy["end"] = float(shape["start"]) + degrees, float(shape["end"]) + degrees
+        if shape["shape"] == "rect":
+            raise ValueError("a rect can't repeat turned; use a polygon")
+        copies.append(copy)
+    return copies
+
+
+def draw_shape(draw: ImageDraw.ImageDraw, shape: Shape, image: Image.Image, color: tuple[int, int, int, int]):
+    """One shape on the supersampled layer."""
+    s = PAINT_SUPERSAMPLE
+    fill = bool(shape.get("fill", False))
+    width = float(shape.get("width", 1))
+    # Outlines are drawn inside the edge, or centered on it.
+    centered = shape.get("align", "inside") == "center"
+    kind = shape["shape"]
+    cx, cy = shape.get("center", (image.width / 2, image.height / 2))
+    center = (float(cx), float(cy))
+
+    def scaled(points):
+        return [(float(x) * s - 0.5, float(y) * s - 0.5) for x, y in points]
+
+    def stroke(points, closed: bool):
+        """A centered line through ``points`` with rounded joins (and round ends, when ``cap`` asks)."""
+        points = scaled(points)
+        if closed:
+            points = points + points[:2]
+        draw.line(points, fill=color, width=round(width * s), joint="curve")
+        if not closed and shape.get("cap") == "round":
+            r = width * s / 2
+            for x, y in (points[0], points[-1]):
+                draw.ellipse((x - r, y - r, x + r, y + r), fill=color)
+
+    if kind == "line":
+        stroke(shape["points"], bool(shape.get("closed", False)))
+    elif kind == "rect":
+        left, top, right, bottom = box(shape.get("rect", [0, 0, 0, 0]), image)
+        grow = width / 2 if centered and not fill else 0
+        corners = ((left - grow) * s, (top - grow) * s, (right + grow) * s - 1, (bottom + grow) * s - 1)
+        radius = float(shape.get("radius", 0)) * s
+        outline = dict(fill=color) if fill else dict(outline=color, width=round(width * s))
+        if radius:
+            draw.rounded_rectangle(corners, radius=radius + grow * s, **outline)
+        else:
+            draw.rectangle(corners, **outline)
+    elif kind in ("circle", "arc"):
+        r = float(shape["radius"]) + (width / 2 if centered and not fill else 0)
+        cx, cy = center
+        corners = ((cx - r) * s, (cy - r) * s, (cx + r) * s - 1, (cy + r) * s - 1)
+        if kind == "circle":
+            outline = dict(fill=color) if fill else dict(outline=color, width=round(width * s))
+            draw.ellipse(corners, **outline)
+        else:
+            # Degrees clockwise from the top; Pillow's start from the right.
+            start, end = float(shape["start"]), float(shape["end"])
+            if fill:
+                draw.pieslice(corners, start - 90, end - 90, fill=color)
+            else:
+                draw.arc(corners, start - 90, end - 90, fill=color, width=round(width * s))
+                if shape.get("cap") == "round":
+                    mid = float(shape["radius"]) + (0 if centered else -width / 2)
+                    for degrees in (start, end):
+                        x, y = on_circle(center, mid, degrees)
+                        rr = width * s / 2
+                        draw.ellipse((x * s - rr, y * s - rr, x * s + rr, y * s + rr), fill=color)
+    elif kind in ("polygon", "star", "regular"):
+        points = shape["points"] if kind == "polygon" else star_points(shape, center)
+        if fill:
+            draw.polygon(scaled(points), fill=color)
+        elif centered:
+            stroke(points, closed=True)
+        else:
+            draw.polygon(scaled(points), outline=color, width=round(width * s))
+    else:
+        raise ValueError(f"Unknown shape {kind!r}")
+
+
 def paint(image: Image.Image, shapes: list[Shape]) -> Image.Image:
-    """``shapes`` drawn over ``image`` in order. Coordinates are px from the top-left corner, on pixel edges:
-    pixel (0, 0) spans 0-1, so its center is (0.5, 0.5)."""
-    from PIL import Image, ImageDraw
+    """``shapes`` drawn over ``image`` in order (``order`` sorts them). Coordinates are px from the top-left
+    corner, on pixel edges: pixel (0, 0) spans 0-1, so its center is (0.5, 0.5)."""
+    from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
     s = PAINT_SUPERSAMPLE
-    for shape in shapes:
-        kind = shape["shape"]
+    for shape in sorted(shapes, key=lambda shape: float(shape.get("order", 0))):
         color = paint_color(shape.get("color", "#ffffff"))
-        fill = bool(shape.get("fill", False))
-        width = round(float(shape.get("width", 1)) * s)
         layer = Image.new("RGBA", (image.width * s, image.height * s))
         draw = ImageDraw.Draw(layer)
-        if kind == "line":
-            points = [(float(x) * s - 0.5, float(y) * s - 0.5) for x, y in shape["points"]]
-            draw.line(points, fill=color, width=width, joint="curve")
-        elif kind == "rect":
-            left, top, right, bottom = box(shape.get("rect", [0, 0, 0, 0]), image)
-            corners = (left * s, top * s, right * s - 1, bottom * s - 1)
-            draw.rectangle(corners, fill=color if fill else None, outline=None if fill else color, width=width)
-        elif kind == "circle":
-            cx, cy = (float(part) for part in shape.get("center", (image.width / 2, image.height / 2)))
-            r = float(shape["radius"])
-            corners = ((cx - r) * s, (cy - r) * s, (cx + r) * s - 1, (cy + r) * s - 1)
-            draw.ellipse(corners, fill=color if fill else None, outline=None if fill else color, width=width)
-        elif kind == "polygon":
-            points = [(float(x) * s - 0.5, float(y) * s - 0.5) for x, y in shape["points"]]
-            draw.polygon(points, fill=color if fill else None, outline=None if fill else color, width=width)
+        for copy in shape_copies(shape, image):
+            draw_shape(draw, copy, image, color)
+        layer = layer.convert("RGBa")
+        if shape.get("blur"):
+            layer = layer.filter(ImageFilter.GaussianBlur(float(shape["blur"]) * s))
+        layer = layer.resize(image.size, Image.Resampling.BOX).convert("RGBA")
+        if shape.get("erase"):
+            # Clears what the shape covers (as much as its alpha) instead of drawing over it.
+            kept = ImageChops.invert(layer.getchannel("A"))
+            image = image.copy()
+            image.putalpha(ImageChops.multiply(image.getchannel("A"), kept))
         else:
-            raise ValueError(f"Unknown shape {kind!r}")
-        layer = layer.convert("RGBa").resize(image.size, Image.Resampling.BOX).convert("RGBA")
-        image = Image.alpha_composite(image, layer)
+            image = Image.alpha_composite(image, layer)
     return image
 
 

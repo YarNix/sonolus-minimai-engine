@@ -167,6 +167,8 @@ def shade_heart(body, depth, deep: tuple[int, ...], life: Mapping):
         d = value / 255
         if d < life["heart_bevel"]:
             return life["heart_bevel_light"]
+        if life["heart_bevel_fade"] <= 0:
+            return 0
         return life["heart_bevel_light"] * max(1 - (d - life["heart_bevel"]) / life["heart_bevel_fade"], 0)
 
     light = depth.point(lambda v: round(255 * bevel(v)))

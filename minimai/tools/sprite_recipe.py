@@ -17,6 +17,7 @@ from minimai.tools.imaging import (
     apply_tint,
     cross_section,
     fit_to_canvas,
+    paint,
     premultiplied_resize,
 )
 from minimai.tools.pack_config import PackFiles, merged
@@ -123,6 +124,13 @@ def build_sprite(name: str, recipe: ImageRecipe, files: SourceFiles) -> Image.Im
             raise ValueError("without a source path, the canvas needs a size")
         # Transparent white, so filtering at painted edges doesn't darken them.
         image = Image.new("RGBA", (size[0], size[1]), (255, 255, 255, 0))
+    # Canvas shapes with a negative order go under the image: painted on the blank canvas before it's fitted.
+    shapes = canvas.get("paint", [])
+    under = [shape for shape in shapes if float(shape.get("order", 0)) < 0]
+    if under:
+        base = paint(Image.new("RGBA", image.size, (255, 255, 255, 0)), under)
+        image = Image.alpha_composite(base, image)
+        canvas = {**canvas, "paint": [shape for shape in shapes if float(shape.get("order", 0)) >= 0]}
     image = apply_operations(image, canvas, expand=False)
     if "cross_section" in recipe:
         image = cross_section(image, **recipe["cross_section"])

@@ -47,6 +47,7 @@ from minimai.tools.pack_config import (
     load_config,
     merged,
     resolve,
+    resolved_params,
 )
 from minimai.tools.schema import SkinConfig, SkinData, SpriteRecipe, Transform
 from minimai.tools.sprite_recipe import SourceFiles, build_sprite, check_recipe, combined_recipe, report_missing
@@ -182,6 +183,7 @@ def pack_skin(name: str, source: Path, *, skins_dir: Path = SKINS_DIR) -> Path:
     defaults = load_defaults()
     source_config: SkinConfig = load_config(source)
     config: SkinConfig = merged(defaults, source_config)
+    config["params"] = resolved_params(config.get("params", {}))
     info = get_item_info(name, source, config)
     unknown = sorted(set(source_config.get("sprites", {})) - set(SPRITE_NAMES))
     if unknown:

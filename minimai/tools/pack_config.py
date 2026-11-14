@@ -128,6 +128,34 @@ def resolve(value, params: Mapping):
     return value
 
 
+def resolved_params(params: Mapping) -> dict:
+    """``[params]`` with the params they use filled in, so a param can be built from others."""
+    done: dict = {}
+    active: list[str] = []
+
+    class Lookup(Mapping):
+        def __getitem__(self, key: str):
+            if key not in done:
+                if key in active:
+                    raise ValueError(f"params use each other in a loop: {' -> '.join([*active, key])}")
+                active.append(key)
+                done[key] = resolve(params[key], self)
+                active.pop()
+            return done[key]
+
+        def __iter__(self):
+            return iter(params)
+
+        def __len__(self):
+            return len(params)
+
+    lookup = Lookup()
+    try:
+        return {key: lookup[key] for key in params}
+    except ValueError as error:
+        raise SystemExit(f"[params]: {error}") from error
+
+
 def parse_color(value) -> tuple[float, float, float]:
     """``"#rrggbb"``, or ``[r, g, b]`` in 0-255 (or 0-1 when no part is over 1), to 0-1 floats."""
     if isinstance(value, str):

@@ -104,20 +104,54 @@ type Rect = list[int]
 type Color = str | list[float]
 
 
+class Repeat(TypedDict, total=False):
+    """Copies of a shape, each turned about ``center`` (default the image's center) from the one before."""
+
+    count: Required[int]
+    # Degrees clockwise; default an even share of a turn.
+    rotate: float
+    center: Point
+
+
 class Shape(TypedDict, total=False):
     """A shape ``paint`` draws."""
 
-    shape: Required[Literal["line", "rect", "circle", "polygon"]]
+    shape: Required[Literal["line", "rect", "circle", "arc", "polygon", "star", "regular"]]
     color: Color
     fill: bool
     width: float
+    # Outlines inside the edge (default) or centered on it; lines are always centered.
+    align: Literal["inside", "center"]
     # line, polygon
     points: list[Point]
+    # line, arc
+    cap: Literal["flat", "round"]
+    # line: joined back to its first point
+    closed: bool
     # rect; default the whole image
     rect: Rect
-    # circle; default the image's center
-    center: Point
+    # rect: its corners' radius; circle, arc, star, regular: the (outer) radius
     radius: float
+    # circle, arc, star, regular; default the image's center
+    center: Point
+    # arc: degrees clockwise from the top
+    start: float
+    end: float
+    # star
+    tips: int
+    inner: float
+    # regular
+    sides: int
+    # star, regular: degrees clockwise from the top of the first corner
+    rotate: float
+    repeat: Repeat
+    # px, Gaussian
+    blur: float
+    # Clears what it covers instead of drawing.
+    erase: bool
+    # Shapes are drawn by order (default 0), then as listed; a canvas shape with a negative order goes under
+    # the fitted image.
+    order: float
 
 
 class Operations(TypedDict, total=False):
@@ -172,6 +206,11 @@ class ClipSource(TypedDict, total=False):
 
     # A file stem or a path in the source; a list is tried in order.
     path: str | list[str]
+    # Cut below / above this many Hz; on the whole file, before the trim.
+    highpass: float
+    lowpass: float
+    # The filters' dB per octave: 12 (default), 24, 36, ...
+    slope: int
     # [start, length], read like the skin's crop.
     trim: list[float]
     # Crossfade the trimmed part's end into the audio before its start, so it loops.

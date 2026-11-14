@@ -30,6 +30,7 @@ from minimai.tools.pack_config import (
     load_config,
     merged,
     resolve,
+    resolved_params,
 )
 from minimai.tools.schema import ClipRecipe, ClipSource, EffectConfig
 
@@ -143,6 +144,10 @@ def is_plain(recipe: ClipRecipe, sources: list[ClipSource]) -> bool:
 def build_source(source: ClipSource, data: bytes, label: str) -> audio.Audio:
     """One source, decoded and edited up to its speed change (which needs the clip's rate)."""
     clip = audio.decode(data, label)
+    # On the whole file, before the trim, so a loop's crossfade joins filtered audio and stays seamless.
+    clip = audio.filtered(
+        clip, highpass=source.get("highpass"), lowpass=source.get("lowpass"), slope=int(source.get("slope", 12))
+    )
     if "trim" in source:
         start, length = source["trim"]
         if "loop" in source:
@@ -222,6 +227,7 @@ def pack_effect(name: str, source: Path, *, effects_dir: Path = EFFECTS_DIR) -> 
     defaults = load_defaults()
     source_config: EffectConfig = load_config(source)
     config: EffectConfig = merged(defaults, source_config)
+    config["params"] = resolved_params(config.get("params", {}))
     info = get_item_info(name, source, config)
     unknown = sorted(set(source_config.get("clips", {})) - ENGINE_CLIPS)
     if unknown:

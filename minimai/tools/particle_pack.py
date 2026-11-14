@@ -49,6 +49,7 @@ from minimai.tools.pack_config import (
     merged,
     parse_color,
     resolve,
+    resolved_params,
 )
 from minimai.tools.schema import ParticleConfig, ParticleSprite, RigNode
 from minimai.tools.sprite_recipe import SourceFiles, build_sprite, check_recipe, combined_recipe, report_missing
@@ -827,6 +828,7 @@ def pack_particle(name: str, source: Path, *, particles_dir: Path = PARTICLES_DI
     defaults = load_defaults()
     source_config: ParticleConfig = load_config(source)
     config: ParticleConfig = merged(defaults, source_config)
+    config["params"] = resolved_params(config.get("params", {}))
     info = get_item_info(name, source, config)
     files = SourceFiles(source, config.get("files", {}))
     found, fallbacks, missing = build_sprites(
