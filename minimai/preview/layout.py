@@ -67,7 +67,7 @@ GROUP_MARK_H = 0.026
 LANE_NUMBER_Y = -0.075
 GROUP_MARK_Y = -0.03
 # Width per unit of height of a group label sprite.
-PREVIEW_LABEL_ASPECT = 0.75
+PREVIEW_LABEL_ASPECT = 1.0
 # Width per unit of height of a slide shape label sprite; its shape is left-aligned in it.
 PREVIEW_SHAPE_LABEL_ASPECT = 1.6
 

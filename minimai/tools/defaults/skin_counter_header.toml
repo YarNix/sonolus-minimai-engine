@@ -1,0 +1,16 @@
+# A base for skin configs that want the center counter's header words packed: skin.toml skips them
+# because the engine doesn't draw them yet. In the source's pack.toml:
+#
+#     base = "skin_counter_header.toml"
+
+[sprites]
+"Mai Counter Header Combo" = { skip = false }
+"Mai Counter Header Combo AP Plus" = { skip = false }
+"Mai Counter Header Combo AP" = { skip = false }
+"Mai Counter Header Combo FC Plus" = { skip = false }
+"Mai Counter Header Combo FC" = { skip = false }
+"Mai Counter Header Combo Miss" = { skip = false }
+"Mai Counter Header Achievement Triple S" = { skip = false }
+"Mai Counter Header Achievement Pass S" = { skip = false }
+"Mai Counter Header Achievement Pass" = { skip = false }
+"Mai Counter Header Achievement Fail" = { skip = false }

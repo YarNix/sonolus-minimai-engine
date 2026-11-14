@@ -1,0 +1,345 @@
+# font_render's defaults: the sprites drawn from text. A config given to the tool (--config) is merged
+# over this file: tables key by key, and sprite_groups by name (a group of a new name is added). The
+# format is in docs/font_render.md.
+
+# The font for every group that doesn't name its own, relative to the config file it's in; --font
+# overrides it.
+font = ""
+
+[params]
+# The center counter's cells in skin px (lib/layout.py; the tool checks them).
+counter_digit_cell = [53, 72]
+counter_dot_cell = [36, 72]
+counter_percent_cell = [76, 72]
+counter_sign_cell = [53, 72]
+counter_star_cell = [66, 72]
+# The counter's flat-topped digits fill 61 px with their outline: 56 without it.
+counter_digit_height = 56
+# The preview's labels in texture px: 64 tall, PREVIEW_LABEL_ASPECT / PREVIEW_SHAPE_LABEL_ASPECT wide.
+preview_label_cell = [64, 64]
+preview_shape_cell = [102, 64]
+
+counter_glyphs = [
+    { name = "0", lines = "0", cell = "$counter_digit_cell" },
+    { name = "1", lines = "1", cell = "$counter_digit_cell" },
+    { name = "2", lines = "2", cell = "$counter_digit_cell" },
+    { name = "3", lines = "3", cell = "$counter_digit_cell" },
+    { name = "4", lines = "4", cell = "$counter_digit_cell" },
+    { name = "5", lines = "5", cell = "$counter_digit_cell" },
+    { name = "6", lines = "6", cell = "$counter_digit_cell" },
+    { name = "7", lines = "7", cell = "$counter_digit_cell" },
+    { name = "8", lines = "8", cell = "$counter_digit_cell" },
+    { name = "9", lines = "9", cell = "$counter_digit_cell" },
+    { name = "Dot", lines = ".", cell = "$counter_dot_cell" },
+    { name = "Percent", lines = "%", cell = "$counter_percent_cell" },
+    { name = "Plus", lines = "+", cell = "$counter_sign_cell", align_y = "ink" },
+    { name = "Minus", lines = "-", cell = "$counter_sign_cell", align_y = "ink" },
+    { name = "Star", lines = "✧", cell = "$counter_star_cell" },
+]
+# Header words over the combo and achievement displays (Mai Counter Header ..., not drawn by the engine
+# yet). Each fills its box but for margin each side: flat capitals 39 (Combo) / 37 (Achievement) tall
+# with outline and bolden, so 30.5 / 28.5 without.
+counter_combo_header = { name = "Combo", lines = "COMBO", cell = [186, 52], size = { ink_height = 30.5, reference = "H" }, fit = "width", margin = 4.5, bolden = 1.75, fill_scope = "sprite", fill_hooks = { radius = 9.0, room_width = 3.0, enclosure = 0.65 }, shine = false }
+counter_achievement_header = { name = "Achievement", lines = "ACHIEVEMENT", cell = [334, 52], size = { ink_height = 28.5, reference = "H" }, fit = "width", margin = 4.5, bolden = 1.75, fill_scope = "sprite", fill_hooks = { radius = 9.0, room_width = 3.0, enclosure = 0.65 }, shine = false }
+preview_group_labels = [
+    { name = "B", lines = "B" },
+    { name = "C", lines = "C" },
+    { name = "D", lines = "D" },
+    { name = "E", lines = "E" },
+]
+preview_shape_labels = [
+    { name = "Line", lines = "-" },
+    { name = "Circle R", lines = ">" },
+    { name = "Circle L", lines = "<" },
+    { name = "Center", lines = "v" },
+    { name = "P", lines = "p" },
+    { name = "Q", lines = "q" },
+    { name = "PP", lines = "pp" },
+    { name = "QQ", lines = "qq" },
+    { name = "S", lines = "s" },
+    { name = "Z", lines = "z" },
+    { name = "Reflect", lines = "V" },
+    { name = "Wifi", lines = "w" },
+]
+
+# Every group starts from these.
+[defaults]
+scale = 1.0
+supersample = 4
+align_x = "advance"
+align_y = "reference"
+fill = [255, 255, 255]
+fill_counters = false
+fill_hooks = false
+overflow = "shrink"
+
+# Characters drawn differently in every group. A group or sprite can have its own glyph_style, which
+# overrides this one.
+[glyph_style]
+"✧" = { shape = "star", power = 3 }
+
+# Named looks: any properties, for groups to share. A look can start from another (look = "...").
+[looks.Counter]
+size = { ink_height = "$counter_digit_height", reference = "1" }
+outlines = [{ width = 2.5, color = [250, 242, 220] }]
+counter_fill = [218, 214, 206]
+fill_hooks = { radius = 9.0, room_width = 3.0, enclosure = 0.65 }
+edge = { width = 1.0, shade = 0.6 }
+
+[looks.Yellow]
+look = "Counter"
+fill = [250, 208, 40]
+pattern = { kind = "checker", size = 5.5, shade = 0.9 }
+shine = { tone = "light", amount = 0.45, reach = 0.2, fade = 0.12 }
+
+[looks.Pink]
+look = "Counter"
+fill = [234, 58, 104]
+pattern = { kind = "stripes", size = 6.0, shade = 0.9 }
+
+[looks.Green]
+look = "Counter"
+fill = [64, 196, 92]
+
+[looks.Silver]
+look = "Counter"
+fill = [146, 154, 170]
+shine = { tone = "dark", amount = 0.28, reach = 0.5, fade = 0.12 }
+
+[looks.Blue]
+look = "Counter"
+fill = [84, 176, 240]
+shine = { tone = "dark", amount = 0.28, reach = 0.5, fade = 0.12 }
+
+[looks.Red]
+look = "Counter"
+fill = [228, 92, 78]
+
+[looks.Gold]
+look = "Counter"
+fill = [236, 162, 36]
+pattern = { kind = "checker", size = 5.5, shade = 0.9 }
+shine = { tone = "light", amount = 0.45, reach = 0.2, fade = 0.12 }
+
+[looks.PreviewLabel]
+outlines = [{ width = 5.12, color = [20, 20, 24] }]
+
+# The center counter: each colour, then each display's own group in the colour it falls back to, so a
+# skin can restyle one display alone.
+[[sprite_groups]]
+name = "Mai Counter Yellow {sprite}"
+look = "Yellow"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Pink {sprite}"
+look = "Pink"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Green {sprite}"
+look = "Green"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Silver {sprite}"
+look = "Silver"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Blue {sprite}"
+look = "Blue"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Red {sprite}"
+look = "Red"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Gold {sprite}"
+look = "Gold"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Combo {sprite}"
+look = "Pink"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter AP Plus Combo {sprite}"
+look = "Gold"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter AP Combo {sprite}"
+look = "Yellow"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter FC Plus Combo {sprite}"
+look = "Pink"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter FC Combo {sprite}"
+look = "Green"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Miss Combo {sprite}"
+look = "Silver"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Triple S {sprite}"
+look = "Gold"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Pass S {sprite}"
+look = "Yellow"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Pass {sprite}"
+look = "Red"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Fail {sprite}"
+look = "Blue"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Border SSS {sprite}"
+look = "Gold"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Border SS {sprite}"
+look = "Yellow"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Border S {sprite}"
+look = "Red"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter DX {sprite}"
+look = "Green"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter DX High {sprite}"
+look = "Gold"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter DX Mid {sprite}"
+look = "Red"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter DX Low {sprite}"
+look = "Green"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter High Life {sprite}"
+look = "Green"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Mid Life {sprite}"
+look = "Yellow"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Low Life {sprite}"
+look = "Red"
+sprites = "$counter_glyphs"
+
+[[sprite_groups]]
+name = "Mai Counter Ended Life {sprite}"
+look = "Silver"
+sprites = "$counter_glyphs"
+
+# The header words, one for each display, in its group's colour: Mai Counter Header Combo (the plain
+# combo), Mai Counter Header Combo <grade> and Mai Counter Header Achievement <achievement>.
+[[sprite_groups]]
+name = "Mai Counter Header {sprite}"
+look = "Pink"
+sprites = "$counter_combo_header"
+
+[[sprite_groups]]
+name = "Mai Counter Header {sprite} AP Plus"
+look = "Gold"
+sprites = "$counter_combo_header"
+
+[[sprite_groups]]
+name = "Mai Counter Header {sprite} AP"
+look = "Yellow"
+sprites = "$counter_combo_header"
+
+[[sprite_groups]]
+name = "Mai Counter Header {sprite} FC Plus"
+look = "Pink"
+sprites = "$counter_combo_header"
+
+[[sprite_groups]]
+name = "Mai Counter Header {sprite} FC"
+look = "Green"
+sprites = "$counter_combo_header"
+
+[[sprite_groups]]
+name = "Mai Counter Header {sprite} Miss"
+look = "Silver"
+sprites = "$counter_combo_header"
+
+[[sprite_groups]]
+name = "Mai Counter Header {sprite} Triple S"
+look = "Gold"
+sprites = "$counter_achievement_header"
+
+[[sprite_groups]]
+name = "Mai Counter Header {sprite} Pass S"
+look = "Yellow"
+sprites = "$counter_achievement_header"
+
+[[sprite_groups]]
+name = "Mai Counter Header {sprite} Pass"
+look = "Red"
+sprites = "$counter_achievement_header"
+
+[[sprite_groups]]
+name = "Mai Counter Header {sprite} Fail"
+look = "Blue"
+sprites = "$counter_achievement_header"
+
+# The preview: the sensor group marks under each column (the printed lane numbers' grey), and the slide
+# shape labels (lighter, left-aligned on a baseline with room for p and q's descenders).
+[[sprite_groups]]
+name = "Mai Preview Label {sprite}"
+look = "PreviewLabel"
+sprites = "$preview_group_labels"
+cell = "$preview_label_cell"
+size = { ink_height = 51.2, reference = "H" }
+align_x = "ink"
+align_y = "ink"
+fill = [128, 128, 128]
+overflow = "shrink_group"
+
+[[sprite_groups]]
+name = "Mai Preview Shape {sprite}"
+look = "PreviewLabel"
+sprites = "$preview_shape_labels"
+cell = "$preview_shape_cell"
+size = { ink_height = 32, reference = "H" }
+align_x = "left"
+margin = 5.12
+align_y = "baseline"
+baseline = 43.52
+fill = [215, 215, 215]
+overflow = "shrink_group"

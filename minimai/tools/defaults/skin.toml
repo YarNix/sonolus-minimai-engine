@@ -1,0 +1,789 @@
+# The skin pack's defaults: every sprite's recipe and the params they use. A source's pack.toml is
+# merged over this file. The format is in docs/packs.md.
+
+[texture]
+max_size = 8192
+padding = 1
+interpolation = true
+
+[params]
+# The hold images' caps: head and tail, in source px.
+hold_border = 58
+# Break notes pulse between a dark and a light copy.
+break_light = { multiply = 1.634, add = 1.43 }
+break_dark = { multiply = 0.9, add = 0 }
+# A held hold shines between these copies of its "on" image.
+hold_on_light = { multiply = 1.45, add = 0 }
+hold_on_dark = { multiply = 0.95, add = 0 }
+# EX outlines: one white image tinted per kind.
+ex_tint_normal = [255, 173, 226]
+ex_tint_star = [0, 250, 255]
+ex_tint_each = [255, 254, 119]
+ex_tint_break = [255, 254, 119]
+# Note guide lines are big and thin: half resolution is enough.
+line_scale = 0.5
+# The touch hold border bars, cut across the middle of each side: the band's middle from the
+# border's center ("auto" finds it from the alpha), and the strip's size.
+border_bar_radius = 66.5
+border_bar_width = 8
+border_bar_length = 52
+# Layout sizes in skin px (lib/layout.py): the canvases sources are fitted to. A 0 keeps the source's size.
+note_cell = [180, 180]
+ring_cell = [987, 987]
+line_cell = [1080, 1080]
+each_ring_line_cell = [980, 980]
+touch_point_cell = [32, 32]
+touch_fan_cell = [112, 82]
+touch_overlap_border_cell = [228, 228]
+touch_just_border_cell = [128, 128]
+slide_path_cell = [70, 94]
+wifi_slide_path_1_cell = [111, 68]
+wifi_slide_path_2_cell = [160, 90]
+wifi_slide_path_3_cell = [204, 110]
+wifi_slide_path_4_cell = [253, 136]
+wifi_slide_path_5_cell = [298, 154]
+wifi_slide_path_6_cell = [353, 179]
+wifi_slide_path_7_cell = [410, 205]
+wifi_slide_path_8_cell = [464, 226]
+wifi_slide_path_9_cell = [519, 251]
+wifi_slide_path_10_cell = [571, 271]
+wifi_slide_path_11_cell = [653, 313]
+hold_cell = [122, 0]
+hold_end_point_cell = [64, 64]
+touch_hold_border_cell = [211, 210]
+judge_text_cell = [223, 82]
+fast_late_cell = [217, 76]
+slide_ok_curve_cell = [410, 180]
+slide_ok_straight_cell = [428, 140]
+slide_ok_wifi_cell = [668, 188]
+
+# The border bars' sprite transform: the quad's corners taken past its ends, mirrored across the bar.
+[params.bar_transform]
+x1 = { x3 = 1.5, x4 = -0.5 }
+x2 = { x3 = -0.5, x4 = 1.5 }
+x3 = { x1 = 1.5, x2 = -0.5 }
+x4 = { x1 = -0.5, x2 = 1.5 }
+y1 = { y3 = 1.5, y4 = -0.5 }
+y2 = { y3 = -0.5, y4 = 1.5 }
+y3 = { y1 = 1.5, y2 = -0.5 }
+y4 = { y1 = -0.5, y2 = 1.5 }
+
+[files]
+
+[sprites]
+
+# Debug
+"White Square" = { canvas = { size = [8, 8], paint = [{ shape = "rect", fill = true, color = "#ffffff" }] } }
+"White Outline" = { canvas = { size = [100, 100], paint = [{ shape = "rect", width = 2, color = "#ffffff" }] } }
+
+# Note guide lines
+"Mai Normal Line" = { source = "NoteGuideSkins/Normal.png", canvas = { size = "$line_cell" }, scale = "$line_scale" }
+"Mai Break Line" = { source = "NoteGuideSkins/Break.png", canvas = { size = "$line_cell" }, scale = "$line_scale" }
+"Mai Each Line" = { source = "NoteGuideSkins/Each.png", canvas = { size = "$line_cell" }, scale = "$line_scale" }
+"Mai Star Line" = { source = "NoteGuideSkins/Slide.png", canvas = { size = "$line_cell" }, scale = "$line_scale" }
+"Mai Each Ring Line 1" = { source = "NoteGuideSkins/EachLine1.png", canvas = { size = "$each_ring_line_cell" }, scale = "$line_scale" }
+"Mai Each Ring Line 2" = { source = "NoteGuideSkins/EachLine2.png", canvas = { size = "$each_ring_line_cell" }, scale = "$line_scale" }
+"Mai Each Ring Line 3" = { source = "NoteGuideSkins/EachLine3.png", canvas = { size = "$each_ring_line_cell" }, scale = "$line_scale" }
+"Mai Each Ring Line 4" = { source = "NoteGuideSkins/EachLine4.png", canvas = { size = "$each_ring_line_cell" }, scale = "$line_scale" }
+
+# Taps and stars
+"Mai Normal Note" = { source = "TapSkins/tap.png", canvas = { size = "$note_cell" } }
+"Mai Break Note" = { source = "TapSkins/tap_break.png", canvas = { size = "$note_cell" } }
+"Mai Break Note Light" = { source = "TapSkins/tap_break.png", canvas = { size = "$note_cell" }, levels = "$break_light" }
+"Mai Break Note Dark" = { source = "TapSkins/tap_break.png", canvas = { size = "$note_cell" }, levels = "$break_dark" }
+"Mai Each Note" = { source = "TapSkins/tap_each.png", canvas = { size = "$note_cell" } }
+"Mai Normal Note Ex Outline" = { source = "TapSkins/tap_ex.png", canvas = { size = "$note_cell" }, tint = "$ex_tint_normal" }
+"Mai Break Note Ex Outline" = { source = "TapSkins/tap_ex.png", canvas = { size = "$note_cell" }, tint = "$ex_tint_break" }
+"Mai Each Note Ex Outline" = { source = "TapSkins/tap_ex.png", canvas = { size = "$note_cell" }, tint = "$ex_tint_each" }
+"Mai Normal Star" = { source = "StarSkins/star.png", canvas = { size = "$note_cell" } }
+"Mai Break Star" = { source = "StarSkins/star_break.png", canvas = { size = "$note_cell" } }
+"Mai Break Star Light" = { source = "StarSkins/star_break.png", canvas = { size = "$note_cell" }, levels = "$break_light" }
+"Mai Break Star Dark" = { source = "StarSkins/star_break.png", canvas = { size = "$note_cell" }, levels = "$break_dark" }
+"Mai Each Star" = { source = "StarSkins/star_each.png", canvas = { size = "$note_cell" } }
+"Mai Normal Star Ex Outline" = { source = "StarSkins/star_ex.png", canvas = { size = "$note_cell" }, tint = "$ex_tint_star" }
+"Mai Break Star Ex Outline" = { source = "StarSkins/star_ex.png", canvas = { size = "$note_cell" }, tint = "$ex_tint_break" }
+"Mai Each Star Ex Outline" = { source = "StarSkins/star_ex.png", canvas = { size = "$note_cell" }, tint = "$ex_tint_each" }
+"Mai Double Star" = { source = "StarSkins/star_double.png", canvas = { size = "$note_cell" } }
+"Mai Break Double Star" = { source = "StarSkins/star_break_double.png", canvas = { size = "$note_cell" } }
+"Mai Break Double Star Light" = { source = "StarSkins/star_break_double.png", canvas = { size = "$note_cell" }, levels = "$break_light" }
+"Mai Break Double Star Dark" = { source = "StarSkins/star_break_double.png", canvas = { size = "$note_cell" }, levels = "$break_dark" }
+"Mai Each Double Star" = { source = "StarSkins/star_each_double.png", canvas = { size = "$note_cell" } }
+"Mai Double Star Ex Outline" = { source = "StarSkins/star_ex_double.png", canvas = { size = "$note_cell" }, tint = "$ex_tint_star" }
+"Mai Break Double Star Ex Outline" = { source = "StarSkins/star_ex_double.png", canvas = { size = "$note_cell" }, tint = "$ex_tint_break" }
+"Mai Each Double Star Ex Outline" = { source = "StarSkins/star_ex_double.png", canvas = { size = "$note_cell" }, tint = "$ex_tint_each" }
+
+# Touches
+"Mai Normal Touch Point" = { source = "TouchSkins/touch_point.png", canvas = { size = "$touch_point_cell" } }
+"Mai Break Touch Point" = { source = "TouchSkins/touch_break_point.png", canvas = { size = "$touch_point_cell" } }
+"Mai Each Touch Point" = { source = "TouchSkins/touch_point_each.png", canvas = { size = "$touch_point_cell" } }
+"Mai Normal Touch Fan" = { source = "TouchSkins/touch.png", canvas = { size = "$touch_fan_cell" } }
+"Mai Break Touch Fan" = { source = "TouchSkins/touch_break.png", canvas = { size = "$touch_fan_cell" } }
+"Mai Break Touch Fan Light" = { source = "TouchSkins/touch_break.png", canvas = { size = "$touch_fan_cell" }, levels = "$break_light" }
+"Mai Break Touch Fan Dark" = { source = "TouchSkins/touch_break.png", canvas = { size = "$touch_fan_cell" }, levels = "$break_dark" }
+"Mai Each Touch Fan" = { source = "TouchSkins/touch_each.png", canvas = { size = "$touch_fan_cell" } }
+"Mai Normal Touch 2 Overlap Border" = { source = "TouchSkins/touch_border_2.png", canvas = { size = "$touch_overlap_border_cell" } }
+"Mai Normal Touch 3 Overlap Border" = { source = "TouchSkins/touch_border_3.png", canvas = { size = "$touch_overlap_border_cell" } }
+"Mai Break Touch 2 Overlap Border" = { source = "TouchSkins/touch_break_border_2.png", canvas = { size = "$touch_overlap_border_cell" } }
+"Mai Break Touch 3 Overlap Border" = { source = "TouchSkins/touch_break_border_3.png", canvas = { size = "$touch_overlap_border_cell" } }
+"Mai Each Touch 2 Overlap Border" = { source = "TouchSkins/touch_border_2_each.png", canvas = { size = "$touch_overlap_border_cell" } }
+"Mai Each Touch 3 Overlap Border" = { source = "TouchSkins/touch_border_3_each.png", canvas = { size = "$touch_overlap_border_cell" } }
+"Mai Touch Just Border" = { source = "TouchSkins/touch_just.png", canvas = { size = "$touch_just_border_cell" } }
+"Mai Touch Feedback Ring" = { source = "TouchFeedbackSkins/touch_feedback_ring.png" }
+"Mai Touch Feedback Petal" = { source = "TouchFeedbackSkins/touch_feedback_petal.png" }
+
+# Slides
+"Mai Slide Path" = { source = "SlideSkins/slide.png", canvas = { size = "$slide_path_cell" } }
+"Mai Break Slide Path" = { source = "SlideSkins/slide_break.png", canvas = { size = "$slide_path_cell" } }
+"Mai Break Slide Path Light" = { source = "SlideSkins/slide_break.png", canvas = { size = "$slide_path_cell" }, levels = "$break_light" }
+"Mai Break Slide Path Dark" = { source = "SlideSkins/slide_break.png", canvas = { size = "$slide_path_cell" }, levels = "$break_dark" }
+"Mai Each Slide Path" = { source = "SlideSkins/slide_each.png", canvas = { size = "$slide_path_cell" } }
+"Mai Wifi Slide Path 1" = { source = "WifiSkins/wifi_0.png", canvas = { size = "$wifi_slide_path_1_cell" } }
+"Mai Wifi Slide Path 2" = { source = "WifiSkins/wifi_1.png", canvas = { size = "$wifi_slide_path_2_cell" } }
+"Mai Wifi Slide Path 3" = { source = "WifiSkins/wifi_2.png", canvas = { size = "$wifi_slide_path_3_cell" } }
+"Mai Wifi Slide Path 4" = { source = "WifiSkins/wifi_3.png", canvas = { size = "$wifi_slide_path_4_cell" } }
+"Mai Wifi Slide Path 5" = { source = "WifiSkins/wifi_4.png", canvas = { size = "$wifi_slide_path_5_cell" } }
+"Mai Wifi Slide Path 6" = { source = "WifiSkins/wifi_5.png", canvas = { size = "$wifi_slide_path_6_cell" } }
+"Mai Wifi Slide Path 7" = { source = "WifiSkins/wifi_6.png", canvas = { size = "$wifi_slide_path_7_cell" } }
+"Mai Wifi Slide Path 8" = { source = "WifiSkins/wifi_7.png", canvas = { size = "$wifi_slide_path_8_cell" } }
+"Mai Wifi Slide Path 9" = { source = "WifiSkins/wifi_8.png", canvas = { size = "$wifi_slide_path_9_cell" } }
+"Mai Wifi Slide Path 10" = { source = "WifiSkins/wifi_9.png", canvas = { size = "$wifi_slide_path_10_cell" } }
+"Mai Wifi Slide Path 11" = { source = "WifiSkins/wifi_10.png", canvas = { size = "$wifi_slide_path_11_cell" } }
+"Mai Break Wifi Slide Path 1" = { source = "WifiSkins/wifi_break_0.png", canvas = { size = "$wifi_slide_path_1_cell" } }
+"Mai Break Wifi Slide Path 2" = { source = "WifiSkins/wifi_break_1.png", canvas = { size = "$wifi_slide_path_2_cell" } }
+"Mai Break Wifi Slide Path 3" = { source = "WifiSkins/wifi_break_2.png", canvas = { size = "$wifi_slide_path_3_cell" } }
+"Mai Break Wifi Slide Path 4" = { source = "WifiSkins/wifi_break_3.png", canvas = { size = "$wifi_slide_path_4_cell" } }
+"Mai Break Wifi Slide Path 5" = { source = "WifiSkins/wifi_break_4.png", canvas = { size = "$wifi_slide_path_5_cell" } }
+"Mai Break Wifi Slide Path 6" = { source = "WifiSkins/wifi_break_5.png", canvas = { size = "$wifi_slide_path_6_cell" } }
+"Mai Break Wifi Slide Path 7" = { source = "WifiSkins/wifi_break_6.png", canvas = { size = "$wifi_slide_path_7_cell" } }
+"Mai Break Wifi Slide Path 8" = { source = "WifiSkins/wifi_break_7.png", canvas = { size = "$wifi_slide_path_8_cell" } }
+"Mai Break Wifi Slide Path 9" = { source = "WifiSkins/wifi_break_8.png", canvas = { size = "$wifi_slide_path_9_cell" } }
+"Mai Break Wifi Slide Path 10" = { source = "WifiSkins/wifi_break_9.png", canvas = { size = "$wifi_slide_path_10_cell" } }
+"Mai Break Wifi Slide Path 11" = { source = "WifiSkins/wifi_break_10.png", canvas = { size = "$wifi_slide_path_11_cell" } }
+"Mai Each Wifi Slide Path 1" = { source = "WifiSkins/wifi_each_0.png", canvas = { size = "$wifi_slide_path_1_cell" } }
+"Mai Each Wifi Slide Path 2" = { source = "WifiSkins/wifi_each_1.png", canvas = { size = "$wifi_slide_path_2_cell" } }
+"Mai Each Wifi Slide Path 3" = { source = "WifiSkins/wifi_each_2.png", canvas = { size = "$wifi_slide_path_3_cell" } }
+"Mai Each Wifi Slide Path 4" = { source = "WifiSkins/wifi_each_3.png", canvas = { size = "$wifi_slide_path_4_cell" } }
+"Mai Each Wifi Slide Path 5" = { source = "WifiSkins/wifi_each_4.png", canvas = { size = "$wifi_slide_path_5_cell" } }
+"Mai Each Wifi Slide Path 6" = { source = "WifiSkins/wifi_each_5.png", canvas = { size = "$wifi_slide_path_6_cell" } }
+"Mai Each Wifi Slide Path 7" = { source = "WifiSkins/wifi_each_6.png", canvas = { size = "$wifi_slide_path_7_cell" } }
+"Mai Each Wifi Slide Path 8" = { source = "WifiSkins/wifi_each_7.png", canvas = { size = "$wifi_slide_path_8_cell" } }
+"Mai Each Wifi Slide Path 9" = { source = "WifiSkins/wifi_each_8.png", canvas = { size = "$wifi_slide_path_9_cell" } }
+"Mai Each Wifi Slide Path 10" = { source = "WifiSkins/wifi_each_9.png", canvas = { size = "$wifi_slide_path_10_cell" } }
+"Mai Each Wifi Slide Path 11" = { source = "WifiSkins/wifi_each_10.png", canvas = { size = "$wifi_slide_path_11_cell" } }
+
+# Holds
+"Mai Hold Note Head" = { source = { path = "HoldSkins/hold.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" } }
+"Mai Hold Note Body" = { source = { path = "HoldSkins/hold.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" } }
+"Mai Hold Note Tail" = { source = { path = "HoldSkins/hold.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" } }
+"Mai Hold Note Head Off" = { source = { path = "HoldSkins/hold_off.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" } }
+"Mai Hold Note Body Off" = { source = { path = "HoldSkins/hold_off.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" } }
+"Mai Hold Note Tail Off" = { source = { path = "HoldSkins/hold_off.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" } }
+"Mai Hold Note Head On Light" = { source = { path = "HoldSkins/hold_on.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_light" }
+"Mai Hold Note Head On Dark" = { source = { path = "HoldSkins/hold_on.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_dark" }
+"Mai Hold Note Body On Light" = { source = { path = "HoldSkins/hold_on.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_light" }
+"Mai Hold Note Body On Dark" = { source = { path = "HoldSkins/hold_on.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_dark" }
+"Mai Hold Note Tail On Light" = { source = { path = "HoldSkins/hold_on.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_light" }
+"Mai Hold Note Tail On Dark" = { source = { path = "HoldSkins/hold_on.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_dark" }
+"Mai Break Hold Note Head Light" = { source = { path = "HoldSkins/hold_break.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$break_light" }
+"Mai Break Hold Note Head Dark" = { source = { path = "HoldSkins/hold_break.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$break_dark" }
+"Mai Break Hold Note Body Light" = { source = { path = "HoldSkins/hold_break.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$break_light" }
+"Mai Break Hold Note Body Dark" = { source = { path = "HoldSkins/hold_break.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$break_dark" }
+"Mai Break Hold Note Tail Light" = { source = { path = "HoldSkins/hold_break.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, levels = "$break_light" }
+"Mai Break Hold Note Tail Dark" = { source = { path = "HoldSkins/hold_break.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, levels = "$break_dark" }
+"Mai Break Hold Note Head On Light" = { source = { path = "HoldSkins/hold_break_on.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_light" }
+"Mai Break Hold Note Head On Dark" = { source = { path = "HoldSkins/hold_break_on.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_dark" }
+"Mai Break Hold Note Body On Light" = { source = { path = "HoldSkins/hold_break_on.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_light" }
+"Mai Break Hold Note Body On Dark" = { source = { path = "HoldSkins/hold_break_on.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_dark" }
+"Mai Break Hold Note Tail On Light" = { source = { path = "HoldSkins/hold_break_on.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_light" }
+"Mai Break Hold Note Tail On Dark" = { source = { path = "HoldSkins/hold_break_on.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_dark" }
+"Mai Each Hold Note Head" = { source = { path = "HoldSkins/hold_each.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" } }
+"Mai Each Hold Note Body" = { source = { path = "HoldSkins/hold_each.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" } }
+"Mai Each Hold Note Tail" = { source = { path = "HoldSkins/hold_each.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" } }
+"Mai Each Hold Note Head On Light" = { source = { path = "HoldSkins/hold_each_on.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_light" }
+"Mai Each Hold Note Head On Dark" = { source = { path = "HoldSkins/hold_each_on.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_dark" }
+"Mai Each Hold Note Body On Light" = { source = { path = "HoldSkins/hold_each_on.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_light" }
+"Mai Each Hold Note Body On Dark" = { source = { path = "HoldSkins/hold_each_on.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_dark" }
+"Mai Each Hold Note Tail On Light" = { source = { path = "HoldSkins/hold_each_on.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_light" }
+"Mai Each Hold Note Tail On Dark" = { source = { path = "HoldSkins/hold_each_on.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, levels = "$hold_on_dark" }
+"Mai Hold Note Head Ex Outline" = { source = { path = "HoldSkins/hold_ex.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, tint = "$ex_tint_normal" }
+"Mai Hold Note Body Ex Outline" = { source = { path = "HoldSkins/hold_ex.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, tint = "$ex_tint_normal" }
+"Mai Hold Note Tail Ex Outline" = { source = { path = "HoldSkins/hold_ex.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, tint = "$ex_tint_normal" }
+"Mai Break Hold Note Head Ex Outline" = { source = { path = "HoldSkins/hold_ex.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, tint = "$ex_tint_break" }
+"Mai Break Hold Note Body Ex Outline" = { source = { path = "HoldSkins/hold_ex.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, tint = "$ex_tint_break" }
+"Mai Break Hold Note Tail Ex Outline" = { source = { path = "HoldSkins/hold_ex.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, tint = "$ex_tint_break" }
+"Mai Each Hold Note Head Ex Outline" = { source = { path = "HoldSkins/hold_ex.png", crop = [0, 0, 0, "$hold_border"] }, canvas = { size = "$hold_cell" }, tint = "$ex_tint_each" }
+"Mai Each Hold Note Body Ex Outline" = { source = { path = "HoldSkins/hold_ex.png", crop = [0, "$hold_border", 0, "-$hold_border"] }, canvas = { size = "$hold_cell" }, tint = "$ex_tint_each" }
+"Mai Each Hold Note Tail Ex Outline" = { source = { path = "HoldSkins/hold_ex.png", crop = [0, "-$hold_border", 0, 0] }, canvas = { size = "$hold_cell" }, tint = "$ex_tint_each" }
+"Mai Hold Note End Point" = { source = "NoteGuideSkins/Hold_End.png", canvas = { size = "$hold_end_point_cell" } }
+"Mai Break Hold Note End Point" = { source = "NoteGuideSkins/Hold_Break_End.png", canvas = { size = "$hold_end_point_cell" } }
+"Mai Each Hold Note End Point" = { source = "NoteGuideSkins/Hold_Each_End.png", canvas = { size = "$hold_end_point_cell" } }
+
+# Touch holds
+"Mai Normal Touch Hold Fan 1" = { source = "TouchHoldSkins/touchhold_0.png", canvas = { size = "$touch_fan_cell" } }
+"Mai Normal Touch Hold Fan 2" = { source = "TouchHoldSkins/touchhold_1.png", canvas = { size = "$touch_fan_cell" } }
+"Mai Normal Touch Hold Fan 3" = { source = "TouchHoldSkins/touchhold_2.png", canvas = { size = "$touch_fan_cell" } }
+"Mai Normal Touch Hold Fan 4" = { source = "TouchHoldSkins/touchhold_3.png", canvas = { size = "$touch_fan_cell" } }
+"Mai Touch Hold Border On" = { source = "TouchHoldSkins/touchhold_border.png", canvas = { size = "$touch_hold_border_cell" } }
+"Mai Touch Hold Border Off" = { source = "TouchHoldSkins/touchhold_off.png", canvas = { size = "$touch_hold_border_cell" } }
+"Mai Touch Hold Border On Bar 1" = { source = "TouchHoldSkins/touchhold_border.png", canvas = { size = "$touch_hold_border_cell" }, cross_section = { side = 1, width = "$border_bar_width", length = "$border_bar_length", radius = "$border_bar_radius" }, transform = "$bar_transform" }
+"Mai Touch Hold Border On Bar 2" = { source = "TouchHoldSkins/touchhold_border.png", canvas = { size = "$touch_hold_border_cell" }, cross_section = { side = 2, width = "$border_bar_width", length = "$border_bar_length", radius = "$border_bar_radius" }, transform = "$bar_transform" }
+"Mai Touch Hold Border On Bar 3" = { source = "TouchHoldSkins/touchhold_border.png", canvas = { size = "$touch_hold_border_cell" }, cross_section = { side = 3, width = "$border_bar_width", length = "$border_bar_length", radius = "$border_bar_radius" }, transform = "$bar_transform" }
+"Mai Touch Hold Border On Bar 4" = { source = "TouchHoldSkins/touchhold_border.png", canvas = { size = "$touch_hold_border_cell" }, cross_section = { side = 4, width = "$border_bar_width", length = "$border_bar_length", radius = "$border_bar_radius" }, transform = "$bar_transform" }
+"Mai Touch Hold Border Off Bar 1" = { source = "TouchHoldSkins/touchhold_off.png", canvas = { size = "$touch_hold_border_cell" }, cross_section = { side = 1, width = "$border_bar_width", length = "$border_bar_length", radius = "$border_bar_radius" }, transform = "$bar_transform" }
+"Mai Touch Hold Border Off Bar 2" = { source = "TouchHoldSkins/touchhold_off.png", canvas = { size = "$touch_hold_border_cell" }, cross_section = { side = 2, width = "$border_bar_width", length = "$border_bar_length", radius = "$border_bar_radius" }, transform = "$bar_transform" }
+"Mai Touch Hold Border Off Bar 3" = { source = "TouchHoldSkins/touchhold_off.png", canvas = { size = "$touch_hold_border_cell" }, cross_section = { side = 3, width = "$border_bar_width", length = "$border_bar_length", radius = "$border_bar_radius" }, transform = "$bar_transform" }
+"Mai Touch Hold Border Off Bar 4" = { source = "TouchHoldSkins/touchhold_off.png", canvas = { size = "$touch_hold_border_cell" }, cross_section = { side = 4, width = "$border_bar_width", length = "$border_bar_length", radius = "$border_bar_radius" }, transform = "$bar_transform" }
+
+# Ring
+"Mai Ring" = { source = "outline.png", canvas = { size = "$ring_cell" } }
+"Mai Sensor Outline" = { source = "sensor_outline.png" }
+
+# Judge text
+"Mai Judge Critical Perfect" = { source = "JudgeTextSkins/judge_text_cPerfect.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Perfect" = { source = "JudgeTextSkins/judge_text_perfect.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Great" = { source = "JudgeTextSkins/judge_text_great.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Good" = { source = "JudgeTextSkins/judge_text_good.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Miss" = { source = "JudgeTextSkins/judge_text_miss.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Critical Perfect Shine" = { source = "JudgeTextSkins/judge_text_cPerfect_break.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Perfect Shine" = { source = "JudgeTextSkins/judge_text_perfect_break.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Fast" = { source = "JudgeTextSkins/fast.png", canvas = { size = "$fast_late_cell", stretch = true } }
+"Mai Judge Late" = { source = "JudgeTextSkins/late.png", canvas = { size = "$fast_late_cell", stretch = true } }
+"Mai Judge Perfect Fast" = { source = "JudgeTextSkins/judge_text_perfect_fast.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Perfect Late" = { source = "JudgeTextSkins/judge_text_perfect_late.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Great Fast" = { source = "JudgeTextSkins/judge_text_great_fast.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Great Late" = { source = "JudgeTextSkins/judge_text_great_late.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Good Fast" = { source = "JudgeTextSkins/judge_text_good_fast.png", canvas = { size = "$judge_text_cell" } }
+"Mai Judge Good Late" = { source = "JudgeTextSkins/judge_text_good_late.png", canvas = { size = "$judge_text_cell" } }
+
+# Firework
+"Mai Firework Ray 1" = { source = "FireworkSkins/firework_ray_1.png" }
+"Mai Firework Ray 2" = { source = "FireworkSkins/firework_ray_2.png" }
+"Mai Firework Ray 3" = { source = "FireworkSkins/firework_ray_3.png" }
+"Mai Firework Ray 4" = { source = "FireworkSkins/firework_ray_4.png" }
+"Mai Firework Ray 5" = { source = "FireworkSkins/firework_ray_5.png" }
+"Mai Firework Ray 6" = { source = "FireworkSkins/firework_ray_6.png" }
+"Mai Firework Ray 7" = { source = "FireworkSkins/firework_ray_7.png" }
+"Mai Firework Ray 8" = { source = "FireworkSkins/firework_ray_8.png" }
+"Mai Firework Ray 9" = { source = "FireworkSkins/firework_ray_9.png" }
+"Mai Firework Ray 10" = { source = "FireworkSkins/firework_ray_10.png" }
+"Mai Firework Ray 11" = { source = "FireworkSkins/firework_ray_11.png" }
+"Mai Firework Ray 12" = { source = "FireworkSkins/firework_ray_12.png" }
+"Mai Firework Ball" = { source = "FireworkSkins/firework_ball.png" }
+"Mai Firework Ball Pale" = { source = "FireworkSkins/firework_ball_pale.png" }
+"Mai Firework Sparkle" = { source = "FireworkSkins/firework_sparkle.png" }
+
+# Slide OK
+"Mai Slide OK Curve R Critical Perfect" = { source = "SlideOKSkins/just_curv_r.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve R Just Perfect" = { source = "SlideOKSkins/just_curv_r_p.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve R Fast Perfect" = { source = "SlideOKSkins/just_curv_r_fast_p.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve R Late Perfect" = { source = "SlideOKSkins/just_curv_r_late_p.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve R Fast Great" = { source = "SlideOKSkins/just_curv_r_fast_gr.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve R Late Great" = { source = "SlideOKSkins/just_curv_r_late_gr.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve R Fast Good" = { source = "SlideOKSkins/just_curv_r_fast_gd.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve R Late Good" = { source = "SlideOKSkins/just_curv_r_late_gd.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve R Too Late" = { source = "SlideOKSkins/miss_curv_r.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Straight R Critical Perfect" = { source = "SlideOKSkins/just_str_r.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight R Just Perfect" = { source = "SlideOKSkins/just_str_r_p.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight R Fast Perfect" = { source = "SlideOKSkins/just_str_r_fast_p.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight R Late Perfect" = { source = "SlideOKSkins/just_str_r_late_p.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight R Fast Great" = { source = "SlideOKSkins/just_str_r_fast_gr.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight R Late Great" = { source = "SlideOKSkins/just_str_r_late_gr.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight R Fast Good" = { source = "SlideOKSkins/just_str_r_fast_gd.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight R Late Good" = { source = "SlideOKSkins/just_str_r_late_gd.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight R Too Late" = { source = "SlideOKSkins/miss_str_r.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Wifi Up Critical Perfect" = { source = "SlideOKSkins/just_wifi_u.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Up Just Perfect" = { source = "SlideOKSkins/just_wifi_u_p.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Up Fast Perfect" = { source = "SlideOKSkins/just_wifi_u_fast_p.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Up Late Perfect" = { source = "SlideOKSkins/just_wifi_u_late_p.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Up Fast Great" = { source = "SlideOKSkins/just_wifi_u_fast_gr.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Up Late Great" = { source = "SlideOKSkins/just_wifi_u_late_gr.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Up Fast Good" = { source = "SlideOKSkins/just_wifi_u_fast_gd.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Up Late Good" = { source = "SlideOKSkins/just_wifi_u_late_gd.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Up Too Late" = { source = "SlideOKSkins/miss_wifi_u.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Curve L Critical Perfect" = { source = "SlideOKSkins/just_curv_l.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve L Just Perfect" = { source = "SlideOKSkins/just_curv_l_p.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve L Fast Perfect" = { source = "SlideOKSkins/just_curv_l_fast_p.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve L Late Perfect" = { source = "SlideOKSkins/just_curv_l_late_p.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve L Fast Great" = { source = "SlideOKSkins/just_curv_l_fast_gr.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve L Late Great" = { source = "SlideOKSkins/just_curv_l_late_gr.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve L Fast Good" = { source = "SlideOKSkins/just_curv_l_fast_gd.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve L Late Good" = { source = "SlideOKSkins/just_curv_l_late_gd.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Curve L Too Late" = { source = "SlideOKSkins/miss_curv_l.png", canvas = { size = "$slide_ok_curve_cell" } }
+"Mai Slide OK Straight L Critical Perfect" = { source = "SlideOKSkins/just_str_l.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight L Just Perfect" = { source = "SlideOKSkins/just_str_l_p.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight L Fast Perfect" = { source = "SlideOKSkins/just_str_l_fast_p.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight L Late Perfect" = { source = "SlideOKSkins/just_str_l_late_p.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight L Fast Great" = { source = "SlideOKSkins/just_str_l_fast_gr.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight L Late Great" = { source = "SlideOKSkins/just_str_l_late_gr.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight L Fast Good" = { source = "SlideOKSkins/just_str_l_fast_gd.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight L Late Good" = { source = "SlideOKSkins/just_str_l_late_gd.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Straight L Too Late" = { source = "SlideOKSkins/miss_str_l.png", canvas = { size = "$slide_ok_straight_cell" } }
+"Mai Slide OK Wifi Down Critical Perfect" = { source = "SlideOKSkins/just_wifi_d.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Down Just Perfect" = { source = "SlideOKSkins/just_wifi_d_p.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Down Fast Perfect" = { source = "SlideOKSkins/just_wifi_d_fast_p.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Down Late Perfect" = { source = "SlideOKSkins/just_wifi_d_late_p.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Down Fast Great" = { source = "SlideOKSkins/just_wifi_d_fast_gr.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Down Late Great" = { source = "SlideOKSkins/just_wifi_d_late_gr.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Down Fast Good" = { source = "SlideOKSkins/just_wifi_d_fast_gd.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Down Late Good" = { source = "SlideOKSkins/just_wifi_d_late_gd.png", canvas = { size = "$slide_ok_wifi_cell" } }
+"Mai Slide OK Wifi Down Too Late" = { source = "SlideOKSkins/miss_wifi_d.png", canvas = { size = "$slide_ok_wifi_cell" } }
+
+# Center counter: the displays' own glyphs, then the colours they fall back to (lib/skin.py), then the
+# life counter's rings. Glyphs no display draws are skipped.
+
+"Mai Counter Combo 0" = { source = "CounterSkins/counter_combo_0.png" }
+"Mai Counter Combo 1" = { source = "CounterSkins/counter_combo_1.png" }
+"Mai Counter Combo 2" = { source = "CounterSkins/counter_combo_2.png" }
+"Mai Counter Combo 3" = { source = "CounterSkins/counter_combo_3.png" }
+"Mai Counter Combo 4" = { source = "CounterSkins/counter_combo_4.png" }
+"Mai Counter Combo 5" = { source = "CounterSkins/counter_combo_5.png" }
+"Mai Counter Combo 6" = { source = "CounterSkins/counter_combo_6.png" }
+"Mai Counter Combo 7" = { source = "CounterSkins/counter_combo_7.png" }
+"Mai Counter Combo 8" = { source = "CounterSkins/counter_combo_8.png" }
+"Mai Counter Combo 9" = { source = "CounterSkins/counter_combo_9.png" }
+"Mai Counter Combo Dot" = { source = "CounterSkins/counter_combo_dot.png", skip = true }
+"Mai Counter Combo Percent" = { source = "CounterSkins/counter_combo_percent.png", skip = true }
+"Mai Counter Combo Plus" = { source = "CounterSkins/counter_combo_plus.png", skip = true }
+"Mai Counter Combo Minus" = { source = "CounterSkins/counter_combo_minus.png", skip = true }
+"Mai Counter Combo Star" = { source = "CounterSkins/counter_combo_star.png", skip = true }
+"Mai Counter AP Plus Combo 0" = { source = "CounterSkins/counter_ap_plus_combo_0.png" }
+"Mai Counter AP Plus Combo 1" = { source = "CounterSkins/counter_ap_plus_combo_1.png" }
+"Mai Counter AP Plus Combo 2" = { source = "CounterSkins/counter_ap_plus_combo_2.png" }
+"Mai Counter AP Plus Combo 3" = { source = "CounterSkins/counter_ap_plus_combo_3.png" }
+"Mai Counter AP Plus Combo 4" = { source = "CounterSkins/counter_ap_plus_combo_4.png" }
+"Mai Counter AP Plus Combo 5" = { source = "CounterSkins/counter_ap_plus_combo_5.png" }
+"Mai Counter AP Plus Combo 6" = { source = "CounterSkins/counter_ap_plus_combo_6.png" }
+"Mai Counter AP Plus Combo 7" = { source = "CounterSkins/counter_ap_plus_combo_7.png" }
+"Mai Counter AP Plus Combo 8" = { source = "CounterSkins/counter_ap_plus_combo_8.png" }
+"Mai Counter AP Plus Combo 9" = { source = "CounterSkins/counter_ap_plus_combo_9.png" }
+"Mai Counter AP Plus Combo Dot" = { source = "CounterSkins/counter_ap_plus_combo_dot.png", skip = true }
+"Mai Counter AP Plus Combo Percent" = { source = "CounterSkins/counter_ap_plus_combo_percent.png", skip = true }
+"Mai Counter AP Plus Combo Plus" = { source = "CounterSkins/counter_ap_plus_combo_plus.png", skip = true }
+"Mai Counter AP Plus Combo Minus" = { source = "CounterSkins/counter_ap_plus_combo_minus.png", skip = true }
+"Mai Counter AP Plus Combo Star" = { source = "CounterSkins/counter_ap_plus_combo_star.png", skip = true }
+"Mai Counter AP Combo 0" = { source = "CounterSkins/counter_ap_combo_0.png" }
+"Mai Counter AP Combo 1" = { source = "CounterSkins/counter_ap_combo_1.png" }
+"Mai Counter AP Combo 2" = { source = "CounterSkins/counter_ap_combo_2.png" }
+"Mai Counter AP Combo 3" = { source = "CounterSkins/counter_ap_combo_3.png" }
+"Mai Counter AP Combo 4" = { source = "CounterSkins/counter_ap_combo_4.png" }
+"Mai Counter AP Combo 5" = { source = "CounterSkins/counter_ap_combo_5.png" }
+"Mai Counter AP Combo 6" = { source = "CounterSkins/counter_ap_combo_6.png" }
+"Mai Counter AP Combo 7" = { source = "CounterSkins/counter_ap_combo_7.png" }
+"Mai Counter AP Combo 8" = { source = "CounterSkins/counter_ap_combo_8.png" }
+"Mai Counter AP Combo 9" = { source = "CounterSkins/counter_ap_combo_9.png" }
+"Mai Counter AP Combo Dot" = { source = "CounterSkins/counter_ap_combo_dot.png", skip = true }
+"Mai Counter AP Combo Percent" = { source = "CounterSkins/counter_ap_combo_percent.png", skip = true }
+"Mai Counter AP Combo Plus" = { source = "CounterSkins/counter_ap_combo_plus.png", skip = true }
+"Mai Counter AP Combo Minus" = { source = "CounterSkins/counter_ap_combo_minus.png", skip = true }
+"Mai Counter AP Combo Star" = { source = "CounterSkins/counter_ap_combo_star.png", skip = true }
+"Mai Counter FC Plus Combo 0" = { source = "CounterSkins/counter_fc_plus_combo_0.png" }
+"Mai Counter FC Plus Combo 1" = { source = "CounterSkins/counter_fc_plus_combo_1.png" }
+"Mai Counter FC Plus Combo 2" = { source = "CounterSkins/counter_fc_plus_combo_2.png" }
+"Mai Counter FC Plus Combo 3" = { source = "CounterSkins/counter_fc_plus_combo_3.png" }
+"Mai Counter FC Plus Combo 4" = { source = "CounterSkins/counter_fc_plus_combo_4.png" }
+"Mai Counter FC Plus Combo 5" = { source = "CounterSkins/counter_fc_plus_combo_5.png" }
+"Mai Counter FC Plus Combo 6" = { source = "CounterSkins/counter_fc_plus_combo_6.png" }
+"Mai Counter FC Plus Combo 7" = { source = "CounterSkins/counter_fc_plus_combo_7.png" }
+"Mai Counter FC Plus Combo 8" = { source = "CounterSkins/counter_fc_plus_combo_8.png" }
+"Mai Counter FC Plus Combo 9" = { source = "CounterSkins/counter_fc_plus_combo_9.png" }
+"Mai Counter FC Plus Combo Dot" = { source = "CounterSkins/counter_fc_plus_combo_dot.png", skip = true }
+"Mai Counter FC Plus Combo Percent" = { source = "CounterSkins/counter_fc_plus_combo_percent.png", skip = true }
+"Mai Counter FC Plus Combo Plus" = { source = "CounterSkins/counter_fc_plus_combo_plus.png", skip = true }
+"Mai Counter FC Plus Combo Minus" = { source = "CounterSkins/counter_fc_plus_combo_minus.png", skip = true }
+"Mai Counter FC Plus Combo Star" = { source = "CounterSkins/counter_fc_plus_combo_star.png", skip = true }
+"Mai Counter FC Combo 0" = { source = "CounterSkins/counter_fc_combo_0.png" }
+"Mai Counter FC Combo 1" = { source = "CounterSkins/counter_fc_combo_1.png" }
+"Mai Counter FC Combo 2" = { source = "CounterSkins/counter_fc_combo_2.png" }
+"Mai Counter FC Combo 3" = { source = "CounterSkins/counter_fc_combo_3.png" }
+"Mai Counter FC Combo 4" = { source = "CounterSkins/counter_fc_combo_4.png" }
+"Mai Counter FC Combo 5" = { source = "CounterSkins/counter_fc_combo_5.png" }
+"Mai Counter FC Combo 6" = { source = "CounterSkins/counter_fc_combo_6.png" }
+"Mai Counter FC Combo 7" = { source = "CounterSkins/counter_fc_combo_7.png" }
+"Mai Counter FC Combo 8" = { source = "CounterSkins/counter_fc_combo_8.png" }
+"Mai Counter FC Combo 9" = { source = "CounterSkins/counter_fc_combo_9.png" }
+"Mai Counter FC Combo Dot" = { source = "CounterSkins/counter_fc_combo_dot.png", skip = true }
+"Mai Counter FC Combo Percent" = { source = "CounterSkins/counter_fc_combo_percent.png", skip = true }
+"Mai Counter FC Combo Plus" = { source = "CounterSkins/counter_fc_combo_plus.png", skip = true }
+"Mai Counter FC Combo Minus" = { source = "CounterSkins/counter_fc_combo_minus.png", skip = true }
+"Mai Counter FC Combo Star" = { source = "CounterSkins/counter_fc_combo_star.png", skip = true }
+"Mai Counter Miss Combo 0" = { source = "CounterSkins/counter_miss_combo_0.png" }
+"Mai Counter Miss Combo 1" = { source = "CounterSkins/counter_miss_combo_1.png" }
+"Mai Counter Miss Combo 2" = { source = "CounterSkins/counter_miss_combo_2.png" }
+"Mai Counter Miss Combo 3" = { source = "CounterSkins/counter_miss_combo_3.png" }
+"Mai Counter Miss Combo 4" = { source = "CounterSkins/counter_miss_combo_4.png" }
+"Mai Counter Miss Combo 5" = { source = "CounterSkins/counter_miss_combo_5.png" }
+"Mai Counter Miss Combo 6" = { source = "CounterSkins/counter_miss_combo_6.png" }
+"Mai Counter Miss Combo 7" = { source = "CounterSkins/counter_miss_combo_7.png" }
+"Mai Counter Miss Combo 8" = { source = "CounterSkins/counter_miss_combo_8.png" }
+"Mai Counter Miss Combo 9" = { source = "CounterSkins/counter_miss_combo_9.png" }
+"Mai Counter Miss Combo Dot" = { source = "CounterSkins/counter_miss_combo_dot.png", skip = true }
+"Mai Counter Miss Combo Percent" = { source = "CounterSkins/counter_miss_combo_percent.png", skip = true }
+"Mai Counter Miss Combo Plus" = { source = "CounterSkins/counter_miss_combo_plus.png", skip = true }
+"Mai Counter Miss Combo Minus" = { source = "CounterSkins/counter_miss_combo_minus.png", skip = true }
+"Mai Counter Miss Combo Star" = { source = "CounterSkins/counter_miss_combo_star.png", skip = true }
+"Mai Counter Triple S 0" = { source = "CounterSkins/counter_triple_s_0.png" }
+"Mai Counter Triple S 1" = { source = "CounterSkins/counter_triple_s_1.png" }
+"Mai Counter Triple S 2" = { source = "CounterSkins/counter_triple_s_2.png" }
+"Mai Counter Triple S 3" = { source = "CounterSkins/counter_triple_s_3.png" }
+"Mai Counter Triple S 4" = { source = "CounterSkins/counter_triple_s_4.png" }
+"Mai Counter Triple S 5" = { source = "CounterSkins/counter_triple_s_5.png" }
+"Mai Counter Triple S 6" = { source = "CounterSkins/counter_triple_s_6.png" }
+"Mai Counter Triple S 7" = { source = "CounterSkins/counter_triple_s_7.png" }
+"Mai Counter Triple S 8" = { source = "CounterSkins/counter_triple_s_8.png" }
+"Mai Counter Triple S 9" = { source = "CounterSkins/counter_triple_s_9.png" }
+"Mai Counter Triple S Dot" = { source = "CounterSkins/counter_triple_s_dot.png" }
+"Mai Counter Triple S Percent" = { source = "CounterSkins/counter_triple_s_percent.png" }
+"Mai Counter Triple S Plus" = { source = "CounterSkins/counter_triple_s_plus.png", skip = true }
+"Mai Counter Triple S Minus" = { source = "CounterSkins/counter_triple_s_minus.png", skip = true }
+"Mai Counter Triple S Star" = { source = "CounterSkins/counter_triple_s_star.png", skip = true }
+"Mai Counter Pass S 0" = { source = "CounterSkins/counter_pass_s_0.png" }
+"Mai Counter Pass S 1" = { source = "CounterSkins/counter_pass_s_1.png" }
+"Mai Counter Pass S 2" = { source = "CounterSkins/counter_pass_s_2.png" }
+"Mai Counter Pass S 3" = { source = "CounterSkins/counter_pass_s_3.png" }
+"Mai Counter Pass S 4" = { source = "CounterSkins/counter_pass_s_4.png" }
+"Mai Counter Pass S 5" = { source = "CounterSkins/counter_pass_s_5.png" }
+"Mai Counter Pass S 6" = { source = "CounterSkins/counter_pass_s_6.png" }
+"Mai Counter Pass S 7" = { source = "CounterSkins/counter_pass_s_7.png" }
+"Mai Counter Pass S 8" = { source = "CounterSkins/counter_pass_s_8.png" }
+"Mai Counter Pass S 9" = { source = "CounterSkins/counter_pass_s_9.png" }
+"Mai Counter Pass S Dot" = { source = "CounterSkins/counter_pass_s_dot.png" }
+"Mai Counter Pass S Percent" = { source = "CounterSkins/counter_pass_s_percent.png" }
+"Mai Counter Pass S Plus" = { source = "CounterSkins/counter_pass_s_plus.png", skip = true }
+"Mai Counter Pass S Minus" = { source = "CounterSkins/counter_pass_s_minus.png", skip = true }
+"Mai Counter Pass S Star" = { source = "CounterSkins/counter_pass_s_star.png", skip = true }
+"Mai Counter Pass 0" = { source = "CounterSkins/counter_pass_0.png" }
+"Mai Counter Pass 1" = { source = "CounterSkins/counter_pass_1.png" }
+"Mai Counter Pass 2" = { source = "CounterSkins/counter_pass_2.png" }
+"Mai Counter Pass 3" = { source = "CounterSkins/counter_pass_3.png" }
+"Mai Counter Pass 4" = { source = "CounterSkins/counter_pass_4.png" }
+"Mai Counter Pass 5" = { source = "CounterSkins/counter_pass_5.png" }
+"Mai Counter Pass 6" = { source = "CounterSkins/counter_pass_6.png" }
+"Mai Counter Pass 7" = { source = "CounterSkins/counter_pass_7.png" }
+"Mai Counter Pass 8" = { source = "CounterSkins/counter_pass_8.png" }
+"Mai Counter Pass 9" = { source = "CounterSkins/counter_pass_9.png" }
+"Mai Counter Pass Dot" = { source = "CounterSkins/counter_pass_dot.png" }
+"Mai Counter Pass Percent" = { source = "CounterSkins/counter_pass_percent.png" }
+"Mai Counter Pass Plus" = { source = "CounterSkins/counter_pass_plus.png", skip = true }
+"Mai Counter Pass Minus" = { source = "CounterSkins/counter_pass_minus.png", skip = true }
+"Mai Counter Pass Star" = { source = "CounterSkins/counter_pass_star.png", skip = true }
+"Mai Counter Fail 0" = { source = "CounterSkins/counter_fail_0.png" }
+"Mai Counter Fail 1" = { source = "CounterSkins/counter_fail_1.png" }
+"Mai Counter Fail 2" = { source = "CounterSkins/counter_fail_2.png" }
+"Mai Counter Fail 3" = { source = "CounterSkins/counter_fail_3.png" }
+"Mai Counter Fail 4" = { source = "CounterSkins/counter_fail_4.png" }
+"Mai Counter Fail 5" = { source = "CounterSkins/counter_fail_5.png" }
+"Mai Counter Fail 6" = { source = "CounterSkins/counter_fail_6.png" }
+"Mai Counter Fail 7" = { source = "CounterSkins/counter_fail_7.png" }
+"Mai Counter Fail 8" = { source = "CounterSkins/counter_fail_8.png" }
+"Mai Counter Fail 9" = { source = "CounterSkins/counter_fail_9.png" }
+"Mai Counter Fail Dot" = { source = "CounterSkins/counter_fail_dot.png" }
+"Mai Counter Fail Percent" = { source = "CounterSkins/counter_fail_percent.png" }
+"Mai Counter Fail Plus" = { source = "CounterSkins/counter_fail_plus.png", skip = true }
+"Mai Counter Fail Minus" = { source = "CounterSkins/counter_fail_minus.png", skip = true }
+"Mai Counter Fail Star" = { source = "CounterSkins/counter_fail_star.png", skip = true }
+"Mai Counter Border SSS 0" = { source = "CounterSkins/counter_border_sss_0.png" }
+"Mai Counter Border SSS 1" = { source = "CounterSkins/counter_border_sss_1.png" }
+"Mai Counter Border SSS 2" = { source = "CounterSkins/counter_border_sss_2.png" }
+"Mai Counter Border SSS 3" = { source = "CounterSkins/counter_border_sss_3.png" }
+"Mai Counter Border SSS 4" = { source = "CounterSkins/counter_border_sss_4.png" }
+"Mai Counter Border SSS 5" = { source = "CounterSkins/counter_border_sss_5.png" }
+"Mai Counter Border SSS 6" = { source = "CounterSkins/counter_border_sss_6.png" }
+"Mai Counter Border SSS 7" = { source = "CounterSkins/counter_border_sss_7.png" }
+"Mai Counter Border SSS 8" = { source = "CounterSkins/counter_border_sss_8.png" }
+"Mai Counter Border SSS 9" = { source = "CounterSkins/counter_border_sss_9.png" }
+"Mai Counter Border SSS Dot" = { source = "CounterSkins/counter_border_sss_dot.png" }
+"Mai Counter Border SSS Percent" = { source = "CounterSkins/counter_border_sss_percent.png" }
+"Mai Counter Border SSS Plus" = { source = "CounterSkins/counter_border_sss_plus.png", skip = true }
+"Mai Counter Border SSS Minus" = { source = "CounterSkins/counter_border_sss_minus.png", skip = true }
+"Mai Counter Border SSS Star" = { source = "CounterSkins/counter_border_sss_star.png", skip = true }
+"Mai Counter Border SS 0" = { source = "CounterSkins/counter_border_ss_0.png" }
+"Mai Counter Border SS 1" = { source = "CounterSkins/counter_border_ss_1.png" }
+"Mai Counter Border SS 2" = { source = "CounterSkins/counter_border_ss_2.png" }
+"Mai Counter Border SS 3" = { source = "CounterSkins/counter_border_ss_3.png" }
+"Mai Counter Border SS 4" = { source = "CounterSkins/counter_border_ss_4.png" }
+"Mai Counter Border SS 5" = { source = "CounterSkins/counter_border_ss_5.png" }
+"Mai Counter Border SS 6" = { source = "CounterSkins/counter_border_ss_6.png" }
+"Mai Counter Border SS 7" = { source = "CounterSkins/counter_border_ss_7.png" }
+"Mai Counter Border SS 8" = { source = "CounterSkins/counter_border_ss_8.png" }
+"Mai Counter Border SS 9" = { source = "CounterSkins/counter_border_ss_9.png" }
+"Mai Counter Border SS Dot" = { source = "CounterSkins/counter_border_ss_dot.png" }
+"Mai Counter Border SS Percent" = { source = "CounterSkins/counter_border_ss_percent.png" }
+"Mai Counter Border SS Plus" = { source = "CounterSkins/counter_border_ss_plus.png", skip = true }
+"Mai Counter Border SS Minus" = { source = "CounterSkins/counter_border_ss_minus.png", skip = true }
+"Mai Counter Border SS Star" = { source = "CounterSkins/counter_border_ss_star.png", skip = true }
+"Mai Counter Border S 0" = { source = "CounterSkins/counter_border_s_0.png" }
+"Mai Counter Border S 1" = { source = "CounterSkins/counter_border_s_1.png" }
+"Mai Counter Border S 2" = { source = "CounterSkins/counter_border_s_2.png" }
+"Mai Counter Border S 3" = { source = "CounterSkins/counter_border_s_3.png" }
+"Mai Counter Border S 4" = { source = "CounterSkins/counter_border_s_4.png" }
+"Mai Counter Border S 5" = { source = "CounterSkins/counter_border_s_5.png" }
+"Mai Counter Border S 6" = { source = "CounterSkins/counter_border_s_6.png" }
+"Mai Counter Border S 7" = { source = "CounterSkins/counter_border_s_7.png" }
+"Mai Counter Border S 8" = { source = "CounterSkins/counter_border_s_8.png" }
+"Mai Counter Border S 9" = { source = "CounterSkins/counter_border_s_9.png" }
+"Mai Counter Border S Dot" = { source = "CounterSkins/counter_border_s_dot.png" }
+"Mai Counter Border S Percent" = { source = "CounterSkins/counter_border_s_percent.png" }
+"Mai Counter Border S Plus" = { source = "CounterSkins/counter_border_s_plus.png", skip = true }
+"Mai Counter Border S Minus" = { source = "CounterSkins/counter_border_s_minus.png", skip = true }
+"Mai Counter Border S Star" = { source = "CounterSkins/counter_border_s_star.png", skip = true }
+"Mai Counter DX 0" = { source = "CounterSkins/counter_dx_0.png" }
+"Mai Counter DX 1" = { source = "CounterSkins/counter_dx_1.png" }
+"Mai Counter DX 2" = { source = "CounterSkins/counter_dx_2.png" }
+"Mai Counter DX 3" = { source = "CounterSkins/counter_dx_3.png" }
+"Mai Counter DX 4" = { source = "CounterSkins/counter_dx_4.png" }
+"Mai Counter DX 5" = { source = "CounterSkins/counter_dx_5.png" }
+"Mai Counter DX 6" = { source = "CounterSkins/counter_dx_6.png" }
+"Mai Counter DX 7" = { source = "CounterSkins/counter_dx_7.png" }
+"Mai Counter DX 8" = { source = "CounterSkins/counter_dx_8.png" }
+"Mai Counter DX 9" = { source = "CounterSkins/counter_dx_9.png" }
+"Mai Counter DX Dot" = { source = "CounterSkins/counter_dx_dot.png", skip = true }
+"Mai Counter DX Percent" = { source = "CounterSkins/counter_dx_percent.png", skip = true }
+"Mai Counter DX Plus" = { source = "CounterSkins/counter_dx_plus.png", skip = true }
+"Mai Counter DX Minus" = { source = "CounterSkins/counter_dx_minus.png" }
+"Mai Counter DX Star" = { source = "CounterSkins/counter_dx_star.png", skip = true }
+"Mai Counter DX High 0" = { source = "CounterSkins/counter_dx_high_0.png" }
+"Mai Counter DX High 1" = { source = "CounterSkins/counter_dx_high_1.png" }
+"Mai Counter DX High 2" = { source = "CounterSkins/counter_dx_high_2.png" }
+"Mai Counter DX High 3" = { source = "CounterSkins/counter_dx_high_3.png" }
+"Mai Counter DX High 4" = { source = "CounterSkins/counter_dx_high_4.png" }
+"Mai Counter DX High 5" = { source = "CounterSkins/counter_dx_high_5.png" }
+"Mai Counter DX High 6" = { source = "CounterSkins/counter_dx_high_6.png" }
+"Mai Counter DX High 7" = { source = "CounterSkins/counter_dx_high_7.png" }
+"Mai Counter DX High 8" = { source = "CounterSkins/counter_dx_high_8.png" }
+"Mai Counter DX High 9" = { source = "CounterSkins/counter_dx_high_9.png" }
+"Mai Counter DX High Dot" = { source = "CounterSkins/counter_dx_high_dot.png", skip = true }
+"Mai Counter DX High Percent" = { source = "CounterSkins/counter_dx_high_percent.png", skip = true }
+"Mai Counter DX High Plus" = { source = "CounterSkins/counter_dx_high_plus.png" }
+"Mai Counter DX High Minus" = { source = "CounterSkins/counter_dx_high_minus.png", skip = true }
+"Mai Counter DX High Star" = { source = "CounterSkins/counter_dx_high_star.png" }
+"Mai Counter DX Mid 0" = { source = "CounterSkins/counter_dx_mid_0.png" }
+"Mai Counter DX Mid 1" = { source = "CounterSkins/counter_dx_mid_1.png" }
+"Mai Counter DX Mid 2" = { source = "CounterSkins/counter_dx_mid_2.png" }
+"Mai Counter DX Mid 3" = { source = "CounterSkins/counter_dx_mid_3.png" }
+"Mai Counter DX Mid 4" = { source = "CounterSkins/counter_dx_mid_4.png" }
+"Mai Counter DX Mid 5" = { source = "CounterSkins/counter_dx_mid_5.png" }
+"Mai Counter DX Mid 6" = { source = "CounterSkins/counter_dx_mid_6.png" }
+"Mai Counter DX Mid 7" = { source = "CounterSkins/counter_dx_mid_7.png" }
+"Mai Counter DX Mid 8" = { source = "CounterSkins/counter_dx_mid_8.png" }
+"Mai Counter DX Mid 9" = { source = "CounterSkins/counter_dx_mid_9.png" }
+"Mai Counter DX Mid Dot" = { source = "CounterSkins/counter_dx_mid_dot.png", skip = true }
+"Mai Counter DX Mid Percent" = { source = "CounterSkins/counter_dx_mid_percent.png", skip = true }
+"Mai Counter DX Mid Plus" = { source = "CounterSkins/counter_dx_mid_plus.png" }
+"Mai Counter DX Mid Minus" = { source = "CounterSkins/counter_dx_mid_minus.png", skip = true }
+"Mai Counter DX Mid Star" = { source = "CounterSkins/counter_dx_mid_star.png" }
+"Mai Counter DX Low 0" = { source = "CounterSkins/counter_dx_low_0.png" }
+"Mai Counter DX Low 1" = { source = "CounterSkins/counter_dx_low_1.png" }
+"Mai Counter DX Low 2" = { source = "CounterSkins/counter_dx_low_2.png" }
+"Mai Counter DX Low 3" = { source = "CounterSkins/counter_dx_low_3.png" }
+"Mai Counter DX Low 4" = { source = "CounterSkins/counter_dx_low_4.png" }
+"Mai Counter DX Low 5" = { source = "CounterSkins/counter_dx_low_5.png" }
+"Mai Counter DX Low 6" = { source = "CounterSkins/counter_dx_low_6.png" }
+"Mai Counter DX Low 7" = { source = "CounterSkins/counter_dx_low_7.png" }
+"Mai Counter DX Low 8" = { source = "CounterSkins/counter_dx_low_8.png" }
+"Mai Counter DX Low 9" = { source = "CounterSkins/counter_dx_low_9.png" }
+"Mai Counter DX Low Dot" = { source = "CounterSkins/counter_dx_low_dot.png", skip = true }
+"Mai Counter DX Low Percent" = { source = "CounterSkins/counter_dx_low_percent.png", skip = true }
+"Mai Counter DX Low Plus" = { source = "CounterSkins/counter_dx_low_plus.png" }
+"Mai Counter DX Low Minus" = { source = "CounterSkins/counter_dx_low_minus.png", skip = true }
+"Mai Counter DX Low Star" = { source = "CounterSkins/counter_dx_low_star.png" }
+"Mai Counter High Life 0" = { source = "CounterSkins/counter_high_life_0.png" }
+"Mai Counter High Life 1" = { source = "CounterSkins/counter_high_life_1.png" }
+"Mai Counter High Life 2" = { source = "CounterSkins/counter_high_life_2.png" }
+"Mai Counter High Life 3" = { source = "CounterSkins/counter_high_life_3.png" }
+"Mai Counter High Life 4" = { source = "CounterSkins/counter_high_life_4.png" }
+"Mai Counter High Life 5" = { source = "CounterSkins/counter_high_life_5.png" }
+"Mai Counter High Life 6" = { source = "CounterSkins/counter_high_life_6.png" }
+"Mai Counter High Life 7" = { source = "CounterSkins/counter_high_life_7.png" }
+"Mai Counter High Life 8" = { source = "CounterSkins/counter_high_life_8.png" }
+"Mai Counter High Life 9" = { source = "CounterSkins/counter_high_life_9.png" }
+"Mai Counter High Life Dot" = { source = "CounterSkins/counter_high_life_dot.png", skip = true }
+"Mai Counter High Life Percent" = { source = "CounterSkins/counter_high_life_percent.png", skip = true }
+"Mai Counter High Life Plus" = { source = "CounterSkins/counter_high_life_plus.png", skip = true }
+"Mai Counter High Life Minus" = { source = "CounterSkins/counter_high_life_minus.png", skip = true }
+"Mai Counter High Life Star" = { source = "CounterSkins/counter_high_life_star.png", skip = true }
+"Mai Counter Mid Life 0" = { source = "CounterSkins/counter_mid_life_0.png" }
+"Mai Counter Mid Life 1" = { source = "CounterSkins/counter_mid_life_1.png" }
+"Mai Counter Mid Life 2" = { source = "CounterSkins/counter_mid_life_2.png" }
+"Mai Counter Mid Life 3" = { source = "CounterSkins/counter_mid_life_3.png" }
+"Mai Counter Mid Life 4" = { source = "CounterSkins/counter_mid_life_4.png" }
+"Mai Counter Mid Life 5" = { source = "CounterSkins/counter_mid_life_5.png" }
+"Mai Counter Mid Life 6" = { source = "CounterSkins/counter_mid_life_6.png" }
+"Mai Counter Mid Life 7" = { source = "CounterSkins/counter_mid_life_7.png" }
+"Mai Counter Mid Life 8" = { source = "CounterSkins/counter_mid_life_8.png" }
+"Mai Counter Mid Life 9" = { source = "CounterSkins/counter_mid_life_9.png" }
+"Mai Counter Mid Life Dot" = { source = "CounterSkins/counter_mid_life_dot.png", skip = true }
+"Mai Counter Mid Life Percent" = { source = "CounterSkins/counter_mid_life_percent.png", skip = true }
+"Mai Counter Mid Life Plus" = { source = "CounterSkins/counter_mid_life_plus.png", skip = true }
+"Mai Counter Mid Life Minus" = { source = "CounterSkins/counter_mid_life_minus.png", skip = true }
+"Mai Counter Mid Life Star" = { source = "CounterSkins/counter_mid_life_star.png", skip = true }
+"Mai Counter Low Life 0" = { source = "CounterSkins/counter_low_life_0.png" }
+"Mai Counter Low Life 1" = { source = "CounterSkins/counter_low_life_1.png" }
+"Mai Counter Low Life 2" = { source = "CounterSkins/counter_low_life_2.png" }
+"Mai Counter Low Life 3" = { source = "CounterSkins/counter_low_life_3.png" }
+"Mai Counter Low Life 4" = { source = "CounterSkins/counter_low_life_4.png" }
+"Mai Counter Low Life 5" = { source = "CounterSkins/counter_low_life_5.png" }
+"Mai Counter Low Life 6" = { source = "CounterSkins/counter_low_life_6.png" }
+"Mai Counter Low Life 7" = { source = "CounterSkins/counter_low_life_7.png" }
+"Mai Counter Low Life 8" = { source = "CounterSkins/counter_low_life_8.png" }
+"Mai Counter Low Life 9" = { source = "CounterSkins/counter_low_life_9.png" }
+"Mai Counter Low Life Dot" = { source = "CounterSkins/counter_low_life_dot.png", skip = true }
+"Mai Counter Low Life Percent" = { source = "CounterSkins/counter_low_life_percent.png", skip = true }
+"Mai Counter Low Life Plus" = { source = "CounterSkins/counter_low_life_plus.png", skip = true }
+"Mai Counter Low Life Minus" = { source = "CounterSkins/counter_low_life_minus.png", skip = true }
+"Mai Counter Low Life Star" = { source = "CounterSkins/counter_low_life_star.png", skip = true }
+"Mai Counter Ended Life 0" = { source = "CounterSkins/counter_ended_life_0.png" }
+"Mai Counter Ended Life 1" = { source = "CounterSkins/counter_ended_life_1.png" }
+"Mai Counter Ended Life 2" = { source = "CounterSkins/counter_ended_life_2.png" }
+"Mai Counter Ended Life 3" = { source = "CounterSkins/counter_ended_life_3.png" }
+"Mai Counter Ended Life 4" = { source = "CounterSkins/counter_ended_life_4.png" }
+"Mai Counter Ended Life 5" = { source = "CounterSkins/counter_ended_life_5.png" }
+"Mai Counter Ended Life 6" = { source = "CounterSkins/counter_ended_life_6.png" }
+"Mai Counter Ended Life 7" = { source = "CounterSkins/counter_ended_life_7.png" }
+"Mai Counter Ended Life 8" = { source = "CounterSkins/counter_ended_life_8.png" }
+"Mai Counter Ended Life 9" = { source = "CounterSkins/counter_ended_life_9.png" }
+"Mai Counter Ended Life Dot" = { source = "CounterSkins/counter_ended_life_dot.png", skip = true }
+"Mai Counter Ended Life Percent" = { source = "CounterSkins/counter_ended_life_percent.png", skip = true }
+"Mai Counter Ended Life Plus" = { source = "CounterSkins/counter_ended_life_plus.png", skip = true }
+"Mai Counter Ended Life Minus" = { source = "CounterSkins/counter_ended_life_minus.png", skip = true }
+"Mai Counter Ended Life Star" = { source = "CounterSkins/counter_ended_life_star.png", skip = true }
+"Mai Counter Yellow 0" = { source = "CounterSkins/counter_yellow_0.png" }
+"Mai Counter Yellow 1" = { source = "CounterSkins/counter_yellow_1.png" }
+"Mai Counter Yellow 2" = { source = "CounterSkins/counter_yellow_2.png" }
+"Mai Counter Yellow 3" = { source = "CounterSkins/counter_yellow_3.png" }
+"Mai Counter Yellow 4" = { source = "CounterSkins/counter_yellow_4.png" }
+"Mai Counter Yellow 5" = { source = "CounterSkins/counter_yellow_5.png" }
+"Mai Counter Yellow 6" = { source = "CounterSkins/counter_yellow_6.png" }
+"Mai Counter Yellow 7" = { source = "CounterSkins/counter_yellow_7.png" }
+"Mai Counter Yellow 8" = { source = "CounterSkins/counter_yellow_8.png" }
+"Mai Counter Yellow 9" = { source = "CounterSkins/counter_yellow_9.png" }
+"Mai Counter Yellow Dot" = { source = "CounterSkins/counter_yellow_dot.png" }
+"Mai Counter Yellow Percent" = { source = "CounterSkins/counter_yellow_percent.png" }
+"Mai Counter Yellow Plus" = { source = "CounterSkins/counter_yellow_plus.png", skip = true }
+"Mai Counter Yellow Minus" = { source = "CounterSkins/counter_yellow_minus.png", skip = true }
+"Mai Counter Yellow Star" = { source = "CounterSkins/counter_yellow_star.png", skip = true }
+"Mai Counter Pink 0" = { source = "CounterSkins/counter_pink_0.png" }
+"Mai Counter Pink 1" = { source = "CounterSkins/counter_pink_1.png" }
+"Mai Counter Pink 2" = { source = "CounterSkins/counter_pink_2.png" }
+"Mai Counter Pink 3" = { source = "CounterSkins/counter_pink_3.png" }
+"Mai Counter Pink 4" = { source = "CounterSkins/counter_pink_4.png" }
+"Mai Counter Pink 5" = { source = "CounterSkins/counter_pink_5.png" }
+"Mai Counter Pink 6" = { source = "CounterSkins/counter_pink_6.png" }
+"Mai Counter Pink 7" = { source = "CounterSkins/counter_pink_7.png" }
+"Mai Counter Pink 8" = { source = "CounterSkins/counter_pink_8.png" }
+"Mai Counter Pink 9" = { source = "CounterSkins/counter_pink_9.png" }
+"Mai Counter Pink Dot" = { source = "CounterSkins/counter_pink_dot.png", skip = true }
+"Mai Counter Pink Percent" = { source = "CounterSkins/counter_pink_percent.png", skip = true }
+"Mai Counter Pink Plus" = { source = "CounterSkins/counter_pink_plus.png", skip = true }
+"Mai Counter Pink Minus" = { source = "CounterSkins/counter_pink_minus.png", skip = true }
+"Mai Counter Pink Star" = { source = "CounterSkins/counter_pink_star.png", skip = true }
+"Mai Counter Green 0" = { source = "CounterSkins/counter_green_0.png" }
+"Mai Counter Green 1" = { source = "CounterSkins/counter_green_1.png" }
+"Mai Counter Green 2" = { source = "CounterSkins/counter_green_2.png" }
+"Mai Counter Green 3" = { source = "CounterSkins/counter_green_3.png" }
+"Mai Counter Green 4" = { source = "CounterSkins/counter_green_4.png" }
+"Mai Counter Green 5" = { source = "CounterSkins/counter_green_5.png" }
+"Mai Counter Green 6" = { source = "CounterSkins/counter_green_6.png" }
+"Mai Counter Green 7" = { source = "CounterSkins/counter_green_7.png" }
+"Mai Counter Green 8" = { source = "CounterSkins/counter_green_8.png" }
+"Mai Counter Green 9" = { source = "CounterSkins/counter_green_9.png" }
+"Mai Counter Green Dot" = { source = "CounterSkins/counter_green_dot.png", skip = true }
+"Mai Counter Green Percent" = { source = "CounterSkins/counter_green_percent.png", skip = true }
+"Mai Counter Green Plus" = { source = "CounterSkins/counter_green_plus.png" }
+"Mai Counter Green Minus" = { source = "CounterSkins/counter_green_minus.png" }
+"Mai Counter Green Star" = { source = "CounterSkins/counter_green_star.png" }
+"Mai Counter Silver 0" = { source = "CounterSkins/counter_silver_0.png" }
+"Mai Counter Silver 1" = { source = "CounterSkins/counter_silver_1.png" }
+"Mai Counter Silver 2" = { source = "CounterSkins/counter_silver_2.png" }
+"Mai Counter Silver 3" = { source = "CounterSkins/counter_silver_3.png" }
+"Mai Counter Silver 4" = { source = "CounterSkins/counter_silver_4.png" }
+"Mai Counter Silver 5" = { source = "CounterSkins/counter_silver_5.png" }
+"Mai Counter Silver 6" = { source = "CounterSkins/counter_silver_6.png" }
+"Mai Counter Silver 7" = { source = "CounterSkins/counter_silver_7.png" }
+"Mai Counter Silver 8" = { source = "CounterSkins/counter_silver_8.png" }
+"Mai Counter Silver 9" = { source = "CounterSkins/counter_silver_9.png" }
+"Mai Counter Silver Dot" = { source = "CounterSkins/counter_silver_dot.png", skip = true }
+"Mai Counter Silver Percent" = { source = "CounterSkins/counter_silver_percent.png", skip = true }
+"Mai Counter Silver Plus" = { source = "CounterSkins/counter_silver_plus.png", skip = true }
+"Mai Counter Silver Minus" = { source = "CounterSkins/counter_silver_minus.png", skip = true }
+"Mai Counter Silver Star" = { source = "CounterSkins/counter_silver_star.png", skip = true }
+"Mai Counter Blue 0" = { source = "CounterSkins/counter_blue_0.png" }
+"Mai Counter Blue 1" = { source = "CounterSkins/counter_blue_1.png" }
+"Mai Counter Blue 2" = { source = "CounterSkins/counter_blue_2.png" }
+"Mai Counter Blue 3" = { source = "CounterSkins/counter_blue_3.png" }
+"Mai Counter Blue 4" = { source = "CounterSkins/counter_blue_4.png" }
+"Mai Counter Blue 5" = { source = "CounterSkins/counter_blue_5.png" }
+"Mai Counter Blue 6" = { source = "CounterSkins/counter_blue_6.png" }
+"Mai Counter Blue 7" = { source = "CounterSkins/counter_blue_7.png" }
+"Mai Counter Blue 8" = { source = "CounterSkins/counter_blue_8.png" }
+"Mai Counter Blue 9" = { source = "CounterSkins/counter_blue_9.png" }
+"Mai Counter Blue Dot" = { source = "CounterSkins/counter_blue_dot.png" }
+"Mai Counter Blue Percent" = { source = "CounterSkins/counter_blue_percent.png" }
+"Mai Counter Blue Plus" = { source = "CounterSkins/counter_blue_plus.png", skip = true }
+"Mai Counter Blue Minus" = { source = "CounterSkins/counter_blue_minus.png", skip = true }
+"Mai Counter Blue Star" = { source = "CounterSkins/counter_blue_star.png", skip = true }
+"Mai Counter Red 0" = { source = "CounterSkins/counter_red_0.png" }
+"Mai Counter Red 1" = { source = "CounterSkins/counter_red_1.png" }
+"Mai Counter Red 2" = { source = "CounterSkins/counter_red_2.png" }
+"Mai Counter Red 3" = { source = "CounterSkins/counter_red_3.png" }
+"Mai Counter Red 4" = { source = "CounterSkins/counter_red_4.png" }
+"Mai Counter Red 5" = { source = "CounterSkins/counter_red_5.png" }
+"Mai Counter Red 6" = { source = "CounterSkins/counter_red_6.png" }
+"Mai Counter Red 7" = { source = "CounterSkins/counter_red_7.png" }
+"Mai Counter Red 8" = { source = "CounterSkins/counter_red_8.png" }
+"Mai Counter Red 9" = { source = "CounterSkins/counter_red_9.png" }
+"Mai Counter Red Dot" = { source = "CounterSkins/counter_red_dot.png" }
+"Mai Counter Red Percent" = { source = "CounterSkins/counter_red_percent.png" }
+"Mai Counter Red Plus" = { source = "CounterSkins/counter_red_plus.png" }
+"Mai Counter Red Minus" = { source = "CounterSkins/counter_red_minus.png", skip = true }
+"Mai Counter Red Star" = { source = "CounterSkins/counter_red_star.png" }
+"Mai Counter Gold 0" = { source = "CounterSkins/counter_gold_0.png" }
+"Mai Counter Gold 1" = { source = "CounterSkins/counter_gold_1.png" }
+"Mai Counter Gold 2" = { source = "CounterSkins/counter_gold_2.png" }
+"Mai Counter Gold 3" = { source = "CounterSkins/counter_gold_3.png" }
+"Mai Counter Gold 4" = { source = "CounterSkins/counter_gold_4.png" }
+"Mai Counter Gold 5" = { source = "CounterSkins/counter_gold_5.png" }
+"Mai Counter Gold 6" = { source = "CounterSkins/counter_gold_6.png" }
+"Mai Counter Gold 7" = { source = "CounterSkins/counter_gold_7.png" }
+"Mai Counter Gold 8" = { source = "CounterSkins/counter_gold_8.png" }
+"Mai Counter Gold 9" = { source = "CounterSkins/counter_gold_9.png" }
+"Mai Counter Gold Dot" = { source = "CounterSkins/counter_gold_dot.png" }
+"Mai Counter Gold Percent" = { source = "CounterSkins/counter_gold_percent.png" }
+"Mai Counter Gold Plus" = { source = "CounterSkins/counter_gold_plus.png" }
+"Mai Counter Gold Minus" = { source = "CounterSkins/counter_gold_minus.png", skip = true }
+"Mai Counter Gold Star" = { source = "CounterSkins/counter_gold_star.png" }
+"Mai Counter High Life Ring" = { source = "CounterSkins/counter_high_life_ring.png" }
+"Mai Counter Mid Life Ring" = { source = "CounterSkins/counter_mid_life_ring.png" }
+"Mai Counter Low Life Ring" = { source = "CounterSkins/counter_low_life_ring.png" }
+"Mai Counter Ended Life Ring" = { source = "CounterSkins/counter_ended_life_ring.png" }
+# The header words over the combo and achievement displays. The engine doesn't draw them yet, so they're
+# skipped; a pack.toml with base = "skin_counter_header.toml" packs them.
+"Mai Counter Header Combo" = { source = "CounterSkins/counter_header_combo.png", skip = true }
+"Mai Counter Header Combo AP Plus" = { source = "CounterSkins/counter_header_combo_ap_plus.png", skip = true }
+"Mai Counter Header Combo AP" = { source = "CounterSkins/counter_header_combo_ap.png", skip = true }
+"Mai Counter Header Combo FC Plus" = { source = "CounterSkins/counter_header_combo_fc_plus.png", skip = true }
+"Mai Counter Header Combo FC" = { source = "CounterSkins/counter_header_combo_fc.png", skip = true }
+"Mai Counter Header Combo Miss" = { source = "CounterSkins/counter_header_combo_miss.png", skip = true }
+"Mai Counter Header Achievement Triple S" = { source = "CounterSkins/counter_header_achievement_triple_s.png", skip = true }
+"Mai Counter Header Achievement Pass S" = { source = "CounterSkins/counter_header_achievement_pass_s.png", skip = true }
+"Mai Counter Header Achievement Pass" = { source = "CounterSkins/counter_header_achievement_pass.png", skip = true }
+"Mai Counter Header Achievement Fail" = { source = "CounterSkins/counter_header_achievement_fail.png", skip = true }
+
+# Preview
+"Mai Preview Label B" = { source = "PreviewSkins/preview_label_b.png" }
+"Mai Preview Label C" = { source = "PreviewSkins/preview_label_c.png" }
+"Mai Preview Label D" = { source = "PreviewSkins/preview_label_d.png" }
+"Mai Preview Label E" = { source = "PreviewSkins/preview_label_e.png" }
+"Mai Preview Shape Line" = { source = "PreviewSkins/preview_shape_line.png" }
+"Mai Preview Shape Circle R" = { source = "PreviewSkins/preview_shape_circle_r.png" }
+"Mai Preview Shape Circle L" = { source = "PreviewSkins/preview_shape_circle_l.png" }
+"Mai Preview Shape Center" = { source = "PreviewSkins/preview_shape_center.png" }
+"Mai Preview Shape P" = { source = "PreviewSkins/preview_shape_p.png" }
+"Mai Preview Shape Q" = { source = "PreviewSkins/preview_shape_q.png" }
+"Mai Preview Shape PP" = { source = "PreviewSkins/preview_shape_pp.png" }
+"Mai Preview Shape QQ" = { source = "PreviewSkins/preview_shape_qq.png" }
+"Mai Preview Shape S" = { source = "PreviewSkins/preview_shape_s.png" }
+"Mai Preview Shape Z" = { source = "PreviewSkins/preview_shape_z.png" }
+"Mai Preview Shape Reflect" = { source = "PreviewSkins/preview_shape_reflect.png" }
+"Mai Preview Shape Wifi" = { source = "PreviewSkins/preview_shape_wifi.png" }
+"Mai Preview Firework" = { source = "PreviewSkins/preview_firework.png" }
+"Mai Preview Each Line" = { source = "PreviewSkins/preview_each_line.png" }

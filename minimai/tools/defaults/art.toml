@@ -1,0 +1,85 @@
+# art's defaults: the skin sprites drawn from shapes, not text. A config given to the tool (--config) is
+# merged over this file, key by key. The format is in docs/arts.md.
+
+# Texture px per skin px (every size below is in skin px); --scale overrides it.
+scale = 1.0
+# Drawn this many times bigger, then scaled down, for smooth edges.
+supersample = 4
+
+# Mai Counter <state> Ring: the life counter's backdrop, in skin px from its center. A dark disc, a band
+# of marks (the coloured ones on the buttons, light between) inside rims, and a heart.
+[life_ring]
+# COUNTER_LIFE_SIZE (lib/layout.py; the tool checks it).
+size = 276
+ring_outer = 135
+ring_inner = 93
+ring_rim = 6.0
+light_strip = 7.0
+mark_gap = 5.0
+mark_light = [240, 236, 238]
+# Rims and dividers: the state's colour times itself, by this.
+deep_shade = 0.75
+backdrop = [8, 4, 4, 220]
+# The whole backdrop's colours, by this.
+brightness = 0.68
+# Each state's colour and heart width (none when 0 or left out); the heart's center sits heart_drop
+# below the counter's.
+states = { "High Life" = { color = [64, 196, 92], heart_width = 147 }, "Mid Life" = { color = [250, 208, 40], heart_width = 115 }, "Low Life" = { color = [228, 92, 78], heart_width = 73 }, "Ended Life" = { color = [146, 154, 170] } }
+heart_drop = 8
+# The heart's body: its top warmed toward heart_warm, its bottom deepened, both shaded; then a rim and
+# a light bevel (parts of the way in).
+heart_warm = [255, 236, 80]
+heart_top_warmth = 0.3
+heart_bottom_depth = 0.6
+heart_shade = 0.82
+heart_alpha = 255
+heart_rim = 0.06
+heart_bevel = 0.16
+heart_bevel_fade = 0.08
+heart_bevel_light = 0.15
+
+# Mai Preview Each Line: a band in the each colour, the same all along so it stretches to any length.
+[each_line]
+size = [16, 16]
+color = [255, 222, 64]
+# Across the band, as parts of its height: solid in the middle, fading out to the edges.
+core = 0.5
+
+# Mai Firework Ray 1..12 (ray 1 red, then every 30 degrees of hue), Mai Firework Ball Pale and
+# Mai Preview Firework.
+[firework]
+# FIREWORK_RAY_SIZE (lib/layout.py; the tool checks it). A wedge, its tip at the bottom middle.
+ray_size = [88, 552]
+saturation = 0.8
+value = 0.92
+# The ray's dark shade, as a part of the full colour's value.
+dark_value = 0.45
+# Along the ray, from the tip (0) to the end (1): it fades in, then out.
+fade_in_end = 0.15
+fade_out_start = 0.88
+# Halftone dots of the full colour start (as points) here and grow until they merge here; solid after.
+dots_start = 0.3
+dots_merged = 0.82
+# Skin px between dots (a staggered grid); a dot this big, times the spacing, touches its neighbours.
+dot_spacing = 13
+dot_merged_radius = 0.62
+# A soft white-pink ball, fading out from the middle.
+pale_ball = { size = 512, color = [255, 238, 246], alpha = 0.9 }
+# The preview's halo: all twelve rays in one square, aimed at the center from hole of the way out,
+# ray_width of the radius wide at the edge, in paler colours.
+preview = { size = 128, hole = 0.5, ray_width = 0.2, saturation = 0.6, value = 0.95 }
+
+# Mai Touch Feedback Ring and Petal, white. The ring is faint in the middle and brightens outward into a
+# thin rim (at TOUCH_FEEDBACK_RING_RIM of its half size), with a little glow past it. The petal is a
+# droplet pointing out, wider at its inner end, size / 4 x size / 2.
+[touch_feedback]
+size = 256
+# Inside the rim: gradient_base in the middle, rising by gradient_rise toward the rim.
+gradient_base = 0.15
+gradient_rise = 0.4
+gradient_power = 2.5
+# Rim and glow widths, as parts of the half size.
+rim_width = 0.018
+glow_width = 0.04
+# The petal's inner end is this much wider than a plain ellipse; its outer end that much narrower.
+petal_taper = 0.3
