@@ -3,6 +3,8 @@ name = "minimai"
 version = "0.1.0"
 description = "Minimai Sonolus Engine"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "sonolus-py>=0.18.1",

@@ -143,3 +143,10 @@ A pack gives the engine sprites, clips and effects by these names. Where one is 
 | [docs/localization.md](docs/localization.md) | The text Sonolus shows, by language, in `localization.toml` |
 
 `python main.py --help` lists the pack tool commands, and `python main.py clean` removes their caches and drawn sprites.
+
+## License
+
+Minimai's code is under the [MIT License](LICENSE). The packs in `resources/` keep their own terms:
+
+- The Pixel skin and 8-Bit effect are under the MIT License in [resources/LICENSE.txt](resources/LICENSE.txt).
+- The Minimai Flat packs are drawn from config, with the M PLUS Rounded 1c font under the SIL Open Font License ([OFL.txt](minimai/resources/flat/fonts/OFL.txt)) and CC0 sounds.
