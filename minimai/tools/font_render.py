@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from minimai.lib.layout import COUNTER_GLYPH_WIDTHS, COUNTER_LINE_HEIGHT, SKIN_RING_RADIUS_PX
 from minimai.lib.skin import COUNTER_GLYPHS
 from minimai.preview.layout import PREVIEW_LABEL_ASPECT, PREVIEW_SHAPE_LABEL_ASPECT
+from minimai.tools.cleanup import record_drawn
 from minimai.tools.pack_config import merged, resolve
 from minimai.tools.skin_pack import default_source_path
 
@@ -864,7 +865,7 @@ def render_all(folder: Path, config: Mapping) -> int:
         raise SystemExit("Pillow is needed: uv sync --extra tools") from error
     folder.mkdir(parents=True, exist_ok=True)
     renderer = SpriteRenderer(Fonts())
-    count = 0
+    written: list[Path] = []
     fontless: list[str] = []
     sprites = expand_groups(config)
     sprites = shrink_groups(sprites, renderer)
@@ -885,10 +886,11 @@ def render_all(folder: Path, config: Mapping) -> int:
         path = folder / default_source_path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
         image.save(path)
-        count += 1
+        written.append(path)
+    record_drawn(folder, "font_render", written)
     if fontless:
         print(f"No font (set font, or pass --font): {len(fontless)} sprites skipped, e.g. {fontless[0]}")
-    return count
+    return len(written)
 
 
 def main():

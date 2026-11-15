@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 from minimai.lib.firework import FIREWORK_HUES
 from minimai.lib.layout import COUNTER_LIFE_SIZE, FIREWORK_RAY_SIZE, SKIN_RING_RADIUS_PX, TOUCH_FEEDBACK_RING_RIM
+from minimai.tools.cleanup import record_drawn
 from minimai.tools.pack_config import merged
 from minimai.tools.skin_pack import default_source_path
 
@@ -446,7 +447,7 @@ def draw_arts(folder: Path, config: Mapping, only: list[str] | None = None) -> i
     except ImportError as error:
         raise SystemExit("Pillow is needed: uv sync --extra tools") from error
     folder.mkdir(parents=True, exist_ok=True)
-    count = 0
+    written: list[Path] = []
     for art in only or ARTS:
         if config[art].get("skip"):
             continue
@@ -454,8 +455,9 @@ def draw_arts(folder: Path, config: Mapping, only: list[str] | None = None) -> i
             path = folder / default_source_path(name)
             path.parent.mkdir(parents=True, exist_ok=True)
             image.save(path)
-            count += 1
-    return count
+            written.append(path)
+    record_drawn(folder, "art", written)
+    return len(written)
 
 
 def main():

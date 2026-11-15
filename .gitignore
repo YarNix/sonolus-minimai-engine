@@ -14,3 +14,7 @@ wheels/
 
 # Temporary files
 tmp/
+
+# Made by the build and the drawing tools (python main.py clean removes them)
+resources/backgrounds/level-*/
+.drawn.json

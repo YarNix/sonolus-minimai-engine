@@ -19,7 +19,7 @@ uv run python -m minimai.tools.font_render minimai/resources/flat/skin --config 
 uv run python main.py all minimai-flat minimai/resources/flat
 ```
 
-The drawn folders are left out of git (`skin/.gitignore`). The sensor outline is read from `skin/sensor_outline.png`; without it the skin has none.
+The drawn folders are left out of git (`skin/.gitignore`), and `python main.py clean --drawn` removes them. The sensor outline is read from `skin/sensor_outline.png`; without it the skin has none.
 
 ## Sounds
 

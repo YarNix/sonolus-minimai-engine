@@ -5,6 +5,10 @@
     python main.py particle <name> <source>   resources/particles/<name> from a folder or zip file of sprites
     python main.py all <name> <folder>        all three, from <folder>/skin, <folder>/effect and <folder>/particle
                                               (each a folder or a .zip); a missing one is skipped
+    python main.py clean [folder ...]         remove the caches (the chart folders' converted audio and
+                                              backgrounds) and the sprites art and font_render drew (in the
+                                              folders given, or anywhere in the project); --caches or --drawn
+                                              for one of them, --dry-run to list what would go
 
 Each source may hold a ``pack.toml`` with the pack's settings (docs/packs.md). The tools need the ``tools``
 extra (``uv sync --extra tools``).
@@ -52,9 +56,19 @@ def main():
     every = commands.add_parser("all", help="build the skin, effect and particle packs found in a folder")
     every.add_argument("name", help="the packs' folder name in resources/skins, effects and particles")
     every.add_argument("source", type=Path, help="folder with skin, effect and particle (each a folder or a .zip)")
+    clean = commands.add_parser("clean", help="remove the caches and the drawn sprites")
+    clean.add_argument("folders", nargs="*", type=Path, help="where to look for drawn sprites (default: the project)")
+    only = clean.add_mutually_exclusive_group()
+    only.add_argument("--caches", action="store_true", help="only the converted audio and the chart backgrounds")
+    only.add_argument("--drawn", action="store_true", help="only the sprites art and font_render drew")
+    clean.add_argument("-n", "--dry-run", action="store_true", help="list what would be removed, remove nothing")
     args = parser.parse_args()
 
-    if args.command == "all":
+    if args.command == "clean":
+        from minimai.tools.cleanup import clean as clean_project
+
+        clean_project(args.folders, caches=not args.drawn, drawn=not args.caches, dry_run=args.dry_run)
+    elif args.command == "all":
         sources = find_all_sources(args.source)
         if not sources:
             raise SystemExit(f"No skin, effect or particle folder or zip file in {args.source}")

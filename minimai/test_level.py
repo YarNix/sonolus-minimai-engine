@@ -1,5 +1,7 @@
 import hashlib
+import json
 import re
+import shutil
 import struct
 from collections.abc import Iterator
 from pathlib import Path
@@ -21,6 +23,13 @@ from minimai.lib.layout import SLIDE_TRACK_POINTS
 from minimai.level_builder import LevelBuilder, SlideTrackArg
 from minimai.simai import read_maidata
 from minimai.tools import audio
+from minimai.tools.cleanup import (
+    AUDIO_CACHE_DIR,
+    BACKGROUND_PREFIX,
+    BACKGROUND_SUBTITLE,
+    BACKGROUNDS_DIR,
+    is_level_background,
+)
 from minimai.play.initialization import Initialization
 from minimai.play import note, touch
 
@@ -353,8 +362,10 @@ def test_touch_overlap():
 
 ## Levels from simai chart folders in resources/levels (see: resources/levels/README.md)
 LEVELS_DIR = Path(__file__).parent.parent / "resources" / "levels"
-# Converted audio, kept between builds
-AUDIO_CACHE_DIR = Path(__file__).parent.parent / "tmp" / "resource_levels"
+# The largest a level background's image is (a square).
+BACKGROUND_PX = 1024
+# Darkens the background under the notes (Sonolus' background mask; players can change it).
+BACKGROUND_MASK = "#0009"
 
 
 def build_resource_levels(levels_dir: Path = LEVELS_DIR) -> Iterator[Level]:
@@ -410,6 +421,7 @@ def build_song_levels(folder: Path, *, has_ffmpeg: bool = True) -> Iterator[Leve
         print(f"Skipping chart folder {folder}: {track.name} needs imageio-ffmpeg.")
         return
     cover = resolve_file(folder, "bg", (".png", ".jpg", ".jpeg"))
+    background = build_level_background(folder, resolve_file(folder, "background", (".png", ".jpg", ".jpeg")), cover)
 
     text = maidata_path.read_text(encoding="utf-8-sig")
     maidata = read_maidata(text)
@@ -454,12 +466,62 @@ def build_song_levels(folder: Path, *, has_ffmpeg: bool = True) -> Iterator[Leve
             author=maidata.get(f"des_{chart}", "").strip() or maidata.get("des", "").strip() or "Unknown",
             rating=parse_rating(maidata.get(f"lv_{chart}", "")),
             cover=cover,
+            use_background=background,
             bgm=bgm,
             preview=preview,
             data=LevelData(bgm_offset=first, entities=entities),
             description=maidata.get("des", "").strip() or None,
             tags=tags,
         )
+
+def build_level_background(folder: Path, background: Path | None, cover: Path | None) -> str | None:
+    """The background item of a chart folder's levels, written to ``BACKGROUNDS_DIR`` as ``level-<folder>``. 
+    With neither (or without Pillow), the levels keep the engine's background: None."""
+    name = f"{BACKGROUND_PREFIX}{folder.name}"
+    target = BACKGROUNDS_DIR / name
+    if target.is_dir() and is_level_background(target):
+        shutil.rmtree(target)
+    source = background or cover
+    if source is None:
+        return None
+    if target.exists():
+        print(f"{folder.name}: no background, {target} is another background's.")
+        return None
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        print(f"{folder.name}: no background without Pillow (uv sync --extra tools).")
+        return None
+    image = Image.open(source)
+    side = min(image.size)
+    left, top = (image.width - side) // 2, (image.height - side) // 2
+    size = min(side, BACKGROUND_PX)
+    image = image.convert("RGBA").crop((left, top, left + side, top + side)).resize((size, size), Image.LANCZOS)
+    if background is None:
+        # The circle, drawn 4x and scaled down so its edge is smooth.
+        mask = Image.new("L", (size * 4, size * 4), 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, size * 4 - 1, size * 4 - 1), fill=255)
+        image.putalpha(mask.resize((size, size), Image.LANCZOS))
+    data = {"aspectRatio": 1, "fit": "contain", "color": "#000"}
+    target.mkdir(parents=True)
+    image.save(target / "image.png")
+    thumbnail = image.copy()
+    thumbnail.thumbnail((128, 128), Image.LANCZOS)
+    thumbnail.save(target / "thumbnail.png")
+    (target / "data.json").write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
+    (target / "configuration.json").write_text(
+        json.dumps({"blur": 0, "mask": BACKGROUND_MASK}, indent=4) + "\n", encoding="utf-8"
+    )
+    item = {
+        "version": 2,
+        "title": {"en": folder.name},
+        "subtitle": {"en": BACKGROUND_SUBTITLE},
+        "author": {"en": "Minimai"},
+        "tags": [],
+    }
+    (target / "item.json").write_text(json.dumps(item, indent=4) + "\n", encoding="utf-8")
+    return name
+
 
 def resolve_file(folder: Path, stem: str, suffixes: tuple[str, ...]) -> Path | None:
     for suffix in suffixes:

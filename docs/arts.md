@@ -1,6 +1,6 @@
 # art
 
-Draws the skin sprites made of shapes into a folder, each where the skin's default recipe reads it (`CounterSkins/counter_high_life_ring.png`, `FireworkSkins/firework_ray_1.png`, …), so the folder can be a skin's source as it is, or be merged into one ([packs.md](packs.md)). Sprites drawn from text come from [font_render](font_render.md).
+Draws the skin sprites made of shapes into a folder, each where the skin's default recipe reads it (`CounterSkins/counter_high_life_ring.png`, `FireworkSkins/firework_ray_1.png`, …), so the folder can be a skin's source as it is, or be merged into one ([packs.md](packs.md)). Sprites drawn from text come from [font_render](font_render.md). The files it writes are listed in the folder's `.drawn.json`, so `python main.py clean --drawn` removes them and leaves the folder's other files.
 
 ```
 python -m minimai.tools.art <folder> [--config C] [--scale S] [--only ART ...]
