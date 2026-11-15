@@ -14,7 +14,3 @@ wheels/
 
 # Temporary files
 tmp/
-*.bundle
-
-# Implicit levels
-resources/levels/*

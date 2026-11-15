@@ -1,0 +1,18 @@
+[life_ring]
+ring_rim = 0
+light_strip = 0
+deep_shade = 0.6
+brightness = 1.0
+heart_top_warmth = 0
+heart_bottom_depth = 0
+heart_shade = 1.0
+heart_rim = 0
+heart_bevel = 0
+heart_bevel_fade = 0
+heart_bevel_light = 0
+
+[firework]
+# Rays in one full colour.
+dark_value = 1.0
+dots_start = 0
+dots_merged = 0

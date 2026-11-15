@@ -1,0 +1,132 @@
+format = "ogg"
+
+[item]
+title = "Minimai Flat"
+subtitle = "Cut and mixed sounds"
+
+[params]
+# The glockenspiel over a quiet triangle1 (from 10 ms in, faded in over 10 ms, about 6 dB under it).
+# Great and good play them slower, so lower and duller; EX the glockenspiel faster, so brighter.
+perfect_hit = [
+    { path = "tap_glockenspiel", trim = [0, 0.5], fade = [0, 0.2] },
+    { path = "tap_triangle", trim = [0.01, 0.5], fade = [0.01, 0.2], gain = 0.2 },
+]
+ex_hit = [
+    { path = "tap_glockenspiel", trim = [0, 0.5], fade = [0, 0.2], speed = 1.25 },
+    { path = "tap_triangle", trim = [0.01, 0.5], fade = [0.01, 0.2], gain = 0.2 },
+]
+great_hit = [
+    { path = "tap_glockenspiel", trim = [0, 0.5], fade = [0, 0.2], speed = 0.85, gain = 0.85 },
+    { path = "tap_triangle", trim = [0.01, 0.5], fade = [0.01, 0.2], speed = 0.85, gain = 0.17 },
+]
+good_hit = [
+    { path = "tap_glockenspiel", trim = [0, 0.5], fade = [0, 0.2], speed = 0.7, gain = 0.7 },
+    { path = "tap_triangle", trim = [0.01, 0.5], fade = [0.01, 0.2], speed = 0.7, gain = 0.14 },
+]
+# The cheer's first 1.3 s.
+cheer = { path = "cheer", trim = [0, 1.3], fade = [0.05, 0.5] }
+# The touch hold riser is a 10 s sweep up, so it fills the charge as it is, low-passed at 5 kHz (24 dB per octave)
+# so its top isn't shrill. Its last 2 s loop, crossfaded over 1 s, from 8 s in the charge on and as the sustain, so
+# the swap at 10 s carries on as it was.
+riser_gain = 0.2
+riser_loop = { path = "touch_hold_riser", lowpass = 5000, slope = 24, trim = [8, 2], loop = 1, gain = "$riser_gain" }
+# The slide's whoosh from 0.156 s, as it swells; a break slide's about 5 semitones lower.
+slide_whoosh = { path = "slide", trim = [0.156, 0], fade = [0.02, 0], gain = "$slide_gain" }
+break_whoosh = { path = "slide", trim = [0.156, 0], fade = [0.02, 0], speed = 0.75, gain = "$slide_gain" }
+
+# ==== Taps ========================================================================================
+
+[clips."Mai Perfect Hit"]
+sources = "$perfect_hit"
+
+[clips."Mai Great Hit"]
+sources = "$great_hit"
+
+[clips."Mai Good Hit"]
+sources = "$good_hit"
+
+[clips."Mai Ex Hit"]
+sources = "$ex_hit"
+
+[clips."#PERFECT_ALTERNATIVE"]
+sources = "$ex_hit"
+
+[clips."#PERFECT"]
+sources = "$perfect_hit"
+
+[clips."#GREAT"]
+sources = "$great_hit"
+
+[clips."#GOOD"]
+sources = "$good_hit"
+
+# ==== Breaks ======================================================================================
+
+[clips."Mai Break Hit"]
+sources = "break"
+trim_silence = true
+
+[clips."Mai Break Critical"]
+sources = ["$cheer"]
+
+[clips."Mai Break Critical Hit"]
+sources = ["break", { path = "cheer", trim = [0, 1.3], fade = [0.05, 0.5], at = 0.07 }]
+trim_silence = true
+
+# ==== Touches =====================================================================================
+
+# The clap from 10 ms to 120 ms, fading out from 80 ms. Its peak at 30-50 ms is turned down about 5 dB: three cuts
+# crossfaded into each other, the middle one quieter.
+[clips."Mai Touch Hit"]
+sources = [
+    { path = "touch", trim = [0.01, 0.022], fade = [0.002, 0.004] },
+    { path = "touch", trim = [0.028, 0.024], fade = [0.004, 0.006], gain = 0.55, at = 0.018 },
+    { path = "touch", trim = [0.046, 0.074], fade = [0.006, 0.04], at = 0.036 },
+]
+
+# A whistle, a firecracker and the cheer, together.
+[clips."Mai Firework"]
+sources = [
+    { path = "firework_whistle", trim = [1.88, 0.47], fade = [0.02, 0.05], gain = 0.45 },
+    { path = "firework_crack", trim = [0, 0.6], fade = [0, 0.3] },
+    { path = "cheer", trim = [0, 1.3], fade = [0.05, 0.5], gain = 0.5 },
+]
+normalize = -1.0
+
+[clips."Mai Touch Hold Start"]
+sources = [
+    { path = "touch_hold_riser", lowpass = 5000, slope = 24, trim = [0, 8], gain = "$riser_gain" },
+    { path = "touch_hold_riser", lowpass = 5000, slope = 24, trim = [8, 2], loop = 1, gain = "$riser_gain", at = 8 },
+    { path = "touch_hold_riser", lowpass = 5000, slope = 24, trim = [8, 2], loop = 1, gain = "$riser_gain", at = 10 },
+]
+duration = "$riser_charge_length"
+
+[clips."Mai Touch Hold Sustain"]
+sources = ["$riser_loop"]
+
+# ==== Slides ======================================================================================
+
+[clips."Mai Slide"]
+sources = ["$slide_whoosh"]
+
+[clips."Mai Break Slide"]
+sources = ["$break_whoosh"]
+
+# A break slide's end (a critical perfect only): the break hit, and with the cheer as a break note's.
+[clips."Mai Break Slide End"]
+sources = "break"
+trim_silence = true
+
+[clips."Mai Break Slide End Critical"]
+sources = ["break", { path = "cheer", trim = [0, 1.3], fade = [0.05, 0.5], at = 0.07 }]
+trim_silence = true
+
+# ==== Guide =======================================================================================
+
+# One clap of the clap loop.
+[clips."Mai Guide"]
+sources = [{ path = "guide_claps", trim = [1.495, 0.305], fade = [0.002, 0.1], gain = "$guide_gain" }]
+
+[clips."Mai Count In"]
+sources = "count_in"
+trim_silence = true

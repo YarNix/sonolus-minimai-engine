@@ -1,0 +1,194 @@
+[item]
+title = "Minimai Flat"
+subtitle = "Flat shapes, drawn from config"
+
+# White sprites, tinted by the effects.
+[sprites]
+star = { source = {}, canvas = { size = [128, 128], paint = [{ shape = "star", radius = 60, inner = 26, fill = true }] } }
+hexagon = { source = {}, canvas = { size = [128, 128], paint = [{ shape = "regular", sides = 6, radius = 58, rotate = 30, fill = true }] } }
+triangle = { source = {}, canvas = { size = [128, 128], paint = [{ shape = "regular", sides = 3, radius = 54, width = 10, align = "center" }] } }
+touch_circle = { source = {}, canvas = { size = [128, 128], paint = [{ shape = "circle", radius = 52, width = 10, align = "center" }] } }
+hold_glow = { source = {}, canvas = { size = [128, 128], paint = [{ shape = "circle", radius = 46.08, width = 8, align = "center", blur = 4 }] } }
+# The defaults' sprites aren't drawn.
+tap_perfect = { skip = true }
+tap_great = { skip = true }
+tap_good = { skip = true }
+break_perfect = { skip = true }
+break_great = { skip = true }
+break_good = { skip = true }
+touch_star = { skip = true }
+touch_star_hollow = { skip = true }
+
+[params]
+# The touch hit's tracks (seconds over its 0.25 s, skin px): where the rings' pieces are and how big,
+# their fade, and the triangles' spin.
+touch_outer = [[0, [42, 0]], [0.0167, [50, 0]], [0.05, [61, 0]], [0.0833, [65, 0]], [0.1167, [70, 0]]]
+touch_outer_width = [[0, 0.22], [0.0167, 0.28], [0.05, 0.37], [0.0833, 0.3], [0.1167, 0.25], [0.1833, 0.25], [0.2167, 0.19], [0.25, 0]]
+touch_inner = [[0, [40, 0]]]
+touch_inner_width = [[0, 0.13], [0.0167, 0.16], [0.05, 0.21], [0.0833, 0.14], [0.1167, 0.13], [0.1833, 0.13], [0.2167, 0.05], [0.25, 0]]
+touch_fade = [[0.1833, 1], [0.25, 0.6]]
+touch_spin = [[0, 0], [0.25, { random = [-240, 240] }]]
+
+# ==== Effects =====================================================================================
+# Taps: the burst in stars and triangles, the touch's size and spread, over the tap's time.
+
+[effects."Mai Tap Perfect"]
+rig = "burst"
+[effects."Mai Tap Perfect".args]
+full = "star"
+hollow = "triangle"
+color = "#ffc83a"
+outer = [[0, [42, 0]], [0.0281, [50, 0]], [0.084, [61, 0]], [0.1399, [65, 0]], [0.1961, [70, 0]]]
+outer_width = [[0, 0.22], [0.0281, 0.28], [0.084, 0.37], [0.1399, 0.3], [0.1961, 0.25], [0.3079, 0.25], [0.3641, 0.19], [0.42, 0]]
+inner = [[0, [40, 0]]]
+inner_width = [[0, 0.13], [0.0281, 0.16], [0.084, 0.21], [0.1399, 0.14], [0.1961, 0.13], [0.3079, 0.13], [0.3641, 0.05], [0.42, 0]]
+fade = [[0.3079, 1], [0.42, 0.6]]
+spin = [[0, 0], [0.42, { random = [-240, 240] }]]
+
+[effects."Mai Tap Great"]
+rig = "burst"
+[effects."Mai Tap Great".args]
+full = "star"
+hollow = "triangle"
+color = "#ff6fae"
+outer = [[0, [42, 0]], [0.0234, [50, 0]], [0.07, [61, 0]], [0.1166, [65, 0]], [0.1634, [70, 0]]]
+outer_width = [[0, 0.22], [0.0234, 0.28], [0.07, 0.37], [0.1166, 0.3], [0.1634, 0.25], [0.2566, 0.25], [0.3034, 0.19], [0.35, 0]]
+inner = [[0, [40, 0]]]
+inner_width = [[0, 0.13], [0.0234, 0.16], [0.07, 0.21], [0.1166, 0.14], [0.1634, 0.13], [0.2566, 0.13], [0.3034, 0.05], [0.35, 0]]
+fade = [[0.2566, 1], [0.35, 0.6]]
+spin = [[0, 0], [0.35, { random = [-240, 240] }]]
+
+[effects."Mai Tap Good"]
+rig = "burst"
+[effects."Mai Tap Good".args]
+full = "star"
+hollow = "triangle"
+color = "#4fd66a"
+outer = [[0, [42, 0]], [0.0267, [50, 0]], [0.08, [61, 0]], [0.1333, [65, 0]], [0.1867, [70, 0]]]
+outer_width = [[0, 0.22], [0.0267, 0.28], [0.08, 0.37], [0.1333, 0.3], [0.1867, 0.25], [0.2933, 0.25], [0.3467, 0.19], [0.4, 0]]
+inner = [[0, [40, 0]]]
+inner_width = [[0, 0.13], [0.0267, 0.16], [0.08, 0.21], [0.1333, 0.14], [0.1867, 0.13], [0.2933, 0.13], [0.3467, 0.05], [0.4, 0]]
+fade = [[0.2933, 1], [0.4, 0.6]]
+spin = [[0, 0], [0.4, { random = [-240, 240] }]]
+
+# Breaks: the same burst and a circle flash, all on the perfect's time.
+
+[effects."Mai Break Perfect"]
+rig = "flash_burst"
+[effects."Mai Break Perfect".args]
+full = "star"
+hollow = "triangle"
+star = "#ffc83a"
+circle = "#ffc83a"
+outer = [[0, [42, 0]], [0.0281, [50, 0]], [0.084, [61, 0]], [0.1399, [65, 0]], [0.1961, [70, 0]]]
+outer_width = [[0, 0.22], [0.0281, 0.28], [0.084, 0.37], [0.1399, 0.3], [0.1961, 0.25], [0.3079, 0.25], [0.3641, 0.19], [0.42, 0]]
+inner = [[0, [40, 0]]]
+inner_width = [[0, 0.13], [0.0281, 0.16], [0.084, 0.21], [0.1399, 0.14], [0.1961, 0.13], [0.3079, 0.13], [0.3641, 0.05], [0.42, 0]]
+fade = [[0.3079, 1], [0.42, 0.6]]
+spin = [[0, 0], [0.42, { random = [-240, 240] }]]
+
+[effects."Mai Break Great"]
+rig = "flash_burst"
+[effects."Mai Break Great".args]
+full = "star"
+hollow = "triangle"
+star = "#ff6fae"
+circle = "#ff6fae"
+outer = [[0, [42, 0]], [0.0281, [50, 0]], [0.084, [61, 0]], [0.1399, [65, 0]], [0.1961, [70, 0]]]
+outer_width = [[0, 0.22], [0.0281, 0.28], [0.084, 0.37], [0.1399, 0.3], [0.1961, 0.25], [0.3079, 0.25], [0.3641, 0.19], [0.42, 0]]
+inner = [[0, [40, 0]]]
+inner_width = [[0, 0.13], [0.0281, 0.16], [0.084, 0.21], [0.1399, 0.14], [0.1961, 0.13], [0.3079, 0.13], [0.3641, 0.05], [0.42, 0]]
+fade = [[0.3079, 1], [0.42, 0.6]]
+spin = [[0, 0], [0.42, { random = [-240, 240] }]]
+
+[effects."Mai Break Good"]
+rig = "flash_burst"
+[effects."Mai Break Good".args]
+full = "star"
+hollow = "triangle"
+star = "#4fd66a"
+circle = "#4fd66a"
+outer = [[0, [42, 0]], [0.0281, [50, 0]], [0.084, [61, 0]], [0.1399, [65, 0]], [0.1961, [70, 0]]]
+outer_width = [[0, 0.22], [0.0281, 0.28], [0.084, 0.37], [0.1399, 0.3], [0.1961, 0.25], [0.3079, 0.25], [0.3641, 0.19], [0.42, 0]]
+inner = [[0, [40, 0]]]
+inner_width = [[0, 0.13], [0.0281, 0.16], [0.084, 0.21], [0.1399, 0.14], [0.1961, 0.13], [0.3079, 0.13], [0.3641, 0.05], [0.42, 0]]
+fade = [[0.3079, 1], [0.42, 0.6]]
+spin = [[0, 0], [0.42, { random = [-240, 240] }]]
+
+# Touches: hexagons and triangles, with the circle flash, in the defaults' colours.
+
+[effects."Mai Touch Perfect"]
+rig = "flash_burst"
+args = { full = "hexagon", hollow = "triangle" }
+
+[effects."Mai Touch Great"]
+rig = "flash_burst"
+args = { full = "hexagon", hollow = "triangle" }
+
+[effects."Mai Touch Good"]
+rig = "flash_burst"
+args = { full = "hexagon", hollow = "triangle" }
+
+# ==== Rigs ========================================================================================
+
+# Two rings of pieces: full ones on the outer diagonals and the inner axes, spinning hollow ones on the
+# outer axes and the inner diagonals.
+[rigs.burst]
+params = { size = 100, outer = "$touch_outer", outer_width = "$touch_outer_width", inner = "$touch_inner", inner_width = "$touch_inner_width", fade = "$touch_fade", spin = "$touch_spin" }
+
+[[rigs.burst.children]]
+rig = "burst_piece"
+args = { sprite = "$full", pos = "$outer", width = "$outer_width", color = "$color", size = "$size", fade = "$fade" }
+repeat = { count = 4, start = 45, orient = false }
+
+[[rigs.burst.children]]
+rig = "spun_piece"
+args = { sprite = "$hollow", pos = "$outer", width = "$outer_width", color = "$color", size = "$size", fade = "$fade", spin = "$spin" }
+repeat = { count = 4, start = 0, orient = false }
+
+[[rigs.burst.children]]
+rig = "burst_piece"
+args = { sprite = "$full", pos = "$inner", width = "$inner_width", color = "$color", size = "$size", fade = "$fade" }
+repeat = { count = 4, start = 0, orient = false }
+
+[[rigs.burst.children]]
+rig = "spun_piece"
+args = { sprite = "$hollow", pos = "$inner", width = "$inner_width", color = "$color", size = "$size", fade = "$fade", spin = "$spin" }
+repeat = { count = 4, start = 45, orient = false }
+
+# The touch's circle flash, then a burst.
+[rigs.flash_burst]
+params = { circle_size = 100, size = 100, outer = "$touch_outer", outer_width = "$touch_outer_width", inner = "$touch_inner", inner_width = "$touch_inner_width", fade = "$touch_fade", spin = "$touch_spin" }
+
+[[rigs.flash_burst.children]]
+scale = [[0, 0.25], [0.0167, 0.475], [0.05, 1.1], [0.0833, 1.34], [0.1167, 1.4]]
+sprite = "touch_circle"
+size = "$circle_size"
+alpha = [[0, 1], [0.0167, 0.9], [0.05, 0.45], [0.0833, 0.15], [0.1167, 0]]
+color = "$circle"
+
+[[rigs.flash_burst.children]]
+rig = "burst"
+args = { full = "$full", hollow = "$hollow", color = "$star", size = "$size", outer = "$outer", outer_width = "$outer_width", inner = "$inner", inner_width = "$inner_width", fade = "$fade", spin = "$spin" }
+
+# One piece: out along the x axis at pos, keeping its angle.
+[rigs.burst_piece]
+pos = "$pos"
+scale = "$width"
+sprite = "$sprite"
+size = "$size"
+alpha = "$fade"
+color = "$color"
+
+# A piece at a random angle, spinning: a group of its own, so each copy draws its own angle and spin.
+[rigs.spun_piece]
+count = 1
+pos = "$pos"
+rot = { random = [0, 360] }
+scale = "$width"
+[[rigs.spun_piece.children]]
+rot = "$spin"
+sprite = "$sprite"
+size = "$size"
+alpha = "$fade"
+color = "$color"

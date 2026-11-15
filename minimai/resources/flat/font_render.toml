@@ -1,0 +1,172 @@
+font = "fonts/MPLUSRounded1c-Black.ttf"
+
+[params]
+# The skin's cells (tools/defaults/skin.toml).
+judge_text_cell = [223, 82]
+fast_late_cell = [217, 76]
+slide_ok_curve_cell = [410, 180]
+slide_ok_straight_cell = [428, 140]
+slide_ok_wifi_cell = [668, 188]
+# A grade's colour fills its word: Perfect orange, Great pink, Good green, Miss grey; Fast blue, Late red.
+judgments = [
+    { name = "Perfect", lines = "PERFECT", fill = [255, 154, 31] },
+    { name = "Great", lines = "GREAT", fill = [255, 111, 174] },
+    { name = "Good", lines = "GOOD", fill = [79, 214, 106] },
+    { name = "Miss", lines = "MISS", fill = [154, 160, 173] },
+    { name = "Perfect Shine", lines = "PERFECT", fill = [255, 240, 200], outlines = [{ width = 5, color = [255, 154, 31] }], counter_fill = [255, 154, 31] },
+    { name = "Perfect Fast", lines = "PERFECT", fill = [74, 163, 255] },
+    { name = "Perfect Late", lines = "PERFECT", fill = [255, 79, 58] },
+    { name = "Great Fast", lines = "GREAT", fill = [74, 163, 255] },
+    { name = "Great Late", lines = "GREAT", fill = [255, 79, 58] },
+    { name = "Good Fast", lines = "GOOD", fill = [74, 163, 255] },
+    { name = "Good Late", lines = "GOOD", fill = [255, 79, 58] },
+    { name = "Fast", lines = "FAST", fill = [74, 163, 255], cell = "$fast_late_cell" },
+    { name = "Late", lines = "LATE", fill = [255, 79, 58], cell = "$fast_late_cell" },
+]
+# The Slide OK words: the timing over the grade, in the grade's colour.
+slide_ok_grades = [
+    { name = "Critical Perfect", lines = ["CRITICAL", { text = "PERFECT", fill = [255, 194, 26] }] },
+    { name = "Just Perfect", lines = ["JUST", { text = "PERFECT", fill = [255, 154, 31] }] },
+    { name = "Fast Perfect", lines = ["FAST", { text = "PERFECT", fill = [255, 154, 31] }] },
+    { name = "Late Perfect", lines = ["LATE", { text = "PERFECT", fill = [255, 154, 31] }] },
+    { name = "Fast Great", lines = ["FAST", { text = "GREAT", fill = [255, 111, 174] }] },
+    { name = "Late Great", lines = ["LATE", { text = "GREAT", fill = [255, 111, 174] }] },
+    { name = "Fast Good", lines = ["FAST", { text = "GOOD", fill = [79, 214, 106] }] },
+    { name = "Late Good", lines = ["LATE", { text = "GOOD", fill = [79, 214, 106] }] },
+    { name = "Too Late", lines = ["TOO LATE", { skip = true }] },
+]
+
+# The 2 with the defaults' hook settings, which leave its wide opening open.
+[glyph_style]
+"2" = { fill_hooks = { radius = 9.0, room_width = 3.0, enclosure = 0.65 } }
+
+# ==== Counter =====================================================================================
+
+[looks.Counter]
+outlines = [{ width = 2.5, color = [255, 255, 255] }]
+# Holes and hook openings filled in the outline's colour (0, 3, 4, 5, 6, 8, 9, %).
+fill_counters = true
+fill_hooks = { radius = 12.0, room_width = 3.0, enclosure = 0.55 }
+counter_fill = [255, 255, 255]
+edge = false
+
+[looks.Yellow]
+pattern = false
+shine = false
+
+[looks.Pink]
+pattern = false
+
+[looks.Silver]
+shine = false
+
+[looks.Blue]
+shine = false
+
+[looks.Gold]
+pattern = false
+shine = false
+
+# ==== Preview =====================================================================================
+
+[looks.PreviewLabel]
+fill_counters = true
+counter_fill = [20, 20, 24]
+
+# ==== Judgments ===================================================================================
+
+[looks.Judgment]
+outlines = [{ width = 5, color = [27, 29, 43] }]
+fill_counters = true
+counter_fill = [27, 29, 43]
+
+[[sprite_groups]]
+name = "Mai Judge {sprite}"
+look = "Judgment"
+sprites = "$judgments"
+cell = "$judge_text_cell"
+size = { em = 44, reference = "H" }
+
+# CRITICAL over PERFECT.
+[[sprite_groups]]
+name = "Mai Judge Critical {sprite}"
+look = "Judgment"
+sprites = [{ name = "Perfect", fill = [255, 194, 26] }, { name = "Perfect Shine", fill = [255, 243, 192], outlines = [{ width = 5, color = [255, 194, 26] }], counter_fill = [255, 194, 26] }]
+cell = "$judge_text_cell"
+lines = [
+    { text = "CRITICAL", box = [0, 0, 223, 44], size = { em = 22, reference = "H" } },
+    { text = "PERFECT", box = [0, 33, 223, 42], size = { em = 40, reference = "H" } },
+]
+
+# ==== Slide OK ====================================================================================
+# White words with a dark outline, toward the arrow (straights and curves) or in the middle (Wi-Fi), and the
+# grade under them (over them, for Wi-Fi Down), each the same size across a state's sprites. Each state places
+# the lines in its cell.
+
+[looks.SlideOK]
+fill_counters = true
+counter_fill = [27, 29, 43]
+lines = [
+    { size = { em = 42, reference = "H" }, outlines = [{ width = 4, color = [27, 29, 43] }], overflow = "shrink_group" },
+    { size = { em = 27, reference = "H" }, outlines = [{ width = 3, color = [27, 29, 43] }], overflow = "shrink_group" },
+]
+
+[[sprite_groups]]
+name = "Mai Slide OK Curve R {sprite}"
+look = "SlideOK"
+sprites = "$slide_ok_grades"
+cell = "$slide_ok_curve_cell"
+lines = [
+    { box = [40, 42, 291, 70], align_x = "right", margin = 5 },
+    { box = [40, 114, 290, 26], align_x = "right", margin = 7 },
+]
+
+[[sprite_groups]]
+name = "Mai Slide OK Curve L {sprite}"
+look = "SlideOK"
+sprites = "$slide_ok_grades"
+cell = "$slide_ok_curve_cell"
+lines = [
+    { box = [79, 42, 291, 70], align_x = "left", margin = 5 },
+    { box = [80, 114, 290, 26], align_x = "left", margin = 7 },
+]
+
+[[sprite_groups]]
+name = "Mai Slide OK Straight R {sprite}"
+look = "SlideOK"
+sprites = "$slide_ok_grades"
+cell = "$slide_ok_straight_cell"
+lines = [
+    { box = [30, 17, 352, 70], align_x = "right", margin = 5 },
+    { box = [30, 92, 352, 26], align_x = "right", margin = 7 },
+]
+
+[[sprite_groups]]
+name = "Mai Slide OK Straight L {sprite}"
+look = "SlideOK"
+sprites = "$slide_ok_grades"
+cell = "$slide_ok_straight_cell"
+lines = [
+    { box = [46, 17, 352, 70], align_x = "left", margin = 5 },
+    { box = [46, 92, 352, 26], align_x = "left", margin = 7 },
+]
+
+[[sprite_groups]]
+name = "Mai Slide OK Wifi Up {sprite}"
+look = "SlideOK"
+sprites = "$slide_ok_grades"
+cell = "$slide_ok_wifi_cell"
+lines = [
+    { box = [134, 8, 400, 70] },
+    { box = [134, 76, 400, 26] },
+]
+
+[[sprite_groups]]
+name = "Mai Slide OK Wifi Down {sprite}"
+look = "SlideOK"
+sprites = "$slide_ok_grades"
+cell = "$slide_ok_wifi_cell"
+lines = [
+    { box = [134, 110, 400, 70] },
+    { box = [134, 86, 400, 26] },
+]

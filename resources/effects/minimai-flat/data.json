@@ -70,11 +70,11 @@
         },
         {
             "name": "Mai Break Slide End",
-            "filename": "mai_break_slide_end.ogg"
+            "filename": "mai_break_hit.ogg"
         },
         {
             "name": "Mai Break Slide End Critical",
-            "filename": "mai_break_slide_end_critical.ogg"
+            "filename": "mai_break_critical_hit.ogg"
         },
         {
             "name": "Mai Guide",
