@@ -5,6 +5,7 @@
     python main.py particle <name> <source>   resources/particles/<name> from a folder or zip file of sprites
     python main.py all <name> <folder>        all three, from <folder>/skin, <folder>/effect and <folder>/particle
                                               (each a folder or a .zip); a missing one is skipped
+    python main.py localization [locale ...]  list the text each locale of localization.toml lacks
     python main.py clean [folder ...]         remove the caches (the chart folders' converted audio and
                                               backgrounds) and the sprites art and font_render drew (in the
                                               folders given, or anywhere in the project); --caches or --drawn
@@ -62,9 +63,15 @@ def main():
     only.add_argument("--caches", action="store_true", help="only the converted audio and the chart backgrounds")
     only.add_argument("--drawn", action="store_true", help="only the sprites art and font_render drew")
     clean.add_argument("-n", "--dry-run", action="store_true", help="list what would be removed, remove nothing")
+    localization = commands.add_parser("localization", help="list the text each locale lacks")
+    localization.add_argument("locales", nargs="*", help="locale codes (default: every locale with some text)")
     args = parser.parse_args()
 
-    if args.command == "clean":
+    if args.command == "localization":
+        from minimai.localization import report
+
+        report(args.locales)
+    elif args.command == "clean":
         from minimai.tools.cleanup import clean as clean_project
 
         clean_project(args.folders, caches=not args.drawn, drawn=not args.caches, dry_run=args.dry_run)

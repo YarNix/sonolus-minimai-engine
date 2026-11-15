@@ -140,5 +140,6 @@ A pack gives the engine sprites, clips and effects by these names. Where one is 
 | [docs/packs.md](docs/packs.md) | The skin, effect and particle pack configs (`python main.py skin\|effect\|particle\|all`) |
 | [docs/arts.md](docs/arts.md) | `art`: skin sprites drawn from shapes |
 | [docs/font_render.md](docs/font_render.md) | `font_render`: skin sprites drawn from text |
+| [docs/localization.md](docs/localization.md) | The text Sonolus shows, by language, in `localization.toml` |
 
 `python main.py --help` lists the pack tool commands, and `python main.py clean` removes their caches and drawn sprites.

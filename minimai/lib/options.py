@@ -1,15 +1,18 @@
 from enum import IntEnum
 
-from sonolus.script.options import OptionCategory, options, select_option, slider_option, toggle_option
+from sonolus.script.options import OptionCategory, select_option, slider_option, toggle_option
 from sonolus.script.text import StandardText
 
-@options
+from minimai.localization import localized_options
+
+
+@localized_options
 class Options:
     gameplay = OptionCategory(title=StandardText.GAMEPLAY)
     graphics = OptionCategory(title=StandardText.GRAPHICS)
     audio = OptionCategory(title=StandardText.AUDIO)
     miscellaneous = OptionCategory(title=StandardText.MISCELLANEOUS)
-    challenge = OptionCategory(title="Challenge")
+    challenge = OptionCategory()
 
     speed: float = slider_option(
         name=StandardText.SPEED,
@@ -44,7 +47,6 @@ class Options:
         name="Slide Timing",
         scope="Maimai",
         category=gameplay,
-        description="Change the display timing of slide.",
         default=0,
         min=-1000,
         max=1000,
@@ -56,28 +58,19 @@ class Options:
         scope="Maimai",
         category=gameplay,
         default=0,
-        values=["OFF", "⇔", "⇅", "↻", "⇙", "⇘"],
+        values=[StandardText.OFF, "left_right", "up_down", "rotate_180", "diagonal_left", "diagonal_right"],
     )
     orientation: int = select_option(
         name="Orientation",
-        description=(
-            "How the game is orientated\n"
-            "Portrait: the screen's left edge up.\n"
-            "Portrait (Reversed): the screen's right edge up."
-        ),
         scope="Maimai",
         category=gameplay,
         default=0,
-        values=["Landscape", "Landscape (Reversed)", "Portrait", "Portrait (Reversed)"],
+        values=["landscape", "landscape_reversed", "portrait", "portrait_reversed"],
     )
     note_radius: float = slider_option(
         name="Note Radius",
         scope="Maimai",
         category=gameplay,
-        description=(
-            "How big the radius of your touches are for tap/slide notes.\n"
-            "Bigger radius cover more sensors but more likely to splash!"
-        ),
         default=1,
         min=0,
         max=3,
@@ -88,10 +81,6 @@ class Options:
         name="Touch Radius",
         scope="Maimai",
         category=gameplay,
-        description=(
-            "How big the radius of your touches are for touch notes.\n"
-            "Bigger radius cover more sensors but more likely to splash!"
-        ),
         default=1.5,
         min=0,
         max=3,
@@ -121,7 +110,6 @@ class Options:
         name="Button Size",
         scope="Maimai",
         category=gameplay,
-        description="The distance that the button hitbox extend from the ring edge.",
         default=0,
         min=0,
         max=2,
@@ -129,7 +117,6 @@ class Options:
     )
     button_angle: float = slider_option(
         name="Button Angle",
-        description="The width of the hitbox.",
         scope="Maimai",
         category=gameplay,
         default=40,
@@ -139,7 +126,6 @@ class Options:
     )
     note_scale: float = slider_option(
         name="Note Scale",
-        description="Visually scale the size of tap and star notes",
         scope="Maimai",
         category=graphics,
         default=1,
@@ -150,7 +136,6 @@ class Options:
     )
     touch_scale: float = slider_option(
         name="Touch Scale",
-        description="Visually scale the size of touch notes",
         scope="Maimai",
         category=graphics,
         default=1,
@@ -161,7 +146,6 @@ class Options:
     )
     slide_scale: float = slider_option(
         name="Slide Scale",
-        description="Visually scale the size of slide paths",
         scope="Maimai",
         category=graphics,
         default=1,
@@ -173,7 +157,6 @@ class Options:
     # Sounds per category;
     guide_sound: bool = toggle_option(
         name="Guide Sound",
-        description="A sound at every note timing, plus a count-in.",
         scope="Maimai",
         category=audio,
         default=True,
@@ -186,11 +169,10 @@ class Options:
     )
     tap_sound_judgment: int = select_option(
         name="Tap/Hold Sound Judgment",
-        description="Which judgments make a Tap/Hold sound.",
         scope="Maimai",
         category=audio,
         default=1,
-        values=["Good-Perfect", "Good-Critical Perfect", "Critical Perfect only", "Perfect only"],
+        values=["good_perfect", "good_critical_perfect", "critical_perfect_only", "perfect_only"],
     )
     break_sound: bool = toggle_option(
         name="Break Sound",
@@ -218,7 +200,6 @@ class Options:
     )
     misc_sound: bool = toggle_option(
         name="Miscellaneous Sound",
-        description="Fireworks.",
         scope="Maimai",
         category=audio,
         default=True,
@@ -256,7 +237,6 @@ class Options:
     )
     strict_slide_judgment: bool = toggle_option(
         name="Strict Slide Judgment",
-        description='Divide Slide "Perfect" judgment into Critical and Fast/Late Perfect (affect break slide only)',
         scope="Maimai",
         category=gameplay,
         standard=True,
@@ -264,34 +244,29 @@ class Options:
     )
     sonolus_judgment: bool = toggle_option(
         name="Sonolus Judgment",
-        description="Show Sonolus' judgment text instead of the judge text and fast/late at each note.",
         scope="Maimai",
         category=graphics,
         default=False,
     )
     center_display: int = select_option(
         name="Center Display",
-        description=(
-            "What the ring center shows.\n"
-            "Grade Combo colours the combo by the best result still reachable."
-        ),
         scope="Maimai",
         category=graphics,
         default=1,
         values=[
-            "Off",
-            "Combo",
-            "Grade Combo",
-            "Achievement (+)",
-            "Achievement (-100%)",
-            "Achievement (-101%)",
-            "DX Score (+)",
-            "DX Score (MAX-)",
-            "DX Score (✧)",
-            "S Border",
-            "SS Border",
-            "SSS Border",
-            "Sonolus Combo",
+            StandardText.OFF,
+            "combo",
+            "grade_combo",
+            "achievement",
+            "achievement_from_100",
+            "achievement_from_101",
+            "dx_score",
+            "dx_score_from_max",
+            "dx_score_rank",
+            "s_border",
+            "ss_border",
+            "sss_border",
+            "sonolus_combo",
         ],
     )
     center_display_opacity: float = slider_option(
@@ -306,42 +281,33 @@ class Options:
     )
     judge_text: int = select_option(
         name="Judge Text",
-        description="Which judgments show their text at the note.",
         scope="Maimai",
         category=graphics,
         default=0,
-        values=["All", "Below Critical Perfect", "Below Perfect", "Below Great", "Miss Only", "Off"],
+        values=["all", "below_critical_perfect", "below_perfect", "below_great", "miss_only", StandardText.OFF],
     )
     critical_perfect_text: bool = toggle_option(
         name="Show Critical Perfect Text",
-        description="Critical perfects show their own text instead of Perfect.",
         scope="Maimai",
         category=graphics,
         default=False,
     )
     fast_late: int = select_option(
         name="Fast/Late",
-        description="Which judgments show fast/late at the note.",
         scope="Maimai",
         category=graphics,
         default=3,
-        values=["Below Critical Perfect", "Below Perfect", "Below Great", "Off"],
+        values=["below_critical_perfect", "below_perfect", "below_great", StandardText.OFF],
     )
     fast_late_style: int = select_option(
         name="Fast/Late Style",
-        description=(
-            "With Judgment: fast/late beside the judge text.\n"
-            "Fast/Late Judgment: the judge text in its fast/late version.\n"
-            "Fast/Late Only: fast/late without the judge text."
-        ),
         scope="Maimai",
         category=graphics,
         default=0,
-        values=["With Judgment", "Fast/Late Judgment", "Fast/Late Only"],
+        values=["with_judgment", "fast_late_judgment", "fast_late_only"],
     )
     judge_text_distance: float = slider_option(
         name="Judge Text Distance",
-        description="Lower moves the judge text toward the center; 0 hides it.",
         scope="Maimai",
         category=graphics,
         default=1,
@@ -351,30 +317,26 @@ class Options:
     )
     slide_ok_order: int = select_option(
         name="Slide OK Order",
-        description="Which slide OK is on top where they overlap. A worse judgment is always on top.",
         scope="Maimai",
         category=graphics,
         default=0,
-        values=["Earlier on Top", "Later on Top"],
+        values=["earlier_on_top", "later_on_top"],
     )
     hold_head_judge: bool = toggle_option(
         name="Hold Head Judge Text",
-        description="Holds also show the judge text of their head.",
         scope="Maimai",
         category=graphics,
         default=False,
     )
     touch_feedback: int = select_option(
         name="Touch Feedback",
-        description="A flash where you press. Outer: the buttons and A sensors. Inner: B, C and E.",
         scope="Maimai",
         category=graphics,
         default=1,
-        values=["All", "Outer Only", "Inner Only", "Off"],
+        values=["all", "outer_only", "inner_only", StandardText.OFF],
     )
     show_input: bool = toggle_option(
         name="Show touch input.",
-        description="Highlight hitbox when triggered by touches. Does not work on replays if it was made without [Record touch input]",
         category=miscellaneous,
         scope="Maimai",
         advanced=True,
@@ -382,10 +344,6 @@ class Options:
     )
     record_input: bool = toggle_option(
         name="Record touch input",
-        description=(
-            "Record touch input to show in replays.\n"
-            "Could cause performance issue! Only turn this on if you want to [Show touch input] to work in your replays."
-        ),
         category=miscellaneous,
         scope="Maimai",
         advanced=True,
@@ -404,7 +362,6 @@ class Options:
     )
     life_challenge: float = slider_option(
         name="Life Challenge",
-        description="Start with this many lives, lost by judgment (see below). 0: off. The center shows the lives instead.",
         scope="Maimai",
         category=challenge,
         standard=True,
@@ -415,7 +372,6 @@ class Options:
     )
     critical_perfect_loss: float = slider_option(
         name="Critical Perfect Loss",
-        description="Lives lost on a critical perfect.",
         scope="Maimai",
         category=challenge,
         standard=True,
@@ -426,7 +382,6 @@ class Options:
     )
     perfect_loss: float = slider_option(
         name="Perfect Loss",
-        description="Lives lost on a (non-critical) perfect.",
         scope="Maimai",
         category=challenge,
         standard=True,
@@ -437,7 +392,6 @@ class Options:
     )
     great_loss: float = slider_option(
         name="Great Loss",
-        description="Lives lost on a great.",
         scope="Maimai",
         category=challenge,
         standard=True,
@@ -448,7 +402,6 @@ class Options:
     )
     good_loss: float = slider_option(
         name="Good Loss",
-        description="Lives lost on a good.",
         scope="Maimai",
         category=challenge,
         standard=True,
@@ -459,7 +412,6 @@ class Options:
     )
     miss_loss: float = slider_option(
         name="Miss Loss",
-        description="Lives lost on a miss.",
         scope="Maimai",
         category=challenge,
         standard=True,
@@ -470,7 +422,6 @@ class Options:
     )
     end_at_zero_life: bool = toggle_option(
         name="End at 0 Life",
-        description="With no lives left, the rest of the notes are dropped (as misses) and the track can be skipped.",
         scope="Maimai",
         category=challenge,
         standard=True,

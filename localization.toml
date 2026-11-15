@@ -1,0 +1,409 @@
+# The text Sonolus shows: option titles, descriptions and values, option categories and tutorial
+# messages. Format: docs/localization.md.
+
+[categories.challenge]
+title.en = "Challenge"
+title.ja = "チャレンジ"
+
+[options.tap_speed]
+title.en = "Tap Speed"
+title.ja = "タップスピード"
+
+[options.touch_speed]
+title.en = "Touch Speed"
+title.ja = "タッチスピード"
+
+[options.slide_fade_offset]
+title.en = "Slide Timing"
+title.ja = "スライド表示タイミング"
+description.en = "When slide paths appear: higher shows them earlier, lower later."
+description.ja = "スライドの軌跡が表示されるタイミング。大きいほど早く、小さいほど遅く表示されます。"
+
+[options.mirror.values]
+left_right.en = "⇔"
+up_down.en = "⇅"
+rotate_180.en = "↻"
+diagonal_left.en = "⇙"
+diagonal_right.en = "⇘"
+
+[options.orientation]
+title.en = "Orientation"
+title.ja = "画面の向き"
+description.en = "Which way the screen is held.\nPortrait: the screen's left edge up.\nPortrait (Reversed): the screen's right edge up."
+description.ja = "画面の向き。\n縦向き：画面の左端が上。\n縦向き（反転）：画面の右端が上。"
+
+[options.orientation.values]
+landscape.en = "Landscape"
+landscape.ja = "横向き"
+landscape_reversed.en = "Landscape (Reversed)"
+landscape_reversed.ja = "横向き（反転）"
+portrait.en = "Portrait"
+portrait.ja = "縦向き"
+portrait_reversed.en = "Portrait (Reversed)"
+portrait_reversed.ja = "縦向き（反転）"
+
+[options.note_radius]
+title.en = "Note Radius"
+title.ja = "ノーツ判定半径"
+description.en = "How big a touch is for taps and slides.\nA bigger radius reaches more sensors, but splashes more easily."
+description.ja = "タップとスライドで、指が触れる範囲の大きさ。\n大きいほど多くのセンサーに届きますが、誤爆しやすくなります。"
+
+[options.touch_radius]
+title.en = "Touch Radius"
+title.ja = "タッチ判定半径"
+description.en = "How big a touch is for touch notes.\nA bigger radius reaches more sensors, but splashes more easily."
+description.ja = "タッチノーツで、指が触れる範囲の大きさ。\n大きいほど多くのセンサーに届きますが、誤爆しやすくなります。"
+
+[options.ring_size]
+title.en = "Ring Size"
+title.ja = "リングの大きさ"
+
+[options.ring_offset]
+title.en = "Ring Y Offset"
+title.ja = "リングの上下位置"
+
+[options.button_size]
+title.en = "Button Size"
+title.ja = "ボタンの大きさ"
+description.en = "How far the button hitboxes reach out from the ring."
+description.ja = "ボタンの判定がリングの外側へ広がる距離。"
+
+[options.button_angle]
+title.en = "Button Angle"
+title.ja = "ボタンの角度"
+description.en = "How wide each button hitbox is, in degrees."
+description.ja = "ボタンの判定の幅（角度）。"
+
+[options.note_scale]
+title.en = "Note Scale"
+title.ja = "ノーツの大きさ"
+description.en = "Draws taps and stars bigger or smaller."
+description.ja = "タップと☆の見た目の大きさ。"
+
+[options.touch_scale]
+title.en = "Touch Scale"
+title.ja = "タッチの大きさ"
+description.en = "Draws touch notes bigger or smaller."
+description.ja = "タッチノーツの見た目の大きさ。"
+
+[options.slide_scale]
+title.en = "Slide Scale"
+title.ja = "スライドの大きさ"
+description.en = "Draws slide paths bigger or smaller."
+description.ja = "スライドの軌跡の見た目の大きさ。"
+
+[options.guide_sound]
+title.en = "Guide Sound"
+title.ja = "ガイド音"
+description.en = "A sound at every note, plus a count-in."
+description.ja = "すべてのノーツのタイミングで鳴る音と、カウントイン。"
+
+[options.tap_sound]
+title.en = "Tap/Hold Sound"
+title.ja = "タップ・ホールド音"
+
+[options.tap_sound_judgment]
+title.en = "Tap/Hold Sound Judgment"
+title.ja = "タップ・ホールド音の判定"
+description.en = "Which judgments make the tap/hold sound."
+description.ja = "タップ・ホールド音が鳴る判定。"
+
+[options.tap_sound_judgment.values]
+good_perfect.en = "Good to Perfect"
+good_perfect.ja = "GOOD～PERFECT"
+good_critical_perfect.en = "Good to Critical Perfect"
+good_critical_perfect.ja = "GOOD～CRITICAL PERFECT"
+critical_perfect_only.en = "Critical Perfect Only"
+critical_perfect_only.ja = "CRITICAL PERFECTのみ"
+perfect_only.en = "Perfect Only"
+perfect_only.ja = "PERFECTのみ"
+
+[options.break_sound]
+title.en = "Break Sound"
+title.ja = "ブレイク音"
+
+[options.ex_sound]
+title.en = "EX Sound"
+title.ja = "EX音"
+
+[options.slide_sound]
+title.en = "Slide Sound"
+title.ja = "スライド音"
+
+[options.touch_sound]
+title.en = "Touch Sound"
+title.ja = "タッチ音"
+
+[options.misc_sound]
+title.en = "Miscellaneous Sound"
+title.ja = "その他の音"
+description.en = "Fireworks."
+description.ja = "花火。"
+
+[options.effect_animation_speed]
+title.en = "Effect Animation Speed"
+title.ja = "エフェクトの速さ"
+
+[options.strict_slide_judgment]
+title.en = "Strict Slide Judgment"
+title.ja = "厳密なスライド判定"
+description.en = "Splits a slide's Perfect into Critical Perfect and Fast/Late Perfect (it only changes break slides' scores)."
+description.ja = "スライドのPERFECTを、CRITICAL PERFECTとFAST/LATEのPERFECTに分けます（スコアが変わるのはブレイクスライドのみ）。"
+
+[options.sonolus_judgment]
+title.en = "Sonolus Judgment"
+title.ja = "Sonolusの判定表示"
+description.en = "Shows Sonolus' judgment text instead of the judge text and Fast/Late at each note."
+description.ja = "ノーツごとの判定表示とFAST/LATEの代わりに、Sonolusの判定表示を出します。"
+
+[options.center_display]
+title.en = "Center Display"
+title.ja = "センター表示"
+description.en = "What the ring's center shows.\nGrade Combo colors the combo by the best result still reachable."
+description.ja = "リングの中央に出す表示。\nグレードコンボは、まだ狙える最高の結果の色でコンボを表示します。"
+
+[options.center_display.values]
+combo.en = "Combo"
+combo.ja = "コンボ"
+grade_combo.en = "Grade Combo"
+grade_combo.ja = "グレードコンボ"
+achievement.en = "Achievement (+)"
+achievement.ja = "達成率（加算）"
+achievement_from_100.en = "Achievement (-100%)"
+achievement_from_100.ja = "達成率（100%から減算）"
+achievement_from_101.en = "Achievement (-101%)"
+achievement_from_101.ja = "達成率（101%から減算）"
+dx_score.en = "DX Score (+)"
+dx_score.ja = "でらっくスコア（加算）"
+dx_score_from_max.en = "DX Score (MAX-)"
+dx_score_from_max.ja = "でらっくスコア（MAXから減算）"
+dx_score_rank.en = "DX Score (✧)"
+dx_score_rank.ja = "でらっくスコア（✧）"
+s_border.en = "S Border"
+s_border.ja = "Sボーダー"
+ss_border.en = "SS Border"
+ss_border.ja = "SSボーダー"
+sss_border.en = "SSS Border"
+sss_border.ja = "SSSボーダー"
+sonolus_combo.en = "Sonolus Combo"
+sonolus_combo.ja = "Sonolusのコンボ"
+
+[options.center_display_opacity]
+title.en = "Center Display Opacity"
+title.ja = "センター表示の不透明度"
+
+[options.judge_text]
+title.en = "Judge Text"
+title.ja = "判定表示"
+description.en = "Which judgments show their text at the note."
+description.ja = "ノーツの位置に判定を表示する判定。"
+
+[options.judge_text.values]
+all.en = "All"
+all.ja = "すべて"
+below_critical_perfect.en = "Below Critical Perfect"
+below_critical_perfect.ja = "CRITICAL PERFECT未満"
+below_perfect.en = "Below Perfect"
+below_perfect.ja = "PERFECT未満"
+below_great.en = "Below Great"
+below_great.ja = "GREAT未満"
+miss_only.en = "Miss Only"
+miss_only.ja = "MISSのみ"
+
+[options.critical_perfect_text]
+title.en = "Show Critical Perfect Text"
+title.ja = "CRITICAL PERFECTを表示"
+description.en = "Critical perfects show their own text instead of Perfect."
+description.ja = "CRITICAL PERFECTをPERFECTではなく専用の表示で出します。"
+
+[options.fast_late]
+title.en = "Fast/Late"
+title.ja = "FAST/LATE表示"
+description.en = "Which judgments show Fast/Late at the note."
+description.ja = "ノーツの位置にFAST/LATEを表示する判定。"
+
+[options.fast_late.values]
+below_critical_perfect.en = "Below Critical Perfect"
+below_critical_perfect.ja = "CRITICAL PERFECT未満"
+below_perfect.en = "Below Perfect"
+below_perfect.ja = "PERFECT未満"
+below_great.en = "Below Great"
+below_great.ja = "GREAT未満"
+
+[options.fast_late_style]
+title.en = "Fast/Late Style"
+title.ja = "FAST/LATEの表示方法"
+description.en = "With Judgment: Fast/Late beside the judge text.\nFast/Late Judgment: the judge text in its Fast/Late version.\nFast/Late Only: Fast/Late without the judge text."
+description.ja = "判定と並べる：判定表示の横にFAST/LATE。\nFAST/LATE付き判定：判定表示をFAST/LATE版に。\nFAST/LATEのみ：判定表示なしでFAST/LATEだけ。"
+
+[options.fast_late_style.values]
+with_judgment.en = "With Judgment"
+with_judgment.ja = "判定と並べる"
+fast_late_judgment.en = "Fast/Late Judgment"
+fast_late_judgment.ja = "FAST/LATE付き判定"
+fast_late_only.en = "Fast/Late Only"
+fast_late_only.ja = "FAST/LATEのみ"
+
+[options.judge_text_distance]
+title.en = "Judge Text Distance"
+title.ja = "判定表示の位置"
+description.en = "Lower moves the judge text toward the center; 0 hides it."
+description.ja = "小さいほど判定表示が中央に寄ります。0で非表示。"
+
+[options.slide_ok_order]
+title.en = "Slide OK Order"
+title.ja = "スライドOKの重なり順"
+description.en = "Which slide OK is on top where they overlap. A worse judgment is always on top."
+description.ja = "重なったスライドOKのどちらを上に出すか。悪い判定は常に上になります。"
+
+[options.slide_ok_order.values]
+earlier_on_top.en = "Earlier on Top"
+earlier_on_top.ja = "先のものを上"
+later_on_top.en = "Later on Top"
+later_on_top.ja = "後のものを上"
+
+[options.hold_head_judge]
+title.en = "Hold Head Judge Text"
+title.ja = "ホールド始点の判定表示"
+description.en = "Holds also show the judge text of their head."
+description.ja = "ホールドの始点の判定も表示します。"
+
+[options.touch_feedback]
+title.en = "Touch Feedback"
+title.ja = "タッチフィードバック"
+description.en = "A flash where you press. Outer: the buttons and A sensors. Inner: B, C and E."
+description.ja = "押した場所が光ります。外側：ボタンとAセンサー。内側：B・C・Eセンサー。"
+
+[options.touch_feedback.values]
+all.en = "All"
+all.ja = "すべて"
+outer_only.en = "Outer Only"
+outer_only.ja = "外側のみ"
+inner_only.en = "Inner Only"
+inner_only.ja = "内側のみ"
+
+[options.show_input]
+title.en = "Show Touch Input"
+title.ja = "タッチ入力を表示"
+description.en = "Highlights the hitboxes your touches press. In replays, only if Record Touch Input was on."
+description.ja = "タッチした判定エリアを光らせます。リプレイでは、タッチ入力を記録していた場合のみ。"
+
+[options.record_input]
+title.en = "Record Touch Input"
+title.ja = "タッチ入力を記録"
+description.en = "Records your touches so replays can show them (Show Touch Input).\nMay cost performance: turn it on only for that."
+description.ja = "リプレイでタッチ入力を表示できるように記録します。\n動作が重くなることがあるので、必要なときだけオンにしてください。"
+
+[options.sensor_alpha]
+title.en = "Sensor Outline Alpha"
+title.ja = "センサー枠の不透明度"
+
+[options.life_challenge]
+title.en = "Life Challenge"
+title.ja = "ライフチャレンジ"
+description.en = "Start with this many lives, lost by judgment (below); 0 is off. The center shows the lives instead."
+description.ja = "このライフで始まり、判定ごとに減ります（下の設定）。0でオフ。中央にはライフが表示されます。"
+
+[options.critical_perfect_loss]
+title.en = "Critical Perfect Loss"
+title.ja = "CRITICAL PERFECTで減るライフ"
+description.en = "Lives lost on a critical perfect."
+description.ja = "CRITICAL PERFECTで減るライフ。"
+
+[options.perfect_loss]
+title.en = "Perfect Loss"
+title.ja = "PERFECTで減るライフ"
+description.en = "Lives lost on a (non-critical) perfect."
+description.ja = "PERFECT（CRITICAL以外）で減るライフ。"
+
+[options.great_loss]
+title.en = "Great Loss"
+title.ja = "GREATで減るライフ"
+description.en = "Lives lost on a great."
+description.ja = "GREATで減るライフ。"
+
+[options.good_loss]
+title.en = "Good Loss"
+title.ja = "GOODで減るライフ"
+description.en = "Lives lost on a good."
+description.ja = "GOODで減るライフ。"
+
+[options.miss_loss]
+title.en = "Miss Loss"
+title.ja = "MISSで減るライフ"
+description.en = "Lives lost on a miss."
+description.ja = "MISSで減るライフ。"
+
+[options.end_at_zero_life]
+title.en = "End at 0 Life"
+title.ja = "ライフ0で終了"
+description.en = "With no lives left, the remaining notes count as misses and the track can be skipped."
+description.ja = "ライフがなくなると、残りのノーツはMISSになり、曲をスキップできます。"
+
+[instructions.intro]
+text.en = "Hello! I'll show you how to play!"
+text.ja = "はじめまして！\n基本の遊び方を説明します！"
+
+[instructions.tap_title]
+text.en = "First, Tap Notes!"
+text.ja = "まずはタップノーツ！"
+
+[instructions.tap_how]
+text.en = "Tap the button when a ring\nreaches the line."
+text.ja = "リングが判定ラインに重なったら\nボタンを叩こう！"
+
+[instructions.tap_kinds]
+text.en = "There are a few kinds\nof Tap Notes…"
+text.ja = "タップノーツには\nいろんな種類があるけど…"
+
+[instructions.tap_timing]
+text.en = "…but just hit them\nall in time!"
+text.ja = "…全部タイミングよく\n叩けばOK！"
+
+[instructions.each_same_time]
+text.en = "Sometimes two notes\ncome at the same time."
+text.ja = "ノーツが2個、同じ\nタイミングで来ることもあるよ。"
+
+[instructions.each_hands]
+text.en = "Then hit one\nwith each hand!"
+text.ja = "そんなときは\n両手で叩いてみよう！"
+
+[instructions.hold_title]
+text.en = "Next, Hold Notes!"
+text.ja = "次はホールドノーツ！"
+
+[instructions.hold_how]
+text.en = "Hold the button while\nthe long ring crosses the line."
+text.ja = "長いリングが判定ラインを\n通る間、ボタンを押し続けよう！"
+
+[instructions.touch_title]
+text.en = "Next, Touch Notes!"
+text.ja = "次はタッチノーツ！"
+
+[instructions.touch_how]
+text.en = "When the shutter closes,\ntouch the screen there!"
+text.ja = "シャッターが閉じたら、\nその場所の画面を直接タッチ！"
+
+[instructions.touch_hold_title]
+text.en = "Last one: Touch Hold Notes!"
+text.ja = "最後はタッチホールドノーツ！"
+
+[instructions.touch_hold_how]
+text.en = "Touch and keep holding\nuntil the note is gone."
+text.ja = "タッチしたまま、ノーツが\n消えるまで押し続けよう！"
+
+[instructions.slide_title]
+text.en = "Next, Slide Notes!"
+text.ja = "次はスライドノーツ！"
+
+[instructions.slide_star]
+text.en = "Hit the ★\nlike a Tap Note."
+text.ja = "★を叩くまでは\nタップノーツと同じ！"
+
+[instructions.slide_trace]
+text.en = "A beat later, trace\nthe ★ as it moves!"
+text.ja = "一拍空けて、★の動きに\n合わせて画面をなぞろう！"
+
+[instructions.slide_remember]
+text.en = "Remember: hit the ★,\nthen slide!"
+text.ja = "★を叩いてから、なぞる！\nこれを覚えよう！"
