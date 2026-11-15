@@ -351,7 +351,7 @@ RING_BACKGROUND_RADIUS = 1.1
 
 
 def set_ring_background():
-    """Puts the background on the square round the ring, so the background sits inside the plable region,
+    """Puts the background on the square round the ring, so the background sits inside the playable region,
     wherever Ring Size, Ring Y Offset and Orientation put the ring."""
     radius = RING_BACKGROUND_RADIUS * Layout.ring_radius
     quad = Rect.from_center(Layout.ring_center, Vec2(2 * radius, 2 * radius)).as_quad()

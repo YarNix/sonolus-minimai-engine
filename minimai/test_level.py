@@ -475,7 +475,7 @@ def build_song_levels(folder: Path, *, has_ffmpeg: bool = True) -> Iterator[Leve
         )
 
 def build_level_background(folder: Path, background: Path | None, cover: Path | None) -> str | None:
-    """The background item of a chart folder's levels, written to ``BACKGROUNDS_DIR`` as ``level-<folder>``. 
+    """The background item of a chart folder's levels, written to ``BACKGROUNDS_DIR`` as ``level-<folder>``.
     With neither (or without Pillow), the levels keep the engine's background: None."""
     name = f"{BACKGROUND_PREFIX}{folder.name}"
     target = BACKGROUNDS_DIR / name
