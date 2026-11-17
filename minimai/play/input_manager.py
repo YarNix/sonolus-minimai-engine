@@ -20,7 +20,7 @@ from minimai.lib.touch_feedback import (
     mark_touch_feedback_hit,
     update_touch_feedback,
 )
-from minimai.play.base_input import BaseInputMemory
+from minimai.play.base_input import BaseInputMemory, ButtonBaseInput, TouchBaseInput
 from minimai.play.slide import SlideMemory
 
 INPUT_SLOTS = 16
@@ -236,80 +236,96 @@ class InputManager(PlayArchetype):
 
         # The touch that took a tap through each button this frame.
         button_tap_touch = +Array[int, Dim[8]]
-        # The touch that took a tap through each sensor this frame.
-        sensor_tap_touch = +Array[int, Dim[33]]
-        for tap_note in active_taps:
-            target_tap = tap_note.get()
-            if target_tap.captured_touch_id != 0:
-                continue
-            button = target_tap.button
-            # Test button first
-            if InputState.button_started[button - 1]:
-                touch_id = InputState.button_down[button - 1]
-                touch = next(touch for touch in touches() if touch.id == touch_id)
-                if touch.time in target_tap.unadjusted_input_interval:
-                    # Test success
-                    InputState.button_started[button - 1] = False
-                    target_tap.captured_touch_id = touch_id
-                    button_tap_touch[button - 1] = touch_id
-                    mark_button_feedback_hit(button)
-                    continue
-            # Test touch next
-            for idx, processing in enumerate(InputState.processing_sensor_note):
-                if processing.second != target_tap.sensor:
-                    continue
-                touch_id = processing.first
-                # For taps, a touch on both the button and its A sensor is one touch.
-                if touch_id == button_tap_touch[button - 1]:
-                    continue
-                touch = next(touch for touch in touches() if touch.id == touch_id)
-                if touch.time in target_tap.unadjusted_input_interval:
-                    # Test success
-                    target_tap.captured_touch_id = touch_id
-                    sensor_tap_touch[target_tap.sensor - 1] = touch_id
-                    if InputState.button_down[button - 1] == touch_id:
-                        InputState.button_started[button - 1] = False
-                    mark_touch_feedback_hit(processing.second)
-                    InputState.processing_sensor_note.pop(idx)
-                    break
-
+        # The touch that took a note through each sensor this frame.
+        sensor_touch = +Array[int, Dim[33]]
         # Sensors that took a note by a moving touch this frame.
         moved_sensors = +Array[bool, Dim[33]]
-        min_motion = layout_px_size(TOUCH_MIN_MOTION)
-        for touch_note in active_touches:
-            target_touch = touch_note.get()
-            if target_touch.captured_touch_id != 0:
+        tap_index = 0
+        touch_index = 0
+        while tap_index < len(active_taps) or touch_index < len(active_touches):
+            tap_first = touch_index >= len(active_touches)
+            if not tap_first and tap_index < len(active_taps):
+                tap_time = active_taps[tap_index].get().target_time
+                tap_first = tap_time <= active_touches[touch_index].get().target_time
+            if tap_first:
+                InputManager.assign_tap(active_taps[tap_index].get(), button_tap_touch, sensor_touch)
+                tap_index += 1
+            else:
+                InputManager.assign_touch(active_touches[touch_index].get(), sensor_touch, moved_sensors)
+                touch_index += 1
+
+    @staticmethod
+    def assign_tap(
+        target_tap: ButtonBaseInput, button_tap_touch: Array[int, Dim[8]], sensor_touch: Array[int, Dim[33]]
+    ):
+        """The button first, then the A sensor."""
+        if target_tap.captured_touch_id != 0:
+            return
+        button = target_tap.button
+        if InputState.button_started[button - 1]:
+            touch_id = InputState.button_down[button - 1]
+            touch = next(touch for touch in touches() if touch.id == touch_id)
+            if touch.time in target_tap.unadjusted_input_interval:
+                InputState.button_started[button - 1] = False
+                target_tap.captured_touch_id = touch_id
+                button_tap_touch[button - 1] = touch_id
+                mark_button_feedback_hit(button)
+                return
+        for idx, processing in enumerate(InputState.processing_sensor_note):
+            if processing.second != target_tap.sensor:
                 continue
-            for idx, processing in enumerate(InputState.processing_sensor_touch):
-                if processing.second != target_touch.sensor:
-                    continue
-                touch_id = processing.first
-                # A press that took a tap on this sensor can't also take a touch note there.
-                if touch_id == sensor_tap_touch[target_touch.sensor - 1]:
-                    continue
-                touch = next(touch for touch in touches() if touch.id == touch_id)
-                if touch.time in target_touch.unadjusted_input_interval:
-                    # Test success
-                    target_touch.captured_touch_id = touch_id
-                    mark_touch_feedback_hit(processing.second)
-                    InputState.processing_sensor_touch.pop(idx)
-                    break
-            if target_touch.captured_touch_id != 0 or moved_sensors[target_touch.sensor - 1]:
+            touch_id = processing.first
+            # For taps, a touch on both the button and its A sensor is one touch.
+            if touch_id == button_tap_touch[button - 1] or touch_id == sensor_touch[target_tap.sensor - 1]:
                 continue
-            # Test touches moving inside the sensor next
-            for touch in touches():
-                if touch.delta.magnitude < min_motion:
-                    continue
-                if touch.id == sensor_tap_touch[target_touch.sensor - 1]:
-                    continue
-                if touch.time not in target_touch.unadjusted_input_interval:
-                    continue
-                if not Hitboxes.of_sensor_test_point(target_touch.sensor, to_view(touch.position)).inside:
-                    continue
-                target_touch.captured_touch_id = touch.id
-                moved_sensors[target_touch.sensor - 1] = True
-                mark_touch_feedback_hit(target_touch.sensor)
+            touch = next(touch for touch in touches() if touch.id == touch_id)
+            if touch.time in target_tap.unadjusted_input_interval:
+                target_tap.captured_touch_id = touch_id
+                sensor_touch[target_tap.sensor - 1] = touch_id
+                if InputState.button_down[button - 1] == touch_id:
+                    InputState.button_started[button - 1] = False
+                mark_touch_feedback_hit(processing.second)
+                InputState.processing_sensor_note.pop(idx)
                 break
+
+    @staticmethod
+    def assign_touch(
+        target_touch: TouchBaseInput, sensor_touch: Array[int, Dim[33]], moved_sensors: Array[bool, Dim[33]]
+    ):
+        """A touch entering the sensor first, then one moving inside it."""
+        if target_touch.captured_touch_id != 0:
+            return
+        sensor = target_touch.sensor
+        for idx, processing in enumerate(InputState.processing_sensor_touch):
+            if processing.second != sensor:
+                continue
+            touch_id = processing.first
+            if touch_id == sensor_touch[sensor - 1]:
+                continue
+            touch = next(touch for touch in touches() if touch.id == touch_id)
+            if touch.time in target_touch.unadjusted_input_interval:
+                target_touch.captured_touch_id = touch_id
+                sensor_touch[sensor - 1] = touch_id
+                mark_touch_feedback_hit(processing.second)
+                InputState.processing_sensor_touch.pop(idx)
+                break
+        if target_touch.captured_touch_id != 0 or moved_sensors[sensor - 1]:
+            return
+        min_motion = layout_px_size(TOUCH_MIN_MOTION)
+        for touch in touches():
+            if touch.delta.magnitude < min_motion:
+                continue
+            if touch.id == sensor_touch[sensor - 1]:
+                continue
+            if touch.time not in target_touch.unadjusted_input_interval:
+                continue
+            if not Hitboxes.of_sensor_test_point(sensor, to_view(touch.position)).inside:
+                continue
+            target_touch.captured_touch_id = touch.id
+            sensor_touch[sensor - 1] = touch.id
+            moved_sensors[sensor - 1] = True
+            mark_touch_feedback_hit(sensor)
+            break
 
     @staticmethod
     def process_inputs():
