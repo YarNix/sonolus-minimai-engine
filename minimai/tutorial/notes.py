@@ -257,6 +257,7 @@ def run_slide(
             end_time,
             True,
             True,
+            0,
         )
     if now < target_time:
         # The slide's length for the spin: its path points and one more.

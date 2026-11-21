@@ -83,6 +83,7 @@ class WatchBaseSlide(WatchScoredBase):
     segment_start_beat: float = entity_data()
     segment_duration: float = entity_data()
     chain_start_beat: float = entity_data()
+    chain_depth: int = entity_data()
     exit_time: float = entity_data()
 
     @classmethod
@@ -130,6 +131,7 @@ class WatchBaseSlide(WatchScoredBase):
         self.segment_start_beat = head_start_beat + preceding_beats
         self.segment_duration = get_segment_beats(self.index)
         self.chain_start_beat = head_start_beat
+        self.chain_depth = depth
 
     def preprocess(self):
         init_common()
@@ -194,6 +196,7 @@ class WatchBaseSlide(WatchScoredBase):
             self.segment_end_time,
             self.is_chain_head,
             self.is_scored,
+            self.chain_depth,
         )
 
     @property

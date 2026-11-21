@@ -267,6 +267,7 @@ class BaseSlide(PlayArchetype):
             self.segment_end_time,
             self.is_chain_head,
             self.is_chain_final,
+            self.chain_depth,
         )
 
     def terminate(self):

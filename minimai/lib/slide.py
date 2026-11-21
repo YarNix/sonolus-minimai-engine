@@ -519,7 +519,9 @@ def draw_slide(
     end_time: float,
     is_chain_head: bool,
     is_chain_final: bool,
+    chain_depth: int,
 ):
+    """``chain_depth``: the segments before this one in its chain."""
     current_time = time()
     track_points = SLIDE_TRACK_POINTS[track]
     point_count = len(track_points)
@@ -530,7 +532,7 @@ def draw_slide(
     start_index = min(path_hidden_count, point_count)
     path_alpha = get_slide_path_alpha(start_time, target_time, current_time)
     for index in range(start_index, point_count):
-        layer = get_z(LAYER_SLIDE_PATH, target_time, point_count - index)
+        layer = get_z(LAYER_SLIDE_PATH, target_time, -chain_depth, point_count - index)
         if is_wifi:
             layout = layout_wifi_slide_path(index, track_points, button, is_mirrored)
             _wifi_slide_path_draw(kind, index, layout, layer, path_alpha)
